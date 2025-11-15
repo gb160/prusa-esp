@@ -30,8 +30,8 @@ extern const uint8_t webpage_end[] asm("_binary_webpage_html_end");
 #define EXAMPLE_TX_STRING           ("M300 S2000 P50\n")
 #define EXAMPLE_TX_TIMEOUT_MS       (1000)
 
-#define WIFI_SSID      "BT-WXF9FJ"
-#define WIFI_PASS      "QFLQCPDLWF"
+#define WIFI_SSID      ""
+#define WIFI_PASS      ""
 
 static const char *TAG = "USB-CDC";
 static SemaphoreHandle_t device_disconnected_sem;
