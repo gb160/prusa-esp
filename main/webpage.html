@@ -4,8 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Printer Monitor</title>
+    <title>Prusa Core One Monitor</title>
+    
     <style>
+        /* ========================================
+           GLOBAL STYLES
+           ======================================== */
         * {
             margin: 0;
             padding: 0;
@@ -25,6 +29,10 @@
             margin: 0 auto;
         }
 
+        /* ========================================
+           TEMPERATURE CARDS
+           Display current and target temps for each component
+           ======================================== */
         .temp-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -60,20 +68,24 @@
             margin-bottom: 5px;
         }
 
+        /* Target temperature - color changes based on heating state */
         .temp-target {
             font-size: 0.9rem;
             color: #666;
             transition: color 0.3s ease;
         }
 
+        /* Red when heating (not yet at target) */
         .temp-target.heating {
             color: #f44336;
         }
 
+        /* Green when at target temperature */
         .temp-target.at-temp {
             color: #4CAF50;
         }
 
+        /* Color indicator dot next to each temperature label */
         .temp-indicator {
             width: 8px;
             height: 8px;
@@ -82,6 +94,10 @@
             margin-right: 8px;
         }
 
+        /* ========================================
+           TEMPERATURE GRAPH
+           Real-time chart showing temp history
+           ======================================== */
         .graph-container {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
@@ -96,6 +112,10 @@
             height: 100% !important;
         }
 
+        /* ========================================
+           STATUS BANNERS
+           Shows print progress and heater power
+           ======================================== */
         .status-banner {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
@@ -108,6 +128,7 @@
             gap: 12px;
         }
 
+        /* Pulsing status indicator */
         .status-icon {
             width: 10px;
             height: 10px;
@@ -117,17 +138,14 @@
         }
 
         @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
+        /* ========================================
+           CONSOLE AND COMMAND SECTIONS
+           Two-column layout for log viewing and command input
+           ======================================== */
         .bottom-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -153,6 +171,7 @@
             align-items: center;
         }
 
+        /* Scrollable log display with monospace font */
         .log-box {
             background: #0a0a0a;
             border: 1px solid #2a2a2a;
@@ -166,6 +185,7 @@
             line-height: 1.8;
         }
 
+        /* Custom scrollbar styling */
         .log-box::-webkit-scrollbar {
             width: 8px;
         }
@@ -188,6 +208,9 @@
             margin-right: 8px;
         }
 
+        /* ========================================
+           INPUT AND BUTTONS
+           ======================================== */
         .command-input-group {
             display: flex;
             gap: 10px;
@@ -195,26 +218,7 @@
             justify-content: flex-end;
         }
 
-        input[type="text"] {
-            flex: 1;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 12px 15px;
-            color: #e0e0e0;
-            font-size: 0.95rem;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-        }
-
-        input[type="text"]::placeholder {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
+        /* Multi-line textarea for G-code commands */
         textarea {
             flex: 1;
             background: #0a0a0a;
@@ -257,6 +261,7 @@
             transform: translateY(0);
         }
 
+        /* Checkbox for filtering temp lines */
         .checkbox-container {
             display: flex;
             align-items: center;
@@ -271,6 +276,23 @@
             cursor: pointer;
         }
 
+        /* ========================================
+           VERSION LABEL
+           Shows which HTML version is loaded
+           ======================================== */
+        .version-label {
+            position: fixed;
+            bottom: 5px;
+            right: 10px;
+            font-size: 0.7rem;
+            color: #444;
+            font-family: monospace;
+        }
+
+        /* ========================================
+           RESPONSIVE DESIGN
+           Stack layout on mobile devices
+           ======================================== */
         @media (max-width: 768px) {
             .bottom-section {
                 grid-template-columns: 1fr;
@@ -285,7 +307,12 @@
 
 <body>
     <div class="container">
+        <!-- ========================================
+             TEMPERATURE CARDS
+             Display current readings for all sensors
+             ======================================== -->
         <div class="temp-cards">
+            <!-- Nozzle Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
@@ -295,6 +322,8 @@
                 </div>
                 <div class="temp-target">Target: <span id="nozzle-target">0</span>°C</div>
             </div>
+
+            <!-- Bed Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
@@ -304,6 +333,8 @@
                 </div>
                 <div class="temp-target">Target: <span id="bed-target">0</span>°C</div>
             </div>
+
+            <!-- Chamber Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
@@ -313,6 +344,8 @@
                 </div>
                 <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
             </div>
+
+            <!-- Heatbreak Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
@@ -324,21 +357,35 @@
             </div>
         </div>
 
+        <!-- ========================================
+             TEMPERATURE GRAPH
+             Real-time chart with all temps overlaid
+             ======================================== -->
         <div class="graph-container">
             <canvas id="tempChart"></canvas>
         </div>
 
+        <!-- ========================================
+             STATUS BANNERS
+             Print progress and heater power levels
+             ======================================== -->
+        <!-- Print Progress Banner -->
         <div class="status-banner">
             <div class="status-icon"></div>
             <span id="status-message">Connecting to printer...</span>
         </div>
 
+        <!-- Heater Power Banner -->
         <div class="status-banner">
             <div class="status-icon" style="background: transparent; animation: none;"></div>
             <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
         </div>
 
+        <!-- ========================================
+             CONSOLE AND COMMAND SECTIONS
+             ======================================== -->
         <div class="bottom-section">
+            <!-- Console Log Viewer -->
             <div class="log-container">
                 <div class="section-title">
                     <span>Console Log</span>
@@ -353,25 +400,32 @@
                 </div>
             </div>
 
+            <!-- Command Input -->
             <div class="command-container">
                 <div class="section-title">Send Command</div>
                 <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
-                    <textarea id="command-input" placeholder="Enter G-code commands (one per line)..."
-                        rows="3"></textarea>
+                    <textarea id="command-input" 
+                              placeholder="Enter G-code commands (one per line)..." 
+                              rows="3"></textarea>
                     <button onclick="sendCommand()">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Chart.js library for temperature graphing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
     <script>
+        // ========================================
+        // TEMPERATURE CHART INITIALIZATION
+        // ========================================
         const ctx = document.getElementById('tempChart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
             data: {
-                labels: [],
+                labels: [],  // Time labels
                 datasets: [
                     {
                         label: 'Nozzle',
@@ -426,9 +480,7 @@
                             color: '#888',
                             usePointStyle: true,
                             padding: 20,
-                            font: {
-                                size: 11
-                            }
+                            font: { size: 11 }
                         }
                     },
                     tooltip: {
@@ -474,15 +526,38 @@
             }
         });
 
-        let tempHistory = { timestamps: [], nozzle: [], bed: [], chamber: [], heatbreak: [] };
+        // ========================================
+        // GLOBAL STATE
+        // ========================================
+        
+        // Temperature history storage (keeps all data points for infinite scrolling graph)
+        let tempHistory = { 
+            timestamps: [], 
+            nozzle: [], 
+            bed: [], 
+            chamber: [], 
+            heatbreak: [] 
+        };
+
+        // Command history for up/down arrow navigation
         let commandHistory = [];
         let commandHistoryIndex = -1;
+
+        // Track if user is manually scrolling (prevents auto-scroll)
         let userScrolling = false;
 
+        // Track how much of the log we've already displayed
+        let lastLogLen = 0;
+
+        // ========================================
+        // TEMPERATURE COLOR CODING
+        // Updates target temp color based on heating state
+        // ========================================
         function updateTempColor(elementId, current, target) {
             const element = document.getElementById(elementId).parentElement;
 
             // Special handling for heatbreak - we DON'T want to reach target
+            // Target is a maximum threshold, not a goal
             if (elementId === 'heatbreak-target') {
                 if (target > 0) {
                     if (current >= target) {
@@ -507,9 +582,11 @@
             }
 
             // Normal handling for nozzle and bed
+            // Green when at target, red when heating
             if (target > 0) {
                 const diff = Math.abs(current - target);
-                const tolerance = target * 0.05;
+                const tolerance = target * 0.05;  // 5% tolerance
+                
                 if (diff <= tolerance) {
                     element.classList.remove('heating');
                     element.classList.add('at-temp');
@@ -518,33 +595,44 @@
                     element.classList.add('heating');
                 }
             } else {
+                // No target set - remove all color coding
                 element.classList.remove('heating', 'at-temp');
             }
         }
 
+        // ========================================
+        // DATA UPDATE FUNCTIONS
+        // These poll the ESP32 for new data
+        // ========================================
+
+        /**
+         * Update Temperature Data
+         * Fetches temps from /temps endpoint and updates display + graph
+         */
         async function updateTemps() {
             try {
                 const resp = await fetch('/temps');
                 const data = await resp.json();
 
-                // Update nozzle
+                // Update nozzle display
                 document.getElementById('nozzle-temp').textContent = data.nozzle.cur;
                 document.getElementById('nozzle-target').textContent = data.nozzle.target;
                 updateTempColor('nozzle-target', data.nozzle.cur, data.nozzle.target);
 
-                // Update bed
+                // Update bed display
                 document.getElementById('bed-temp').textContent = data.bed.cur;
                 document.getElementById('bed-target').textContent = data.bed.target;
                 updateTempColor('bed-target', data.bed.cur, data.bed.target);
 
-                // Update chamber
+                // Update chamber display (no target)
                 document.getElementById('chamber-temp').textContent = data.chamber.cur;
 
-                // Update heatbreak
+                // Update heatbreak display
                 document.getElementById('heatbreak-temp').textContent = data.heatbreak.cur;
                 document.getElementById('heatbreak-target').textContent = data.heatbreak.target;
                 updateTempColor('heatbreak-target', data.heatbreak.cur, data.heatbreak.target);
 
+                // Add new data point to graph
                 const timeLabel = new Date().toLocaleTimeString();
                 tempHistory.timestamps.push(timeLabel);
                 tempHistory.nozzle.push(data.nozzle.cur);
@@ -552,9 +640,7 @@
                 tempHistory.chamber.push(data.chamber.cur);
                 tempHistory.heatbreak.push(data.heatbreak.cur);
 
-                // Don't limit the history - keep all data points
-                // The X-axis will automatically scale to fit all data
-
+                // Update chart with new data (keeps all history)
                 chart.data.labels = tempHistory.timestamps;
                 chart.data.datasets[0].data = tempHistory.nozzle;
                 chart.data.datasets[1].data = tempHistory.bed;
@@ -562,9 +648,10 @@
                 chart.data.datasets[3].data = tempHistory.heatbreak;
                 chart.update('none');
 
+                // Update progress status
                 let statusText = 'Progress: ' + data.progress + '% | Time Remaining: ';
 
-                // Format time remaining
+                // Format time remaining (hours + minutes if >= 60 mins)
                 if (data.time >= 60) {
                     const hours = Math.floor(data.time / 60);
                     const mins = data.time % 60;
@@ -573,8 +660,8 @@
                     statusText += data.time + ' min';
                 }
 
+                // Add filament change time if applicable
                 if (data.change !== 'NA' && data.change !== null && data.change !== undefined) {
-                    // Format change time
                     if (data.change >= 60) {
                         const hours = Math.floor(data.change / 60);
                         const mins = data.change % 60;
@@ -585,11 +672,20 @@
                 }
                 document.getElementById('status-message').textContent = statusText;
 
-                const powerText = 'Powers - Nozzle: ' + (data.nozzle_power * 100 / 255).toFixed(0) + '% | Bed: ' + (data.bed_power * 100 / 255).toFixed(0) + '% | Heatbreak: ' + (data.heatbreak_power * 100 / 255).toFixed(0) + '%';
+                // Update heater power display
+                const powerText = 'Powers - Nozzle: ' + (data.nozzle_power * 100 / 255).toFixed(0) + 
+                                '% | Bed: ' + (data.bed_power * 100 / 255).toFixed(0) + 
+                                '% | Heatbreak: ' + (data.heatbreak_power * 100 / 255).toFixed(0) + '%';
                 document.getElementById('power-message').textContent = powerText;
-            } catch (e) { }
+            } catch (e) {
+                console.error('Failed to update temps:', e);
+            }
         }
 
+        /**
+         * Update Connection Status
+         * Checks if printer is connected and updates status indicator
+         */
         async function updateStatus() {
             try {
                 const resp = await fetch('/status');
@@ -607,10 +703,15 @@
                     statusBanner.style.borderLeftColor = '#f44336';
                     document.getElementById('status-message').textContent = 'Printer Disconnected';
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('Failed to update status:', e);
+            }
         }
 
-        let lastLogLen = 0;
+        /**
+         * Update Console Log
+         * Fetches new log data and appends to display
+         */
         async function updateLog() {
             try {
                 const resp = await fetch('/log');
@@ -622,28 +723,92 @@
                     const hideTemps = document.getElementById('hide-temps').checked;
                     const wasAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 50;
 
+                    // Process each line
                     newText.split(/\r?\n/).forEach(line => {
                         const trimmed = line.trim();
                         if (trimmed) {
-                            const isTemp = trimmed.startsWith('T:') && trimmed.includes(' B:') && trimmed.includes(' @:') && trimmed.includes(' B@:');
+                            // Check if this is a temperature line (and if we should hide it)
+                            const isTemp = trimmed.startsWith('T:') && 
+                                         trimmed.includes(' B:') && 
+                                         trimmed.includes(' @:') && 
+                                         trimmed.includes(' B@:');
+                            
                             if (!hideTemps || !isTemp) {
                                 const timestamp = new Date().toLocaleTimeString();
                                 const entry = document.createElement('div');
                                 entry.className = 'log-entry';
-                                entry.innerHTML = '<span class="log-timestamp">' + timestamp + '</span><span>' + trimmed + '</span>';
+                                entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                                                '</span><span>' + trimmed + '</span>';
                                 logBox.appendChild(entry);
                             }
                         }
                     });
 
+                    // Auto-scroll to bottom only if user was already at bottom
                     if (wasAtBottom && !userScrolling) {
                         logBox.scrollTop = logBox.scrollHeight;
                     }
                 }
                 lastLogLen = text.length;
-            } catch (e) { }
+            } catch (e) {
+                console.error('Failed to update log:', e);
+            }
         }
 
+        // ========================================
+        // USER INTERACTION FUNCTIONS
+        // ========================================
+
+        /**
+         * Clear Console Log
+         * Clears the log display and resets the server-side buffer
+         */
+        function clearLog() {
+            document.getElementById('log-box').innerHTML = '';
+            lastLogLen = 0;
+            userScrolling = false;
+            fetch('/clear').catch(err => console.error('Failed to clear log:', err));
+        }
+
+        /**
+         * Send G-code Command(s)
+         * Sends one or more G-code commands to the printer
+         */
+        function sendCommand() {
+            const input = document.getElementById('command-input');
+            const commands = input.value.trim().split('\n');
+
+            commands.forEach(command => {
+                const cmd = command.trim();
+                if (cmd) {
+                    // Add to command history
+                    commandHistory.push(cmd);
+                    
+                    // Display in command history box
+                    const history = document.getElementById('command-history');
+                    const timestamp = new Date().toLocaleTimeString();
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                                    '</span><span>> ' + cmd + '</span>';
+                    history.appendChild(entry);
+                    history.scrollTop = history.scrollHeight;
+
+                    // Send to ESP32
+                    fetch('/send?cmd=' + encodeURIComponent(cmd))
+                        .catch(err => console.error('Failed to send command:', err));
+                }
+            });
+
+            commandHistoryIndex = -1;
+            input.value = '';
+        }
+
+        // ========================================
+        // EVENT LISTENERS
+        // ========================================
+
+        // Track user scrolling in log box
         const logBox = document.getElementById('log-box');
         logBox.addEventListener('scroll', () => {
             const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 50;
@@ -653,42 +818,15 @@
             userScrolling = true;
         });
 
-        function clearLog() {
-            document.getElementById('log-box').innerHTML = '';
-            lastLogLen = 0;
-            userScrolling = false;
-            fetch('/clear').catch(err => console.error(err));
-        }
-
-        function sendCommand() {
-            const input = document.getElementById('command-input');
-            const commands = input.value.trim().split('\n');
-
-            commands.forEach(command => {
-                const cmd = command.trim();
-                if (cmd) {
-                    commandHistory.push(cmd);
-                    const history = document.getElementById('command-history');
-                    const timestamp = new Date().toLocaleTimeString();
-                    const entry = document.createElement('div');
-                    entry.className = 'log-entry';
-                    entry.innerHTML = '<span class="log-timestamp">' + timestamp + '</span><span>> ' + cmd + '</span>';
-                    history.appendChild(entry);
-                    history.scrollTop = history.scrollHeight;
-
-                    fetch('/send?cmd=' + encodeURIComponent(cmd)).catch(err => console.error(err));
-                }
-            });
-
-            commandHistoryIndex = -1;
-            input.value = '';
-        }
-
+        // Command input keyboard handling
         document.getElementById('command-input').addEventListener('keydown', e => {
+            // Enter (without Shift) - Send command
             if (e.key === 'Enter' && !e.shiftKey) {
                 sendCommand();
                 e.preventDefault();
-            } else if (e.key === 'ArrowUp') {
+            } 
+            // Up Arrow - Previous command in history
+            else if (e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (commandHistory.length > 0) {
                     if (commandHistoryIndex === -1) {
@@ -698,7 +836,9 @@
                     }
                     document.getElementById('command-input').value = commandHistory[commandHistoryIndex];
                 }
-            } else if (e.key === 'ArrowDown') {
+            } 
+            // Down Arrow - Next command in history
+            else if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (commandHistoryIndex !== -1) {
                     commandHistoryIndex++;
@@ -712,16 +852,21 @@
             }
         });
 
-        setInterval(updateStatus, 1000);
-        setInterval(updateTemps, 1000);
-        setInterval(updateLog, 500);
+        // ========================================
+        // START POLLING
+        // ========================================
+        setInterval(updateStatus, 1000);   // Check connection every 1 second
+        setInterval(updateTemps, 1000);    // Update temps every 1 second
+        setInterval(updateLog, 500);       // Update log every 500ms
+
+        // Initial updates
         updateStatus();
         updateTemps();
         updateLog();
     </script>
-    <div style="position: fixed; bottom: 5px; right: 10px; font-size: 0.7rem; color: #444; font-family: monospace;">
-        v0.0.1-remote
-    </div>
+
+    <!-- Version Label - Easy to find and edit at bottom of file -->
+    <div class="version-label">v0.0.1-remote</div>
 </body>
 
 </html>
