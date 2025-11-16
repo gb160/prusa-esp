@@ -312,8 +312,8 @@
         }
         
         .dropdown-toggle {
-            font-size: 20px;
-            padding: 4px 10px;
+            font-size: 0.85rem;
+            /*padding: 4px 10px;*/
             color: #888;
             transition: color 0.2s ease;
             user-select: none;
@@ -459,10 +459,9 @@
                     <div class="dropdown">
                         <div class="dropdown-toggle">⋮</div>
                         <div class="dropdown-menu">
-                            <div class="dropdown-item">Option 1</div>
-                            <div class="dropdown-item">Option 2</div>
-                            <div class="dropdown-item">Option 3</div>
-                            <div class="dropdown-item">Option 4</div>
+                            <div class="dropdown-item">Preheat PLA</div>
+                            <div class="dropdown-item">Preheat PETG</div>
+                            <div class="dropdown-item">Unload Filament</div>
                         </div>
                     </div>
                 </div>              
@@ -872,7 +871,7 @@
         // ========================================
 
         
-        // Dropdown toggle
+        // Dropdown section
         document.addEventListener('click', (e) => {
             const menu = document.querySelector('.dropdown-menu');
             const toggle = document.querySelector('.dropdown-toggle');
@@ -884,6 +883,49 @@
                 // Close if clicking outside
                 menu.style.display = 'none';
             }
+        });
+
+
+        // Map dropdown text to actual G-code commands
+        const gcodeMap = {
+            'Preheat PLA': ['M104 S200', 'M140 S60'],
+            'Preheat PETG': ['M104 S240', 'M140 S80'],
+            'Unload Filament': ['M702']
+        };
+
+        // Attach click listeners to dropdown items
+        document.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const commands = gcodeMap[item.textContent.trim()];
+                if (!commands) return;
+
+                const history = document.getElementById('command-history');
+
+                // Send each command exactly like sendCommand() does
+                commands.forEach(cmd => {
+                    if (cmd.trim()) {
+                        // Add to command history
+                        commandHistory.push(cmd);
+
+                        // Display in command history box
+                        const timestamp = new Date().toLocaleTimeString();
+                        const entry = document.createElement('div');
+                        entry.className = 'log-entry';
+                        entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                                          '</span><span>> ' + cmd + '</span>';
+                        history.appendChild(entry);
+                        history.scrollTop = history.scrollHeight;
+
+                        // Send to ESP32
+                        fetch('/send?cmd=' + encodeURIComponent(cmd))
+                            .catch(err => console.error('Failed to send command:', err));
+                    }
+                });
+
+                // Close dropdown menu
+                const menu = item.closest('.dropdown-menu');
+                if (menu) menu.style.display = 'none';
+            });
         });
 
         
