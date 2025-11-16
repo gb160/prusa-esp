@@ -456,13 +456,11 @@
                     <span>Send Command</span>
                 
                     <!-- Dropdown -->
+                    <!-- Dropdown next to SEND COMMAND -->
                     <div class="dropdown">
                         <div class="dropdown-toggle">⋮</div>
                         <div class="dropdown-menu">
-                            <div class="dropdown-item">Preheat PLA</div>
-                            <div class="dropdown-item">Preheat PETG</div>
-                            <div class="dropdown-item">Cooldown</div>
-                            <div class="dropdown-item">Unload Filament</div>
+                            <!-- Items will be inserted here dynamically from gcodeMap -->
                         </div>
                     </div>
                 </div>              
@@ -889,21 +887,31 @@
 
         // Map dropdown text to actual G-code commands
         const gcodeMap = {
-            'Preheat PLA': ['M104 S170', 'M140 S60'],
-            'Preheat PETG': ['M104 S200', 'M140 S80'],
+            'Preheat PLA': ['M104 S200', 'M140 S60'],
+            'Preheat PETG': ['M104 S240', 'M140 S80'],
             'Cooldown': ['M104 S0', 'M140 S0'],
             'Unload Filament': ['M702']
         };
 
-        // Attach click listeners to dropdown items
-        document.querySelectorAll('.dropdown-item').forEach(item => {
+        // Get the dropdown menu container
+        const dropdownMenu = document.querySelector('.dropdown-menu');
+
+        // Clear existing items (optional if your HTML has placeholder items)
+        dropdownMenu.innerHTML = '';
+
+        // Loop through gcodeMap and create items
+        Object.keys(gcodeMap).forEach(label => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = label;
+            
+            // Attach click listener
             item.addEventListener('click', () => {
-                const commands = gcodeMap[item.textContent.trim()];
+                const commands = gcodeMap[label];
                 if (!commands) return;
 
                 const history = document.getElementById('command-history');
 
-                // Send each command exactly like sendCommand() does
                 commands.forEach(cmd => {
                     if (cmd.trim()) {
                         // Add to command history
@@ -925,11 +933,12 @@
                 });
 
                 // Close dropdown menu
-                const menu = item.closest('.dropdown-menu');
-                if (menu) menu.style.display = 'none';
+                dropdownMenu.style.display = 'none';
             });
-        });
 
+            // Add item to the dropdown menu
+            dropdownMenu.appendChild(item);
+        });
         
         // Track user scrolling in log box
         const logBox = document.getElementById('log-box');
@@ -989,7 +998,7 @@
     </script>
 
     <!-- Version Label - Easy to find and edit at bottom of file -->
-    <div class="version-label">v0.0.3-remote-test</div>
+    <div class="version-label">v0.0.4-remote-test</div>
 </body>
 
 </html>
