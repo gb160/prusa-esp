@@ -461,6 +461,7 @@
                         <div class="dropdown-menu">
                             <div class="dropdown-item">Preheat PLA</div>
                             <div class="dropdown-item">Preheat PETG</div>
+                            <div class="dropdown-item">Cooldown</div>
                             <div class="dropdown-item">Unload Filament</div>
                         </div>
                     </div>
@@ -890,6 +891,7 @@
         const gcodeMap = {
             'Preheat PLA': ['M104 S200', 'M140 S60'],
             'Preheat PETG': ['M104 S240', 'M140 S80'],
+            'Cooldown': ['M104 S0', 'M140 S0'],
             'Unload Filament': ['M702']
         };
 
@@ -987,7 +989,7 @@
     </script>
 
     <!-- Version Label - Easy to find and edit at bottom of file -->
-    <div class="version-label">v0.0.2-remote-test</div>
+    <div class="version-label">v0.0.3-remote-test</div>
 </body>
 
 </html>
