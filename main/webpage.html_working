@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prusa Core One Monitor</title>
+    <title>Prusa CORE One Monitor</title>
     
     <style>
         /* ========================================
@@ -302,6 +302,56 @@
                 grid-template-columns: repeat(2, 1fr);
             }
         }
+
+        /* Dropdown next to SEND COMMAND */
+        .dropdown {
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .dropdown-toggle {
+            font-size: 0.85rem;
+            /*padding: 4px 10px;*/
+            color: #888;
+            transition: color 0.2s ease;
+            user-select: none;
+        }
+        
+        .dropdown-toggle:hover {
+            color: #ccc;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 28px;
+            right: 0;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            min-width: 150px;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+        }
+        
+        .dropdown-item {
+            padding: 10px 15px;
+            color: #ddd;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #222;
+        }
+        
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .dropdown-item:hover {
+            background: #2a2a2a;
+        }
+
+        
     </style>
 </head>
 
@@ -402,7 +452,18 @@
 
             <!-- Command Input -->
             <div class="command-container">
-                <div class="section-title">Send Command</div>
+                <div class="section-title">
+                    <span>Send Command</span>
+                
+                    <!-- Dropdown -->
+                    <!-- Dropdown next to SEND COMMAND -->
+                    <div class="dropdown">
+                        <div class="dropdown-toggle">⋮</div>
+                        <div class="dropdown-menu">
+                            <!-- Items will be inserted here dynamically from gcodeMap -->
+                        </div>
+                    </div>
+                </div>              
                 <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
                     <textarea id="command-input" 
@@ -808,6 +869,77 @@
         // EVENT LISTENERS
         // ========================================
 
+        
+        // Dropdown section
+        document.addEventListener('click', (e) => {
+            const menu = document.querySelector('.dropdown-menu');
+            const toggle = document.querySelector('.dropdown-toggle');
+        
+            if (toggle.contains(e.target)) {
+                // Toggle open/close
+                menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
+            } else {
+                // Close if clicking outside
+                menu.style.display = 'none';
+            }
+        });
+
+
+        // Map dropdown text to actual G-code commands
+        const gcodeMap = {
+            'Preheat PLA': ['M104 S170', 'M140 S60'],
+            'Preheat PETG': ['M104 S170', 'M140 S85'],
+            'Cooldown': ['M104 S0', 'M140 S0'],
+            'Unload Filament': ['M702']
+        };
+
+        // Get the dropdown menu container
+        const dropdownMenu = document.querySelector('.dropdown-menu');
+
+        // Clear existing items (optional if your HTML has placeholder items)
+        dropdownMenu.innerHTML = '';
+
+        // Loop through gcodeMap and create items
+        Object.keys(gcodeMap).forEach(label => {
+            const item = document.createElement('div');
+            item.className = 'dropdown-item';
+            item.textContent = label;
+            
+            // Attach click listener
+            item.addEventListener('click', () => {
+                const commands = gcodeMap[label];
+                if (!commands) return;
+
+                const history = document.getElementById('command-history');
+
+                commands.forEach(cmd => {
+                    if (cmd.trim()) {
+                        // Add to command history
+                        commandHistory.push(cmd);
+
+                        // Display in command history box
+                        const timestamp = new Date().toLocaleTimeString();
+                        const entry = document.createElement('div');
+                        entry.className = 'log-entry';
+                        entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                                          '</span><span>> ' + cmd + '</span>';
+                        history.appendChild(entry);
+                        history.scrollTop = history.scrollHeight;
+
+                        // Send to ESP32
+                        fetch('/send?cmd=' + encodeURIComponent(cmd))
+                            .catch(err => console.error('Failed to send command:', err));
+                    }
+                });
+
+                // Close dropdown menu
+                dropdownMenu.style.display = 'none';
+            });
+
+            // Add item to the dropdown menu
+            dropdownMenu.appendChild(item);
+        });
+        
         // Track user scrolling in log box
         const logBox = document.getElementById('log-box');
         logBox.addEventListener('scroll', () => {
@@ -866,7 +998,7 @@
     </script>
 
     <!-- Version Label - Easy to find and edit at bottom of file -->
-    <div class="version-label">v0.0.1-remote</div>
+    <div class="version-label">v0.0.4-remote</div>
 </body>
 
 </html>
