@@ -29,19 +29,6 @@
             margin: 0 auto;
         }
 
-        /* Visually hidden but accessible to screen readers */
-        .visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-
         /* ========================================
            NOTIFICATIONS
            ======================================== */
@@ -483,18 +470,14 @@
 </head>
 
 <body>
-    <header class="container">
-        <h1 class="visually-hidden">Prusa CORE One Monitor</h1>
-    </header>
-
     <main class="container">
         <!-- ========================================
              TEMPERATURE CARDS
              Display current readings for all sensors
              ======================================== -->
-        <section class="temp-cards" aria-label="Temperature readings">
+        <section class="temp-cards">
             <!-- Nozzle Temperature -->
-            <div class="temp-card" role="region" aria-label="Nozzle temperature">
+            <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
                 </div>
@@ -505,7 +488,7 @@
             </div>
 
             <!-- Bed Temperature -->
-            <div class="temp-card" role="region" aria-label="Bed temperature">
+            <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
                 </div>
@@ -516,7 +499,7 @@
             </div>
 
             <!-- Chamber Temperature -->
-            <div class="temp-card" role="region" aria-label="Chamber temperature">
+            <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
                 </div>
@@ -527,7 +510,7 @@
             </div>
 
             <!-- Heatbreak Temperature -->
-            <div class="temp-card" role="region" aria-label="Heatbreak temperature">
+            <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
                 </div>
@@ -542,7 +525,7 @@
              TEMPERATURE GRAPH
              Real-time chart with all temps overlaid
              ======================================== -->
-        <section class="graph-container" aria-label="Temperature history chart">
+        <section class="graph-container">
             <canvas id="tempChart"></canvas>
         </section>
 
@@ -551,13 +534,13 @@
              Print progress and heater power levels
              ======================================== -->
         <!-- Print Progress Banner -->
-        <div class="status-banner" role="status" aria-live="polite">
+        <div class="status-banner">
             <div class="status-icon"></div>
             <span id="status-message">Connecting to printer...</span>
         </div>
 
         <!-- Heater Power Banner -->
-        <div class="status-banner" role="status" aria-live="polite">
+        <div class="status-banner">
             <div class="status-icon" style="background: transparent; animation: none;"></div>
             <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
         </div>
@@ -571,11 +554,11 @@
                 <div class="section-title">
                     <span>Console Log</span>
                     <div class="checkbox-container">
-                        <input type="checkbox" id="hide-temps" checked aria-label="Hide temperature lines">
+                        <input type="checkbox" id="hide-temps" checked>
                         <label for="hide-temps">Hide Temp Lines</label>
                     </div>
                 </div>
-                <div class="log-box" id="log-box" role="log" aria-live="polite" aria-atomic="false"></div>
+                <div class="log-box" id="log-box"></div>
                 <div class="command-input-group">
                     <button onclick="PrusaMonitor.ui.clearLog()">Clear</button>
                 </div>
@@ -585,19 +568,18 @@
             <section class="command-container">
                 <div class="section-title">
                     <div class="dropdown">
-                        <span class="section-title-clickable" role="button" aria-label="Send Command - Click for shortcuts" aria-expanded="false" aria-haspopup="true" tabindex="0">Send Command</span>
-                        <div class="dropdown-menu" role="menu">
+                        <span class="section-title-clickable">Send Command</span>
+                        <div class="dropdown-menu">
                             <!-- Items will be inserted here dynamically from gcodeMap -->
                         </div>
                     </div>
                 </div>              
-                <div class="log-box" id="command-history" role="log" aria-label="Command history"></div>
+                <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
                     <div class="command-input-wrapper">
                         <textarea id="command-input" 
                                   placeholder="Enter G-code commands (one per line)..." 
-                                  rows="3"
-                                  aria-label="G-code command input"></textarea>
+                                  rows="3"></textarea>
                     </div>
                     <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
                 </div>
@@ -655,13 +637,25 @@
                 chart: null,
                 connectionErrorShown: false,
                 statusErrorShown: false,
-                activeNotification: null
+                activeNotification: null,
+                currentProgress: 0
             },
 
             // ========================================
             // UI FUNCTIONS
             // ========================================
             ui: {
+                /**
+                 * Update page title based on print progress
+                 */
+                updatePageTitle: function(progress) {
+                    if (progress > 0 && progress < 100) {
+                        document.title = `Progress ${progress}%`;
+                    } else {
+                        document.title = 'Prusa CORE One Monitor';
+                    }
+                },
+
                 /**
                  * Show notification to user
                  * If persistent=true, notification stays until manually dismissed
@@ -682,7 +676,6 @@
                     const notification = document.createElement('div');
                     notification.className = `notification notification-${type}`;
                     notification.textContent = message;
-                    notification.setAttribute('role', 'alert');
                     document.body.appendChild(notification);
                     
                     if (persistent) {
@@ -882,11 +875,9 @@
                  */
                 toggleDropdown: function() {
                     const menu = document.querySelector('.dropdown-menu');
-                    const toggle = document.querySelector('.section-title-clickable');
                     const isOpen = menu.style.display === 'flex';
                     
                     menu.style.display = isOpen ? 'none' : 'flex';
-                    toggle.setAttribute('aria-expanded', !isOpen);
                 }
             },
 
@@ -947,6 +938,12 @@
                         chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
                         chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
                         chart.update('none');
+
+                        // Store current progress
+                        PrusaMonitor.state.currentProgress = data.progress;
+
+                        // Update page title based on progress
+                        PrusaMonitor.ui.updatePageTitle(data.progress);
 
                         // Update progress status
                         let statusText = 'Progress: ' + data.progress + '% | Time Remaining: ';
@@ -1251,19 +1248,11 @@
                     }
                 });
 
-                // Dropdown click handling - now on the "Send Command" text
+                // Dropdown click handling
                 const dropdownToggle = document.querySelector('.section-title-clickable');
                 dropdownToggle.addEventListener('click', (e) => {
                     e.stopPropagation();
                     PrusaMonitor.ui.toggleDropdown();
-                });
-
-                // Keyboard support for dropdown
-                dropdownToggle.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        PrusaMonitor.ui.toggleDropdown();
-                    }
                 });
 
                 // Close dropdown when clicking outside
@@ -1273,7 +1262,6 @@
                     
                     if (!toggle.contains(e.target) && !menu.contains(e.target)) {
                         menu.style.display = 'none';
-                        toggle.setAttribute('aria-expanded', 'false');
                     }
                 });
             },
@@ -1289,8 +1277,6 @@
                     const item = document.createElement('div');
                     item.className = 'dropdown-item';
                     item.textContent = label;
-                    item.setAttribute('role', 'menuitem');
-                    item.setAttribute('tabindex', '0');
                     
                     // Click handler
                     item.addEventListener('click', () => {
@@ -1299,15 +1285,6 @@
                             PrusaMonitor.ui.sendPresetCommands(commands);
                         }
                         dropdownMenu.style.display = 'none';
-                        document.querySelector('.section-title-clickable').setAttribute('aria-expanded', 'false');
-                    });
-
-                    // Keyboard handler for menu items
-                    item.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            item.click();
-                        }
                     });
 
                     dropdownMenu.appendChild(item);
@@ -1324,7 +1301,7 @@
     </script>
 
     <!-- Version Label - Easy to find and edit at bottom of file -->
-    <div class="version-label">v0.0.6-remote</div>
+    <div class="version-label">v0.0.7-remote</div>
 </body>
 
 </html>
