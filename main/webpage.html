@@ -542,7 +542,7 @@
         <!-- Heater Power Banner -->
         <div class="status-banner">
             <div class="status-icon" style="background: transparent; animation: none;"></div>
-            <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
+            <span id="power-message">Power - Nozzle Heater: 0% | Bed Heater: 0% | Heatbreak Fan: 0%</span>
         </div>
 
         <!-- ========================================
@@ -638,7 +638,10 @@
                 connectionErrorShown: false,
                 statusErrorShown: false,
                 activeNotification: null,
-                currentProgress: 0
+                currentProgress: 0,
+                currentChange: null,
+                titleAlternate: false,
+                currentZHeight: null
             },
 
             // ========================================
@@ -648,11 +651,34 @@
                 /**
                  * Update page title based on print progress
                  */
-                updatePageTitle: function(progress) {
+                updatePageTitle: function(progress, change) {
                     if (progress > 0 && progress < 100) {
-                        document.title = `Progress ${progress}%`;
+                        // Print is in progress
+                        if (change !== 'NA' && change !== null && change !== undefined) {
+                            // Alternate between progress and change
+                            if (PrusaMonitor.state.titleAlternate) {
+                                // Format change time
+                                let changeText = '';
+                                if (change >= 60) {
+                                    const hours = Math.floor(change / 60);
+                                    const mins = change % 60;
+                                    changeText = hours + 'h ' + mins + 'm';
+                                } else {
+                                    changeText = change + ' min';
+                                }
+                                document.title = `Change in ${changeText}`;
+                            } else {
+                                document.title = `Progress ${progress}%`;
+                            }
+                            PrusaMonitor.state.titleAlternate = !PrusaMonitor.state.titleAlternate;
+                        } else {
+                            // No change due, just show progress
+                            document.title = `Progress ${progress}%`;
+                        }
                     } else {
+                        // Not printing
                         document.title = 'Prusa CORE One Monitor';
+                        PrusaMonitor.state.titleAlternate = false;
                     }
                 },
 
@@ -939,11 +965,12 @@
                         chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
                         chart.update('none');
 
-                        // Store current progress
+                        // Store current progress and change
                         PrusaMonitor.state.currentProgress = data.progress;
+                        PrusaMonitor.state.currentChange = data.change;
 
-                        // Update page title based on progress
-                        PrusaMonitor.ui.updatePageTitle(data.progress);
+                        // Update page title based on progress and change
+                        PrusaMonitor.ui.updatePageTitle(data.progress, data.change);
 
                         // Update progress status
                         let statusText = 'Progress: ' + data.progress + '% | Time Remaining: ';
@@ -969,10 +996,15 @@
                         }
                         document.getElementById('status-message').textContent = statusText;
 
+                        // Add Z height to status if available
+                        if (PrusaMonitor.state.currentZHeight !== null) {
+                            document.getElementById('status-message').textContent += ' | Z: ' + PrusaMonitor.state.currentZHeight + ' mm';
+                        }
+
                         // Update heater power display
-                        const powerText = 'Powers - Nozzle: ' + (data.nozzle_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
-                                        '% | Bed: ' + (data.bed_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
-                                        '% | Heatbreak: ' + (data.heatbreak_power * 100 / CONFIG.MAX_POWER).toFixed(0) + '%';
+                        const powerText = 'Power - Nozzle Heater: ' + (data.nozzle_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
+                                        '% | Bed Heater: ' + (data.bed_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
+                                        '% | Heatbreak Fan: ' + (data.heatbreak_power * 100 / CONFIG.MAX_POWER).toFixed(0) + '%';
                         document.getElementById('power-message').textContent = powerText;
                     } catch (e) {
                         console.error('Failed to update temps:', e);
@@ -1042,6 +1074,17 @@
                             newText.split(/\r?\n/).forEach(line => {
                                 const trimmed = line.trim();
                                 if (trimmed) {
+                                    // Check for Z height in position reports
+                                    // Pattern: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
+                                    // We want the Z value BEFORE "Count"
+                                    if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
+                                        const beforeCount = trimmed.split('Count')[0];
+                                        const zMatch = beforeCount.match(/Z:([\d.]+)/);
+                                        if (zMatch && zMatch[1]) {
+                                            PrusaMonitor.state.currentZHeight = parseFloat(zMatch[1]).toFixed(2);
+                                        }
+                                    }
+
                                     // Check if this is a temperature line (and if we should hide it)
                                     const isTemp = trimmed.startsWith('T:') && 
                                                  trimmed.includes(' B:') && 
@@ -1301,7 +1344,7 @@
     </script>
 
     <!-- Version Label - Easy to find and edit at bottom of file -->
-    <div class="version-label">v0.0.7-remote</div>
+    <div class="version-label">v0.0.9-remote</div>
 </body>
 
 </html>
