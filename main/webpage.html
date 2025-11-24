@@ -807,10 +807,14 @@
                                 if (trimmed) {
                                     PrusaMonitor.parser.parseLine(trimmed);
 
-                                    const isTemp = trimmed.startsWith('T:') && 
-                                                 trimmed.includes(' B:') && 
-                                                 trimmed.includes(' @:') && 
-                                                 trimmed.includes(' B@:');
+                                    // const isTemp = trimmed.startsWith('T:') && 
+                                    //              trimmed.includes(' B:') && 
+                                    //              trimmed.includes(' @:') && 
+                                    //              trimmed.includes(' B@:');
+                                    
+
+                                    const isTemp = /^T:\s*\d+(\.\d+)?/.test(trimmed) &&
+                                                   /B:\s*\d+(\.\d+)?/.test(trimmed);
                                     
                                     if (!hideTemps || !isTemp) {
                                         const timestamp = new Date().toLocaleTimeString();
