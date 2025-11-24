@@ -556,6 +556,13 @@
                         PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
                     }
 
+                    // Check for print completion
+                    if (trimmed.includes('Done printing file')) {
+                        PrusaMonitor.state.progress.percent = 100;
+                        PrusaMonitor.state.progress.time = 0;
+                        PrusaMonitor.state.progress.change = null;
+                    }
+
                     // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
                     const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (timeMatch) {
@@ -564,14 +571,13 @@
                         PrusaMonitor.state.progress.time = (hours * 60) + mins;
                     }
 
-                    // Change due: "Change: 16m;" or "Change: 1h 5m;" or "Change: NA;"
+                    // Change due: "Change: 16m;" or "Change: 1h 5m;"
+                    // Note: If no "Change:" line appears, value stays as previously set (could be null or a number)
                     const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (changeMatch) {
                         const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
                         const mins = parseInt(changeMatch[2]);
                         PrusaMonitor.state.progress.change = (hours * 60) + mins;
-                    } else if (trimmed.includes('Change: NA')) {
-                        PrusaMonitor.state.progress.change = null;
                     }
 
                     // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
@@ -1032,7 +1038,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.1-remote</div>
+    <div class="version-label">v2.0.2-remote</div>
 </body>
 
 </html>
