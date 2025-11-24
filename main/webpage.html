@@ -550,12 +550,28 @@
                         PrusaMonitor.state.power.heatbreak = parseFloat(heatbreakPowerMatch[1]);
                     }
 
-                    // Progress: P:45 R:123 C:15 or C:NA
-                    const progressMatch = trimmed.match(/P:(\d+)\s+R:(\d+)\s+C:([\w\d]+)/);
+                    // Progress: "M73 Progress: 9%;"
+                    const progressMatch = trimmed.match(/Progress:\s*(\d+)%/);
                     if (progressMatch) {
                         PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
-                        PrusaMonitor.state.progress.time = parseInt(progressMatch[2]);
-                        PrusaMonitor.state.progress.change = progressMatch[3] === 'NA' ? null : parseInt(progressMatch[3]);
+                    }
+
+                    // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
+                    const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
+                    if (timeMatch) {
+                        const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
+                        const mins = parseInt(timeMatch[2]);
+                        PrusaMonitor.state.progress.time = (hours * 60) + mins;
+                    }
+
+                    // Change due: "Change: 16m;" or "Change: 1h 5m;" or "Change: NA;"
+                    const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
+                    if (changeMatch) {
+                        const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
+                        const mins = parseInt(changeMatch[2]);
+                        PrusaMonitor.state.progress.change = (hours * 60) + mins;
+                    } else if (trimmed.includes('Change: NA')) {
+                        PrusaMonitor.state.progress.change = null;
                     }
 
                     // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
@@ -1016,7 +1032,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.0-remote</div>
+    <div class="version-label">v2.0.0-client-parsing</div>
 </body>
 
 </html>
