@@ -813,8 +813,10 @@
                                     //              trimmed.includes(' B@:');
                                     
 
-                                    const isTemp = /^T:\s*\d+(\.\d+)?/.test(trimmed) &&
-                                                   /B:\s*\d+(\.\d+)?/.test(trimmed);
+                                    const isTemp =
+                                        /B:\s*\d/.test(trimmed) &&
+                                        /@:\s*\d/.test(trimmed) &&
+                                        /B@:\s*\d/.test(trimmed);
                                     
                                     if (!hideTemps || !isTemp) {
                                         const timestamp = new Date().toLocaleTimeString();
