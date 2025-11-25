@@ -60,8 +60,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   ""
-#define WIFI_PASS                   ""
+#define WIFI_SSID                   "BT-WXF9FJ"
+#define WIFI_PASS                   "QFLQCPDLWF"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)  // Set to 0 to disable GitHub fetching and use only embedded HTML
@@ -355,37 +355,46 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
     char buf[768];  // Increased from 512 to 768 bytes
     if (is_cached) {
         snprintf(buf, sizeof(buf),
-            "<html><body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:sans-serif;'>"
-            "<h1 style='color:#4CAF50;'>✓ Success!</h1>"
-            "<p>Downloaded %d bytes from GitHub</p>"
-            "<p>The new version will be used on next page load.</p>"
-            "<p><a href='/' style='color:#4CAF50;text-decoration:none;'>← Back to Monitor</a></p>"
-            "</body></html>",
+            "<!DOCTYPE html>"
+            "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'></head>"
+            "<body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Oxygen,Ubuntu,sans-serif;line-height:1.6;'>"
+            "<div style='max-width:600px;margin:0 auto;'>"
+            "<h1 style='color:#4CAF50;font-size:2rem;font-weight:300;margin-bottom:20px;'>Success!</h1>"
+            "<p style='margin-bottom:15px;'>Downloaded <strong>%d bytes</strong> from GitHub</p>"
+            "<p style='margin-bottom:15px;'>The new version will be used on next page load.</p>"
+            "<p><a href='/' style='color:#4CAF50;text-decoration:none;padding:10px 20px;border:1px solid #4CAF50;border-radius:8px;display:inline-block;transition:all 0.3s ease;'>Back to Monitor</a></p>"
+            "</div></body></html>",
             size);
     } else {
         snprintf(buf, sizeof(buf),
-            "<html><body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:sans-serif;'>"
-            "<h1 style='color:#f44336;'>✗ Failed!</h1>"
-            "<p><strong>Error:</strong> %s</p>"
-            "<p>Using embedded HTML fallback.</p>"
-            "<p><a href='/' style='color:#4CAF50;text-decoration:none;'>← Back to Monitor</a></p>"
-            "</body></html>",
+            "<!DOCTYPE html>"
+            "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'></head>"
+            "<body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Oxygen,Ubuntu,sans-serif;line-height:1.6;'>"
+            "<div style='max-width:600px;margin:0 auto;'>"
+            "<h1 style='color:#f44336;font-size:2rem;font-weight:300;margin-bottom:20px;'>Failed!</h1>"
+            "<p style='margin-bottom:15px;'><strong>Error:</strong> %s</p>"
+            "<p style='margin-bottom:15px;'>Using embedded HTML fallback.</p>"
+            "<p><a href='/' style='color:#4CAF50;text-decoration:none;padding:10px 20px;border:1px solid #4CAF50;border-radius:8px;display:inline-block;transition:all 0.3s ease;'>Back to Monitor</a></p>"
+            "</div></body></html>",
             last_download_error);
     }
     
-    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, buf);
 #else
     // Remote HTML disabled
     const char *disabled_msg = 
-        "<html><body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:sans-serif;'>"
-        "<h1 style='color:#FFA500;'>⚠ Remote HTML Disabled</h1>"
-        "<p>Remote HTML fetching is disabled in firmware configuration.</p>"
-        "<p>To enable: Set <code>ENABLE_REMOTE_HTML</code> to 1 and recompile.</p>"
-        "<p><a href='/' style='color:#4CAF50;text-decoration:none;'>← Back to Monitor</a></p>"
-        "</body></html>";
+        "<!DOCTYPE html>"
+        "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'></head>"
+        "<body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Oxygen,Ubuntu,sans-serif;line-height:1.6;'>"
+        "<div style='max-width:600px;margin:0 auto;'>"
+        "<h1 style='color:#FFA500;font-size:2rem;font-weight:300;margin-bottom:20px;'>Remote HTML Disabled</h1>"
+        "<p style='margin-bottom:15px;'>Remote HTML fetching is disabled in firmware configuration.</p>"
+        "<p style='margin-bottom:15px;'>To enable: Set <code style='background:#1a1a1a;padding:2px 6px;border-radius:4px;'>ENABLE_REMOTE_HTML</code> to 1 and recompile.</p>"
+        "<p><a href='/' style='color:#4CAF50;text-decoration:none;padding:10px 20px;border:1px solid #4CAF50;border-radius:8px;display:inline-block;transition:all 0.3s ease;'>Back to Monitor</a></p>"
+        "</div></body></html>";
     
-    httpd_resp_set_type(req, "text/html");
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, disabled_msg);
     ESP_LOGI(TAG, "Refresh endpoint called but remote HTML is disabled");
 #endif
