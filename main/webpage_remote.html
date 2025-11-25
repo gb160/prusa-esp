@@ -1132,6 +1132,16 @@
                         menu.style.display = 'none';
                     }
                 });
+
+                // Auto-refresh progress when returning to tab
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        // Tab became visible - request fresh progress update
+                        console.log('Tab visible - requesting progress update (M73)');
+                        fetch('/send?cmd=' + encodeURIComponent('M73'))
+                            .catch(err => console.error('Failed to send M73:', err));
+                    }
+                });
             },
 
             setupDropdown: function() {
@@ -1161,7 +1171,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.0-remote</div>
+    <div class="version-label">v2.0.1-remote</div>
 </body>
 
 </html>
