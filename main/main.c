@@ -60,12 +60,12 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT-WXF9FJ"
-#define WIFI_PASS                   "QFLQCPDLWF"
+#define WIFI_SSID                   ""
+#define WIFI_PASS                   ""
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)  // Set to 0 to disable GitHub fetching and use only embedded HTML
-#define REMOTE_HTML_URL             "https://raw.githubusercontent.com/gb160/prusa-esp/main/main/webpage.html"
+#define REMOTE_HTML_URL             "https://raw.githubusercontent.com/gb160/prusa-esp/main/main/webpage_remote.html"
 
 // Ring buffer for printer log data
 #define LOG_BUFFER_SIZE             (8192)
@@ -476,10 +476,10 @@ static void start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.server_port = 80;
-    config.stack_size = 8192;  // Increase stack for HTTPS client
+    config.stack_size = 8192;
     
     if (httpd_start(&server, &config) == ESP_OK) {
-        ESP_LOGI(TAG, "Starting web server");
+        ESP_LOGI(TAG, "Starting HTTP server");
         
         httpd_uri_t root_uri = {"/", HTTP_GET, root_get_handler, NULL};
         httpd_register_uri_handler(server, &root_uri);
@@ -499,9 +499,9 @@ static void start_webserver(void)
         httpd_uri_t status_uri = {"/status", HTTP_GET, status_get_handler, NULL};
         httpd_register_uri_handler(server, &status_uri);
         
-        ESP_LOGI(TAG, "Web server started successfully");
+        ESP_LOGI(TAG, "HTTP server started successfully");
     } else {
-        ESP_LOGE(TAG, "Failed to start web server");
+        ESP_LOGE(TAG, "Failed to start HTTP server");
     }
 }
 
