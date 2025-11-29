@@ -352,7 +352,7 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
     int size = cached_html_size;
     xSemaphoreGive(html_mutex);
     
-    char buf[768];  // Increased from 512 to 768 bytes
+    char buf[1024];  // Increased from 512 to 768 bytes
     if (is_cached) {
         snprintf(buf, sizeof(buf),
             "<!DOCTYPE html>"
