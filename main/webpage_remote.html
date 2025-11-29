@@ -504,97 +504,7 @@
                 userScrolling: false,
                 lastLogLen: 0,
                 chart: null,
-                lastGraphUpdate: 0,
-                // Notification tracking (prevents duplicate notifications)
-                notificationsShown: {
-                    changeIn2Min: false,
-                    printComplete: false
-                }
-            },
-
-            // ========================================
-            // NOTIFICATIONS
-            // ========================================
-            notifications: {
-                /**
-                 * Request notification permission on page load
-                 * This must be called before any notifications can be sent
-                 */
-                requestPermission: function() {
-                    if ('Notification' in window && Notification.permission === 'default') {
-                        Notification.requestPermission().then(permission => {
-                            if (permission === 'granted') {
-                                console.log('Notification permission granted');
-                            }
-                        });
-                    }
-                },
-
-                /**
-                 * Send a system notification
-                 * @param {string} title - Notification title
-                 * @param {string} body - Notification message
-                 * @param {string} tag - Unique tag to prevent duplicates
-                 */
-                send: function(title, body, tag) {
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        new Notification(title, {
-                            body: body,
-                            icon: '/favicon.ico', // Optional: add a favicon for notifications
-                            tag: tag, // Prevents duplicate notifications with same tag
-                            requireInteraction: false // Auto-dismiss after a few seconds
-                        });
-                    }
-                },
-
-                /**
-                 * Check and send notifications based on current state
-                 * Add new notification triggers here
-                 */
-                checkTriggers: function() {
-                    // TRIGGER 1: Filament change due in 2 minutes
-                    if (PrusaMonitor.state.progress.change !== null && 
-                        PrusaMonitor.state.progress.change <= 2 && 
-                        !PrusaMonitor.state.notificationsShown.changeIn2Min) {
-                        
-                        this.send(
-                            '🔔 Filament Change Soon',
-                            `Change due in ${PrusaMonitor.state.progress.change} minute(s)`,
-                            'change-soon'
-                        );
-                        PrusaMonitor.state.notificationsShown.changeIn2Min = true;
-                    }
-
-                    // Reset the change notification flag when change time increases
-                    // (happens when a new print starts or change completes)
-                    if (PrusaMonitor.state.progress.change > 2) {
-                        PrusaMonitor.state.notificationsShown.changeIn2Min = false;
-                    }
-
-                    // TRIGGER 2: Print completed (100%)
-                    if (PrusaMonitor.state.progress.percent === 100 && 
-                        !PrusaMonitor.state.notificationsShown.printComplete) {
-                        
-                        this.send(
-                            '✅ Print Complete!',
-                            'Your print job has finished',
-                            'print-complete'
-                        );
-                        PrusaMonitor.state.notificationsShown.printComplete = true;
-                    }
-
-                    // Reset print complete flag when a new print starts
-                    if (PrusaMonitor.state.progress.percent > 0 && 
-                        PrusaMonitor.state.progress.percent < 100) {
-                        PrusaMonitor.state.notificationsShown.printComplete = false;
-                    }
-
-                    // ADD MORE TRIGGERS HERE
-                    // Example: Temperature alert
-                    // if (PrusaMonitor.state.temps.nozzle.cur > 250) {
-                    //     this.send('⚠️ High Temperature', 'Nozzle temp exceeds 250°C', 'temp-alert');
-                    // }
-                }
+                lastGraphUpdate: 0
             },
 
             // ========================================
@@ -715,9 +625,6 @@
                     // Update page title with progress
                     PrusaMonitor.pageTitle.update();
 
-                    // Check notification triggers
-                    PrusaMonitor.notifications.checkTriggers();
-
                     document.getElementById('nozzle-temp').textContent = Math.round(PrusaMonitor.state.temps.nozzle.cur);
                     document.getElementById('nozzle-target').textContent = Math.round(PrusaMonitor.state.temps.nozzle.target);
                     PrusaMonitor.ui.updateTempColor('nozzle-target', PrusaMonitor.state.temps.nozzle.cur, PrusaMonitor.state.temps.nozzle.target);
@@ -775,13 +682,7 @@
                     PrusaMonitor.state.tempHistory.chamber.push(PrusaMonitor.state.temps.chamber.cur);
                     PrusaMonitor.state.tempHistory.heatbreak.push(PrusaMonitor.state.temps.heatbreak.cur);
 
-                    if (PrusaMonitor.state.tempHistory.timestamps.length > 100) {
-                        PrusaMonitor.state.tempHistory.timestamps.shift();
-                        PrusaMonitor.state.tempHistory.nozzle.shift();
-                        PrusaMonitor.state.tempHistory.bed.shift();
-                        PrusaMonitor.state.tempHistory.chamber.shift();
-                        PrusaMonitor.state.tempHistory.heatbreak.shift();
-                    }
+                    // No limit - keeps all history for infinite scrolling graph
 
                     const chart = PrusaMonitor.state.chart;
                     chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
@@ -962,9 +863,6 @@
             // ========================================
             init: function() {
                 console.log('Prusa Monitor V2.0 - Client-side parsing enabled');
-                
-                // Request notification permission
-                this.notifications.requestPermission();
                 
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 this.state.chart = new Chart(ctx, {
@@ -1171,7 +1069,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.1-remote</div>
+    <div class="version-label">v2.0.2-remote</div>
 </body>
 
 </html>
