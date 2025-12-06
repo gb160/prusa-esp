@@ -30,13 +30,32 @@
         }
 
         /* ========================================
+           DRAGGABLE SECTION WRAPPER
+           ======================================== */
+        .section-wrapper {
+            margin-bottom: 20px;
+            cursor: grab;
+        }
+
+        .section-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .section-wrapper.sortable-ghost {
+            opacity: 0.4;
+        }
+
+        .section-wrapper.sortable-drag {
+            opacity: 0.9;
+        }
+
+        /* ========================================
            TEMPERATURE CARDS
            ======================================== */
         .temp-cards {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin-bottom: 20px;
         }
 
         .temp-card {
@@ -102,7 +121,6 @@
             border: 1px solid #2a2a2a;
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 20px;
             height: 400px;
         }
 
@@ -124,6 +142,10 @@
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+
+        .status-banner:last-child {
+            margin-bottom: 0;
         }
 
         .status-icon {
@@ -344,75 +366,78 @@
 
 <body>
     <div class="container">
-        <!-- ========================================
-             TEMPERATURE CARDS
-             ======================================== -->
-        <div class="temp-cards">
-            <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
+        <div id="sortable-sections">
+            <!-- Section 1: Temperature Cards -->
+            <div class="section-wrapper" data-id="temps">
+                <div class="temp-cards">
+                    <div class="temp-card">
+                        <div class="temp-label">
+                            <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
+                        </div>
+                        <div class="temp-value">
+                            <span id="nozzle-temp" class="loading">--</span>°C
+                        </div>
+                        <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
+                    </div>
+
+                    <div class="temp-card">
+                        <div class="temp-label">
+                            <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
+                        </div>
+                        <div class="temp-value">
+                            <span id="bed-temp" class="loading">--</span>°C
+                        </div>
+                        <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
+                    </div>
+
+                    <div class="temp-card">
+                        <div class="temp-label">
+                            <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
+                        </div>
+                        <div class="temp-value">
+                            <span id="chamber-temp" class="loading">--</span>°C
+                        </div>
+                        <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
+                    </div>
+
+                    <div class="temp-card">
+                        <div class="temp-label">
+                            <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
+                        </div>
+                        <div class="temp-value">
+                            <span id="heatbreak-temp" class="loading">--</span>°C
+                        </div>
+                        <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
+                    </div>
                 </div>
-                <div class="temp-value">
-                    <span id="nozzle-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
             </div>
 
-            <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
+            <!-- Section 2: Temperature Graph -->
+            <div class="section-wrapper" data-id="graph">
+                <div class="graph-container">
+                    <canvas id="tempChart"></canvas>
                 </div>
-                <div class="temp-value">
-                    <span id="bed-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
             </div>
 
-            <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
+            <!-- Section 3: Progress Banner -->
+            <div class="section-wrapper" data-id="progress">
+                <div class="status-banner">
+                    <div class="status-icon"></div>
+                    <span id="status-message">Connecting to printer...</span>
                 </div>
-                <div class="temp-value">
-                    <span id="chamber-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
             </div>
 
-            <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
+            <!-- Section 4: Power Banner -->
+            <div class="section-wrapper" data-id="power">
+                <div class="status-banner">
+                    <div class="status-icon" style="background: transparent; animation: none;"></div>
+                    <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
                 </div>
-                <div class="temp-value">
-                    <span id="heatbreak-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
             </div>
-        </div>
 
-        <!-- ========================================
-             TEMPERATURE GRAPH
-             ======================================== -->
-        <div class="graph-container">
-            <canvas id="tempChart"></canvas>
-        </div>
-
-        <!-- ========================================
-             STATUS BANNERS
-             ======================================== -->
-        <div class="status-banner">
-            <div class="status-icon"></div>
-            <span id="status-message">Connecting to printer...</span>
-        </div>
-
-        <div class="status-banner">
-            <div class="status-icon" style="background: transparent; animation: none;"></div>
-            <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
-        </div>
-
-        <!-- ========================================
-             CONSOLE AND COMMAND SECTIONS
-             ======================================== -->
-        <div class="bottom-section">
+            <!-- Section 5: Console & Command -->
+            <div class="section-wrapper" data-id="console">
+                <div class="bottom-section">
             <div class="log-container">
                 <div class="section-title">
                     <span>Console Log</span>
@@ -444,9 +469,12 @@
                 </div>
             </div>
         </div>
+            </div>
+        </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
     
     <script>
         // ========================================
@@ -471,7 +499,7 @@
         };
 
         // ========================================
-        // PRUSA MONITOR V2.0 - CLIENT-SIDE PARSING
+        // PRUSA MONITOR V2.1 - VERTICAL DRAGGABLE
         // ========================================
         const PrusaMonitor = {
             state: {
@@ -511,21 +539,14 @@
             // PAGE TITLE MANAGEMENT
             // ========================================
             pageTitle: {
-                /**
-                 * Update browser tab title with print progress
-                 * Shows progress percentage when printing, default title otherwise
-                 */
                 update: function() {
                     const progress = PrusaMonitor.state.progress.percent;
                     
                     if (progress > 0 && progress < 100) {
-                        // Printing in progress - show percentage in title
                         document.title = `${progress}% - Prusa Monitor`;
                     } else if (progress === 100) {
-                        // Print complete
                         document.title = '✓ Complete - Prusa Monitor';
                     } else {
-                        // Idle or no print
                         document.title = 'Prusa Core One Monitor';
                     }
                 }
@@ -539,7 +560,6 @@
                     const trimmed = line.trim();
                     if (!trimmed) return;
 
-                    // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
                     const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
                     if (tempMatch) {
                         PrusaMonitor.state.temps.nozzle.cur = parseFloat(tempMatch[1]);
@@ -574,20 +594,17 @@
                         PrusaMonitor.state.power.heatbreak = parseFloat(heatbreakPowerMatch[1]);
                     }
 
-                    // Progress: "M73 Progress: 9%;"
                     const progressMatch = trimmed.match(/Progress:\s*(\d+)%/);
                     if (progressMatch) {
                         PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
                     }
 
-                    // Check for print completion
                     if (trimmed.includes('Done printing file')) {
                         PrusaMonitor.state.progress.percent = 100;
                         PrusaMonitor.state.progress.time = 0;
                         PrusaMonitor.state.progress.change = null;
                     }
 
-                    // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
                     const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (timeMatch) {
                         const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
@@ -595,8 +612,6 @@
                         PrusaMonitor.state.progress.time = (hours * 60) + mins;
                     }
 
-                    // Change due: "Change: 16m;" or "Change: 1h 5m;"
-                    // Note: If no "Change:" line appears, value stays as previously set (could be null or a number)
                     const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (changeMatch) {
                         const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
@@ -604,7 +619,6 @@
                         PrusaMonitor.state.progress.change = (hours * 60) + mins;
                     }
 
-                    // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
                     if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
                         const beforeCount = trimmed.split('Count')[0];
                         const zMatch = beforeCount.match(/Z:([\d.]+)/);
@@ -622,7 +636,6 @@
                 updateDisplay: function() {
                     document.querySelectorAll('.loading').forEach(el => el.classList.remove('loading'));
 
-                    // Update page title with progress
                     PrusaMonitor.pageTitle.update();
 
                     document.getElementById('nozzle-temp').textContent = Math.round(PrusaMonitor.state.temps.nozzle.cur);
@@ -681,8 +694,6 @@
                     PrusaMonitor.state.tempHistory.bed.push(PrusaMonitor.state.temps.bed.cur);
                     PrusaMonitor.state.tempHistory.chamber.push(PrusaMonitor.state.temps.chamber.cur);
                     PrusaMonitor.state.tempHistory.heatbreak.push(PrusaMonitor.state.temps.heatbreak.cur);
-
-                    // No limit - keeps all history for infinite scrolling graph
 
                     const chart = PrusaMonitor.state.chart;
                     chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
@@ -862,7 +873,7 @@
             // INITIALIZATION
             // ========================================
             init: function() {
-                console.log('Prusa Monitor V2.0 - Client-side parsing enabled');
+                console.log('Prusa Monitor V2.1 - Vertical Draggable Layout');
                 
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 this.state.chart = new Chart(ctx, {
@@ -971,6 +982,8 @@
 
                 this.setupEventListeners();
                 this.setupDropdown();
+                this.setupDraggable();
+                this.loadLayout();
 
                 setInterval(() => this.api.updateStatus(), CONFIG.UPDATE_INTERVALS.STATUS);
                 setInterval(() => this.api.updateLog(), CONFIG.UPDATE_INTERVALS.LOG);
@@ -1031,10 +1044,8 @@
                     }
                 });
 
-                // Auto-refresh progress when returning to tab
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
-                        // Tab became visible - request fresh progress update
                         console.log('Tab visible - requesting progress update (M73)');
                         fetch('/send?cmd=' + encodeURIComponent('M73'))
                             .catch(err => console.error('Failed to send M73:', err));
@@ -1061,6 +1072,56 @@
 
                     dropdownMenu.appendChild(item);
                 });
+            },
+
+            // ========================================
+            // DRAGGABLE LAYOUT SYSTEM (VERTICAL ONLY)
+            // ========================================
+            setupDraggable: function() {
+                const container = document.getElementById('sortable-sections');
+                
+                new Sortable(container, {
+                    animation: 200,
+                    handle: '.section-wrapper',
+                    ghostClass: 'sortable-ghost',
+                    dragClass: 'sortable-drag',
+                    onEnd: () => {
+                        PrusaMonitor.saveLayout();
+                    }
+                });
+            },
+
+            saveLayout: function() {
+                const sections = Array.from(document.querySelectorAll('#sortable-sections .section-wrapper'));
+                const order = sections.map(section => section.dataset.id);
+                
+                localStorage.setItem('prusaMonitorLayout', JSON.stringify(order));
+                console.log('Layout saved:', order);
+            },
+
+            loadLayout: function() {
+                const savedOrder = localStorage.getItem('prusaMonitorLayout');
+                
+                if (!savedOrder) {
+                    console.log('No saved layout found, using default');
+                    return;
+                }
+
+                try {
+                    const order = JSON.parse(savedOrder);
+                    const container = document.getElementById('sortable-sections');
+
+                    order.forEach(sectionId => {
+                        const section = document.querySelector(`[data-id="${sectionId}"]`);
+                        if (section) {
+                            container.appendChild(section);
+                        }
+                    });
+
+                    console.log('Layout loaded:', order);
+                } catch (e) {
+                    console.error('Failed to load layout:', e);
+                }
             }
         };
 
@@ -1069,7 +1130,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.2-remote</div>
+    <div class="version-label">v2.0.3-remote</div>
 </body>
 
 </html>
