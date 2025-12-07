@@ -34,11 +34,40 @@
            ======================================== */
         .section-wrapper {
             margin-bottom: 20px;
-            cursor: grab;
+            position: relative;
         }
 
-        .section-wrapper:active {
+        .section-grip {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            z-index: 10;
+            transition: all 0.2s ease;
+        }
+
+        .section-grip:hover {
+            background: #3a3a3a;
+            border-color: #4a4a4a;
+        }
+
+        .section-grip:active {
             cursor: grabbing;
+        }
+
+        .section-grip::before {
+            content: '⋮⋮';
+            color: #888;
+            font-size: 14px;
+            letter-spacing: 2px;
         }
 
         .section-wrapper.sortable-ghost {
@@ -54,8 +83,20 @@
            ======================================== */
         .temp-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
+        }
+
+        .temp-card-wrapper {
+            cursor: grab;
+        }
+
+        .temp-card-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .temp-card-wrapper.sortable-ghost {
+            opacity: 0.4;
         }
 
         .temp-card {
@@ -122,6 +163,7 @@
             border-radius: 12px;
             padding: 20px;
             height: 400px;
+            position: relative;
         }
 
         canvas {
@@ -137,7 +179,7 @@
             border: 1px solid #2a2a2a;
             border-left: 4px solid #4CAF50;
             border-radius: 8px;
-            padding: 15px 20px;
+            padding: 15px 50px 15px 20px;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
@@ -148,12 +190,42 @@
             margin-bottom: 0;
         }
 
+        .status-content {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex: 1;
+        }
+
+        .status-text {
+            flex: 1;
+        }
+
+        .progress-pie-container {
+            width: 70px;
+            height: 70px;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .progress-pie-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+            pointer-events: none;
+        }
+
         .status-icon {
             width: 10px;
             height: 10px;
             background: #4CAF50;
             border-radius: 50%;
             animation: pulse 2s infinite;
+            flex-shrink: 0;
         }
 
         @keyframes pulse {
@@ -168,6 +240,18 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
+        }
+
+        .console-wrapper {
+            cursor: grab;
+        }
+
+        .console-wrapper:active {
+            cursor: grabbing;
+        }
+
+        .console-wrapper.sortable-ghost {
+            opacity: 0.4;
         }
 
         .log-container,
@@ -369,51 +453,61 @@
         <div id="sortable-sections">
             <!-- Section 1: Temperature Cards -->
             <div class="section-wrapper" data-id="temps">
-                <div class="temp-cards">
-                    <div class="temp-card">
-                        <div class="temp-label">
-                            <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
+                <div class="section-grip"></div>
+                <div class="temp-cards" id="temp-cards-container">
+                    <div class="temp-card-wrapper" data-id="nozzle">
+                        <div class="temp-card">
+                            <div class="temp-label">
+                                <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
+                            </div>
+                            <div class="temp-value">
+                                <span id="nozzle-temp" class="loading">--</span>°C
+                            </div>
+                            <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
                         </div>
-                        <div class="temp-value">
-                            <span id="nozzle-temp" class="loading">--</span>°C
-                        </div>
-                        <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
                     </div>
 
-                    <div class="temp-card">
-                        <div class="temp-label">
-                            <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
+                    <div class="temp-card-wrapper" data-id="bed">
+                        <div class="temp-card">
+                            <div class="temp-label">
+                                <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
+                            </div>
+                            <div class="temp-value">
+                                <span id="bed-temp" class="loading">--</span>°C
+                            </div>
+                            <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
                         </div>
-                        <div class="temp-value">
-                            <span id="bed-temp" class="loading">--</span>°C
-                        </div>
-                        <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
                     </div>
 
-                    <div class="temp-card">
-                        <div class="temp-label">
-                            <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
+                    <div class="temp-card-wrapper" data-id="chamber">
+                        <div class="temp-card">
+                            <div class="temp-label">
+                                <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
+                            </div>
+                            <div class="temp-value">
+                                <span id="chamber-temp" class="loading">--</span>°C
+                            </div>
+                            <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
                         </div>
-                        <div class="temp-value">
-                            <span id="chamber-temp" class="loading">--</span>°C
-                        </div>
-                        <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
                     </div>
 
-                    <div class="temp-card">
-                        <div class="temp-label">
-                            <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
+                    <div class="temp-card-wrapper" data-id="heatbreak">
+                        <div class="temp-card">
+                            <div class="temp-label">
+                                <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
+                            </div>
+                            <div class="temp-value">
+                                <span id="heatbreak-temp" class="loading">--</span>°C
+                            </div>
+                            <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
                         </div>
-                        <div class="temp-value">
-                            <span id="heatbreak-temp" class="loading">--</span>°C
-                        </div>
-                        <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
                     </div>
                 </div>
             </div>
 
             <!-- Section 2: Temperature Graph -->
             <div class="section-wrapper" data-id="graph">
+                <div class="section-grip"></div>
                 <div class="graph-container">
                     <canvas id="tempChart"></canvas>
                 </div>
@@ -421,14 +515,22 @@
 
             <!-- Section 3: Progress Banner -->
             <div class="section-wrapper" data-id="progress">
+                <div class="section-grip"></div>
                 <div class="status-banner">
                     <div class="status-icon"></div>
-                    <span id="status-message">Connecting to printer...</span>
+                    <div class="status-content">
+                        <span class="status-text" id="status-message">Connecting to printer...</span>
+                        <div class="progress-pie-container">
+                            <canvas id="progressPieChart"></canvas>
+                            <div class="progress-pie-text" id="progress-pie-text">0%</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Section 4: Power Banner -->
             <div class="section-wrapper" data-id="power">
+                <div class="section-grip"></div>
                 <div class="status-banner">
                     <div class="status-icon" style="background: transparent; animation: none;"></div>
                     <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
@@ -437,38 +539,43 @@
 
             <!-- Section 5: Console & Command -->
             <div class="section-wrapper" data-id="console">
-                <div class="bottom-section">
-            <div class="log-container">
-                <div class="section-title">
-                    <span>Console Log</span>
-                    <div class="checkbox-container">
-                        <input type="checkbox" id="hide-temps" checked>
-                        <label for="hide-temps">Hide Temp Lines</label>
+                <div class="section-grip"></div>
+                <div class="bottom-section" id="console-container">
+                    <div class="console-wrapper" data-id="log">
+                        <div class="log-container">
+                            <div class="section-title">
+                                <span>Console Log</span>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" id="hide-temps" checked>
+                                    <label for="hide-temps">Hide Temp Lines</label>
+                                </div>
+                            </div>
+                            <div class="log-box" id="log-box"></div>
+                            <div class="command-input-group">
+                                <button onclick="PrusaMonitor.ui.clearLog()">Clear</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="log-box" id="log-box"></div>
-                <div class="command-input-group">
-                    <button onclick="PrusaMonitor.ui.clearLog()">Clear</button>
-                </div>
-            </div>
 
-            <div class="command-container">
-                <div class="section-title">
-                    <span>Send Command</span>
-                    <div class="dropdown">
-                        <div class="dropdown-toggle">⋮</div>
-                        <div class="dropdown-menu"></div>
+                    <div class="console-wrapper" data-id="command">
+                        <div class="command-container">
+                            <div class="section-title">
+                                <span>Send Command</span>
+                                <div class="dropdown">
+                                    <div class="dropdown-toggle">⋮</div>
+                                    <div class="dropdown-menu"></div>
+                                </div>
+                            </div>              
+                            <div class="log-box" id="command-history"></div>
+                            <div class="command-input-group">
+                                <textarea id="command-input" 
+                                          placeholder="Enter G-code commands (one per line)..." 
+                                          rows="3"></textarea>
+                                <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
+                            </div>
+                        </div>
                     </div>
-                </div>              
-                <div class="log-box" id="command-history"></div>
-                <div class="command-input-group">
-                    <textarea id="command-input" 
-                              placeholder="Enter G-code commands (one per line)..." 
-                              rows="3"></textarea>
-                    <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
                 </div>
-            </div>
-        </div>
             </div>
         </div>
     </div>
@@ -532,6 +639,7 @@
                 userScrolling: false,
                 lastLogLen: 0,
                 chart: null,
+                progressChart: null,
                 lastGraphUpdate: 0
             },
 
@@ -681,6 +789,22 @@
                                     '% | Bed: ' + Math.round(PrusaMonitor.state.power.bed * 100 / CONFIG.MAX_POWER) + 
                                     '% | Heatbreak: ' + Math.round(PrusaMonitor.state.power.heatbreak * 100 / CONFIG.MAX_POWER) + '%';
                     document.getElementById('power-message').textContent = powerText;
+
+                    // Update progress pie chart
+                    PrusaMonitor.ui.updateProgressPie();
+                },
+
+                updateProgressPie: function() {
+                    const progress = PrusaMonitor.state.progress.percent;
+                    const chart = PrusaMonitor.state.progressChart;
+                    
+                    if (chart) {
+                        chart.data.datasets[0].data = [progress, 100 - progress];
+                        chart.update('none');
+                    }
+
+                    // Update center text
+                    document.getElementById('progress-pie-text').textContent = progress + '%';
                 },
 
                 updateGraph: function() {
@@ -980,6 +1104,43 @@
                     }
                 });
 
+                // Create progress pie chart
+                const progressCtx = document.getElementById('progressPieChart').getContext('2d');
+                this.state.progressChart = new Chart(progressCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Complete', 'Remaining'],
+                        datasets: [{
+                            data: [0, 100],
+                            backgroundColor: [
+                                this.createGradient(progressCtx, '#4CAF50', '#45a049'),
+                                'rgba(42, 42, 42, 0.5)'
+                            ],
+                            borderWidth: 0,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                enabled: false
+                            }
+                        },
+                        animation: {
+                            animateRotate: true,
+                            animateScale: false,
+                            duration: 500,
+                            easing: 'easeInOutQuart'
+                        }
+                    }
+                });
+
                 this.setupEventListeners();
                 this.setupDropdown();
                 this.setupDraggable();
@@ -990,6 +1151,13 @@
 
                 this.api.updateStatus();
                 this.api.updateLog();
+            },
+
+            createGradient: function(ctx, startColor, endColor) {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 80);
+                gradient.addColorStop(0, startColor);
+                gradient.addColorStop(1, endColor);
+                return gradient;
             },
 
             setupEventListeners: function() {
@@ -1078,15 +1246,37 @@
             // DRAGGABLE LAYOUT SYSTEM (VERTICAL ONLY)
             // ========================================
             setupDraggable: function() {
+                // Main vertical sections - use the grip handle
                 const container = document.getElementById('sortable-sections');
-                
                 new Sortable(container, {
                     animation: 200,
-                    handle: '.section-wrapper',
+                    handle: '.section-grip',
                     ghostClass: 'sortable-ghost',
                     dragClass: 'sortable-drag',
                     onEnd: () => {
                         PrusaMonitor.saveLayout();
+                    }
+                });
+
+                // Temperature cards horizontal sorting
+                const tempContainer = document.getElementById('temp-cards-container');
+                new Sortable(tempContainer, {
+                    animation: 200,
+                    handle: '.temp-card-wrapper',
+                    ghostClass: 'sortable-ghost',
+                    onEnd: () => {
+                        PrusaMonitor.saveTempOrder();
+                    }
+                });
+
+                // Console panels horizontal sorting
+                const consoleContainer = document.getElementById('console-container');
+                new Sortable(consoleContainer, {
+                    animation: 200,
+                    handle: '.console-wrapper',
+                    ghostClass: 'sortable-ghost',
+                    onEnd: () => {
+                        PrusaMonitor.saveConsoleOrder();
                     }
                 });
             },
@@ -1099,28 +1289,81 @@
                 console.log('Layout saved:', order);
             },
 
-            loadLayout: function() {
-                const savedOrder = localStorage.getItem('prusaMonitorLayout');
+            saveTempOrder: function() {
+                const tempCards = Array.from(document.querySelectorAll('#temp-cards-container .temp-card-wrapper'));
+                const order = tempCards.map(card => card.dataset.id);
                 
-                if (!savedOrder) {
-                    console.log('No saved layout found, using default');
-                    return;
+                localStorage.setItem('prusaMonitorTempOrder', JSON.stringify(order));
+                console.log('Temp order saved:', order);
+            },
+
+            saveConsoleOrder: function() {
+                const consolePanels = Array.from(document.querySelectorAll('#console-container .console-wrapper'));
+                const order = consolePanels.map(panel => panel.dataset.id);
+                
+                localStorage.setItem('prusaMonitorConsoleOrder', JSON.stringify(order));
+                console.log('Console order saved:', order);
+            },
+
+            loadLayout: function() {
+                // Load main section order
+                const savedOrder = localStorage.getItem('prusaMonitorLayout');
+                if (savedOrder) {
+                    try {
+                        const order = JSON.parse(savedOrder);
+                        const container = document.getElementById('sortable-sections');
+
+                        order.forEach(sectionId => {
+                            const section = document.querySelector(`#sortable-sections > [data-id="${sectionId}"]`);
+                            if (section) {
+                                container.appendChild(section);
+                            }
+                        });
+
+                        console.log('Layout loaded:', order);
+                    } catch (e) {
+                        console.error('Failed to load layout:', e);
+                    }
                 }
 
-                try {
-                    const order = JSON.parse(savedOrder);
-                    const container = document.getElementById('sortable-sections');
+                // Load temperature card order
+                const savedTempOrder = localStorage.getItem('prusaMonitorTempOrder');
+                if (savedTempOrder) {
+                    try {
+                        const order = JSON.parse(savedTempOrder);
+                        const container = document.getElementById('temp-cards-container');
 
-                    order.forEach(sectionId => {
-                        const section = document.querySelector(`[data-id="${sectionId}"]`);
-                        if (section) {
-                            container.appendChild(section);
-                        }
-                    });
+                        order.forEach(cardId => {
+                            const card = document.querySelector(`#temp-cards-container > [data-id="${cardId}"]`);
+                            if (card) {
+                                container.appendChild(card);
+                            }
+                        });
 
-                    console.log('Layout loaded:', order);
-                } catch (e) {
-                    console.error('Failed to load layout:', e);
+                        console.log('Temp order loaded:', order);
+                    } catch (e) {
+                        console.error('Failed to load temp order:', e);
+                    }
+                }
+
+                // Load console panel order
+                const savedConsoleOrder = localStorage.getItem('prusaMonitorConsoleOrder');
+                if (savedConsoleOrder) {
+                    try {
+                        const order = JSON.parse(savedConsoleOrder);
+                        const container = document.getElementById('console-container');
+
+                        order.forEach(panelId => {
+                            const panel = document.querySelector(`#console-container > [data-id="${panelId}"]`);
+                            if (panel) {
+                                container.appendChild(panel);
+                            }
+                        });
+
+                        console.log('Console order loaded:', order);
+                    } catch (e) {
+                        console.error('Failed to load console order:', e);
+                    }
                 }
             }
         };
@@ -1130,7 +1373,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.3-remote</div>
+    <div class="version-label">v2.2.0-remote</div>
 </body>
 
 </html>
