@@ -276,6 +276,32 @@
             align-items: center;
         }
 
+        .section-title-text {
+            cursor: pointer;
+            user-select: none;
+            padding: 5px;
+            transition: color 0.2s ease;
+            position: relative;
+        }
+
+        .section-title-text:hover {
+            color: #aaa;
+        }
+
+        .section-title-text .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            min-width: 150px;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            margin-top: 5px;
+        }
+
         .log-box {
             background: #0a0a0a;
             border: 1px solid #2a2a2a;
@@ -399,15 +425,7 @@
         }
         
         .dropdown-toggle {
-            font-size: 0.85rem;
-            color: #888;
-            transition: color 0.2s ease;
-            user-select: none;
-            padding: 5px;
-        }
-        
-        .dropdown-toggle:hover {
-            color: #ccc;
+            display: none;
         }
         
         .dropdown-menu {
@@ -565,11 +583,10 @@
                     <div class="console-wrapper" data-id="command">
                         <div class="command-container">
                             <div class="section-title">
-                                <span>Send Command</span>
-                                <div class="dropdown">
-                                    <div class="dropdown-toggle">⋮</div>
-                                    <div class="dropdown-menu"></div>
-                                </div>
+                                <span class="section-title-text" id="command-title">
+                                    Send Command
+                                    <div class="dropdown-menu" id="command-dropdown"></div>
+                                </span>
                             </div>              
                             <div class="log-box" id="command-history"></div>
                             <div class="command-input-group">
@@ -1218,12 +1235,12 @@
                 });
 
                 document.addEventListener('click', (e) => {
-                    const menu = document.querySelector('.dropdown-menu');
-                    const toggle = document.querySelector('.dropdown-toggle');
+                    const menu = document.getElementById('command-dropdown');
+                    const commandTitle = document.getElementById('command-title');
                     
-                    if (toggle.contains(e.target)) {
+                    if (commandTitle.contains(e.target) && !menu.contains(e.target)) {
                         menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-                    } else if (!menu.contains(e.target)) {
+                    } else if (!commandTitle.contains(e.target)) {
                         menu.style.display = 'none';
                     }
                 });
@@ -1238,7 +1255,7 @@
             },
 
             setupDropdown: function() {
-                const dropdownMenu = document.querySelector('.dropdown-menu');
+                const dropdownMenu = document.getElementById('command-dropdown');
                 dropdownMenu.innerHTML = '';
 
                 Object.keys(GCODE_MAP).forEach(label => {
