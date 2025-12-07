@@ -896,6 +896,12 @@
                     input.value = '';
                 },
 
+                sendCommandSilent: function(cmd) {
+                    // Send command without showing in history
+                    fetch('/send?cmd=' + encodeURIComponent(cmd))
+                        .catch(err => console.error('Failed to send silent command:', err));
+                },
+
                 sendPresetCommands: function(commands) {
                     const history = document.getElementById('command-history');
 
@@ -1147,6 +1153,11 @@
 
                 setInterval(() => this.api.updateStatus(), CONFIG.UPDATE_INTERVALS.STATUS);
                 setInterval(() => this.api.updateLog(), CONFIG.UPDATE_INTERVALS.LOG);
+                
+                // Send M73 every 15 seconds to update progress
+                setInterval(() => {
+                    this.ui.sendCommandSilent('M73');
+                }, 15000);
 
                 this.api.updateStatus();
                 this.api.updateLog();
@@ -1372,7 +1383,7 @@
         });
     </script>
 
-    <div class="version-label">v2.2.1-remote</div>
+    <div class="version-label">v2.2.3-remote</div>
 </body>
 
 </html>
