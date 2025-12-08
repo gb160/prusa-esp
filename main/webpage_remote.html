@@ -1178,9 +1178,9 @@
                 setInterval(() => this.api.updateLog(), CONFIG.UPDATE_INTERVALS.LOG);
                 
                 // Send M73 every 15 seconds to update progress
-                setInterval(() => {
-                    this.ui.sendCommandSilent('M73');
-                }, 15000);
+                // setInterval(() => {
+                //     this.ui.sendCommandSilent('M73');
+                // }, 15000);
 
                 this.api.updateStatus();
                 this.api.updateLog();
