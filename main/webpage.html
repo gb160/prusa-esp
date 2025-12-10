@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prusa Core One Monitor</title>
+    <title>Prusa CORE One Monitor</title>
     
     <style>
         /* ========================================
@@ -30,7 +30,49 @@
         }
 
         /* ========================================
+           NOTIFICATIONS
+           ======================================== */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 8px;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            color: #e0e0e0;
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .notification-error {
+            border-left: 4px solid #f44336;
+        }
+
+        .notification-warning {
+            border-left: 4px solid #FFA500;
+        }
+
+        .notification-info {
+            border-left: 4px solid #4CAF50;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* ========================================
            TEMPERATURE CARDS
+           Display current and target temps for each component
            ======================================== */
         .temp-cards {
             display: grid;
@@ -67,25 +109,30 @@
             margin-bottom: 5px;
         }
 
+        /* Loading state animation */
         .loading {
             animation: pulse 1.5s infinite;
             opacity: 0.5;
         }
 
+        /* Target temperature - color changes based on heating state */
         .temp-target {
             font-size: 0.9rem;
             color: #666;
             transition: color 0.3s ease;
         }
 
+        /* Red when heating (not yet at target) */
         .temp-target.heating {
             color: #f44336;
         }
 
+        /* Green when at target temperature */
         .temp-target.at-temp {
             color: #4CAF50;
         }
 
+        /* Color indicator dot next to each temperature label */
         .temp-indicator {
             width: 8px;
             height: 8px;
@@ -96,6 +143,7 @@
 
         /* ========================================
            TEMPERATURE GRAPH
+           Real-time chart showing temp history
            ======================================== */
         .graph-container {
             background: #1a1a1a;
@@ -113,6 +161,7 @@
 
         /* ========================================
            STATUS BANNERS
+           Shows print progress and heater power
            ======================================== */
         .status-banner {
             background: #1a1a1a;
@@ -126,6 +175,7 @@
             gap: 12px;
         }
 
+        /* Pulsing status indicator */
         .status-icon {
             width: 10px;
             height: 10px;
@@ -141,6 +191,7 @@
 
         /* ========================================
            CONSOLE AND COMMAND SECTIONS
+           Two-column layout for log viewing and command input
            ======================================== */
         .bottom-section {
             display: grid;
@@ -165,8 +216,20 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-height: 24px;
         }
 
+        .section-title-clickable {
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s ease;
+        }
+
+        .section-title-clickable:hover {
+            color: #aaa;
+        }
+
+        /* Scrollable log display with monospace font */
         .log-box {
             background: #0a0a0a;
             border: 1px solid #2a2a2a;
@@ -180,6 +243,7 @@
             line-height: 1.8;
         }
 
+        /* Custom scrollbar styling */
         .log-box::-webkit-scrollbar {
             width: 8px;
         }
@@ -210,8 +274,15 @@
             gap: 10px;
             margin-top: 15px;
             justify-content: flex-end;
+            align-items: flex-start;
         }
 
+        .command-input-wrapper {
+            flex: 1;
+            display: flex;
+        }
+
+        /* Multi-line textarea for G-code commands */
         textarea {
             flex: 1;
             background: #0a0a0a;
@@ -223,6 +294,11 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             resize: vertical;
             min-height: 60px;
+            width: 100%;
+        }
+
+        textarea::placeholder {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
         }
 
         textarea:focus {
@@ -231,7 +307,7 @@
         }
 
         button {
-            background: #4CAF50;
+            background: linear-gradient(145deg, #52b354, #3d8f3f);
             border: none;
             border-radius: 8px;
             padding: 12px 30px;
@@ -239,19 +315,54 @@
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
+            flex-shrink: 0;
             height: 44px;
-            align-self: flex-start;
+            box-shadow: 
+                0 4px 6px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        button:hover::before {
+            left: 100%;
         }
 
         button:hover {
-            background: #45a049;
+            background: linear-gradient(145deg, #5ac45c, #45a049);
             transform: translateY(-1px);
+            box-shadow: 
+                0 6px 8px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
         }
 
         button:active {
             transform: translateY(0);
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.3),
+                inset 0 1px 2px rgba(0, 0, 0, 0.3);
         }
 
+        button:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Checkbox for filtering temp lines */
         .checkbox-container {
             display: flex;
             align-items: center;
@@ -268,6 +379,7 @@
 
         /* ========================================
            VERSION LABEL
+           Shows which HTML version is loaded
            ======================================== */
         .version-label {
             position: fixed;
@@ -283,30 +395,16 @@
            ======================================== */
         .dropdown {
             position: relative;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .dropdown-toggle {
-            font-size: 0.85rem;
-            color: #888;
-            transition: color 0.2s ease;
-            user-select: none;
-        }
-        
-        .dropdown-toggle:hover {
-            color: #ccc;
         }
         
         .dropdown-menu {
             position: absolute;
             top: 28px;
-            right: 0;
+            left: 0;
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 8px;
-            min-width: 150px;
+            min-width: 180px;
             display: none;
             flex-direction: column;
             z-index: 1000;
@@ -317,6 +415,8 @@
             color: #ddd;
             font-size: 0.9rem;
             border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: background 0.2s ease;
         }
         
         .dropdown-item:last-child {
@@ -329,25 +429,54 @@
 
         /* ========================================
            RESPONSIVE DESIGN
+           Stack layout on mobile devices
            ======================================== */
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             .bottom-section {
                 grid-template-columns: 1fr;
             }
+        }
 
+        @media (max-width: 768px) {
             .temp-cards {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .graph-container {
+                height: 300px;
+            }
+
+            .log-box {
+                height: 200px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .temp-cards {
+                grid-template-columns: 1fr;
+            }
+
+            body {
+                padding: 10px;
+            }
+
+            .notification {
+                right: 10px;
+                left: 10px;
+                max-width: none;
             }
         }
     </style>
 </head>
 
 <body>
-    <div class="container">
+    <main class="container">
         <!-- ========================================
              TEMPERATURE CARDS
+             Display current readings for all sensors
              ======================================== -->
-        <div class="temp-cards">
+        <section class="temp-cards">
+            <!-- Nozzle Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
@@ -358,6 +487,7 @@
                 <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
             </div>
 
+            <!-- Bed Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
@@ -368,6 +498,7 @@
                 <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
             </div>
 
+            <!-- Chamber Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
@@ -378,6 +509,7 @@
                 <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
             </div>
 
+            <!-- Heatbreak Temperature -->
             <div class="temp-card">
                 <div class="temp-label">
                     <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
@@ -387,33 +519,38 @@
                 </div>
                 <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
             </div>
-        </div>
+        </section>
 
         <!-- ========================================
              TEMPERATURE GRAPH
+             Real-time chart with all temps overlaid
              ======================================== -->
-        <div class="graph-container">
+        <section class="graph-container">
             <canvas id="tempChart"></canvas>
-        </div>
+        </section>
 
         <!-- ========================================
              STATUS BANNERS
+             Print progress and heater power levels
              ======================================== -->
+        <!-- Print Progress Banner -->
         <div class="status-banner">
             <div class="status-icon"></div>
             <span id="status-message">Connecting to printer...</span>
         </div>
 
+        <!-- Heater Power Banner -->
         <div class="status-banner">
             <div class="status-icon" style="background: transparent; animation: none;"></div>
-            <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
+            <span id="power-message">Power - Nozzle Heater: 0% | Bed Heater: 0% | Heatbreak Fan: 0%</span>
         </div>
 
         <!-- ========================================
              CONSOLE AND COMMAND SECTIONS
              ======================================== -->
         <div class="bottom-section">
-            <div class="log-container">
+            <!-- Console Log Viewer -->
+            <section class="log-container">
                 <div class="section-title">
                     <span>Console Log</span>
                     <div class="checkbox-container">
@@ -425,44 +562,52 @@
                 <div class="command-input-group">
                     <button onclick="PrusaMonitor.ui.clearLog()">Clear</button>
                 </div>
-            </div>
+            </section>
 
-            <div class="command-container">
+            <!-- Command Input -->
+            <section class="command-container">
                 <div class="section-title">
-                    <span>Send Command</span>
                     <div class="dropdown">
-                        <div class="dropdown-toggle">⋮</div>
-                        <div class="dropdown-menu"></div>
+                        <span class="section-title-clickable">Send Command</span>
+                        <div class="dropdown-menu">
+                            <!-- Items will be inserted here dynamically from gcodeMap -->
+                        </div>
                     </div>
                 </div>              
                 <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
-                    <textarea id="command-input" 
-                              placeholder="Enter G-code commands (one per line)..." 
-                              rows="3"></textarea>
+                    <div class="command-input-wrapper">
+                        <textarea id="command-input" 
+                                  placeholder="Enter G-code commands (one per line)..." 
+                                  rows="3"></textarea>
+                    </div>
                     <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
                 </div>
-            </div>
+            </section>
         </div>
-    </div>
+    </main>
 
+    <!-- Chart.js library for temperature graphing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     
     <script>
         // ========================================
-        // CONFIGURATION
+        // CONFIGURATION CONSTANTS
         // ========================================
         const CONFIG = {
-            TEMP_TOLERANCE: 0.05,
+            TEMP_TOLERANCE: 0.05,  // 5% tolerance for "at temp"
             MAX_POWER: 255,
-            HEATBREAK_WARNING_THRESHOLD: 0.95,
+            HEATBREAK_WARNING_THRESHOLD: 0.95,  // 95% of target
             UPDATE_INTERVALS: {
-                STATUS: 1000,
-                LOG: 500
+                STATUS: 1000,   // Check connection every 1 second
+                TEMPS: 1000,    // Update temps every 1 second
+                LOG: 500        // Update log every 500ms
             },
-            SCROLL_THRESHOLD: 50
+            SCROLL_THRESHOLD: 50,  // Pixels from bottom to consider "at bottom"
+            NOTIFICATION_DURATION: 3000  // 3 seconds
         };
 
+        // Map dropdown text to actual G-code commands
         const GCODE_MAP = {
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
@@ -471,9 +616,12 @@
         };
 
         // ========================================
-        // PRUSA MONITOR V2.0 - CLIENT-SIDE PARSING
+        // PRUSA MONITOR NAMESPACE
         // ========================================
         const PrusaMonitor = {
+            // ========================================
+            // STATE MANAGEMENT
+            // ========================================
             state: {
                 tempHistory: { 
                     timestamps: [], 
@@ -482,234 +630,135 @@
                     chamber: [], 
                     heatbreak: [] 
                 },
-                temps: {
-                    nozzle: { cur: 0, target: 0 },
-                    bed: { cur: 0, target: 0 },
-                    chamber: { cur: 0, target: 0 },
-                    heatbreak: { cur: 0, target: 0 }
-                },
-                power: {
-                    nozzle: 0,
-                    bed: 0,
-                    heatbreak: 0
-                },
-                progress: {
-                    percent: 0,
-                    time: 0,
-                    change: null,
-                    zHeight: null
-                },
                 commandHistory: [],
                 commandHistoryIndex: -1,
                 userScrolling: false,
                 lastLogLen: 0,
                 chart: null,
-                lastGraphUpdate: 0
-            },
-
-            // ========================================
-            // PAGE TITLE MANAGEMENT
-            // ========================================
-            pageTitle: {
-                /**
-                 * Update browser tab title with print progress
-                 * Shows progress percentage when printing, default title otherwise
-                 */
-                update: function() {
-                    const progress = PrusaMonitor.state.progress.percent;
-                    
-                    if (progress > 0 && progress < 100) {
-                        // Printing in progress - show percentage in title
-                        document.title = `${progress}% - Prusa Monitor`;
-                    } else if (progress === 100) {
-                        // Print complete
-                        document.title = '✓ Complete - Prusa Monitor';
-                    } else {
-                        // Idle or no print
-                        document.title = 'Prusa Core One Monitor';
-                    }
-                }
-            },
-
-            // ========================================
-            // PARSING - ALL CLIENT-SIDE NOW!
-            // ========================================
-            parser: {
-                parseLine: function(line) {
-                    const trimmed = line.trim();
-                    if (!trimmed) return;
-
-                    // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
-                    const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
-                    if (tempMatch) {
-                        PrusaMonitor.state.temps.nozzle.cur = parseFloat(tempMatch[1]);
-                        PrusaMonitor.state.temps.nozzle.target = parseFloat(tempMatch[2]);
-                        PrusaMonitor.state.temps.bed.cur = parseFloat(tempMatch[3]);
-                        PrusaMonitor.state.temps.bed.target = parseFloat(tempMatch[4]);
-                    }
-
-                    const heatbreakMatch = trimmed.match(/X:([\d.]+)\/([\d.]+)/);
-                    if (heatbreakMatch) {
-                        PrusaMonitor.state.temps.heatbreak.cur = parseFloat(heatbreakMatch[1]);
-                        PrusaMonitor.state.temps.heatbreak.target = parseFloat(heatbreakMatch[2]);
-                    }
-
-                    const chamberMatch = trimmed.match(/C@:([\d.]+)/);
-                    if (chamberMatch) {
-                        PrusaMonitor.state.temps.chamber.cur = parseFloat(chamberMatch[1]);
-                    }
-
-                    const nozzlePowerMatch = trimmed.match(/@:([\d.]+)/);
-                    if (nozzlePowerMatch) {
-                        PrusaMonitor.state.power.nozzle = parseFloat(nozzlePowerMatch[1]);
-                    }
-
-                    const bedPowerMatch = trimmed.match(/B@:([\d.]+)/);
-                    if (bedPowerMatch) {
-                        PrusaMonitor.state.power.bed = parseFloat(bedPowerMatch[1]);
-                    }
-
-                    const heatbreakPowerMatch = trimmed.match(/HBR@:([\d.]+)/);
-                    if (heatbreakPowerMatch) {
-                        PrusaMonitor.state.power.heatbreak = parseFloat(heatbreakPowerMatch[1]);
-                    }
-
-                    // Progress: "M73 Progress: 9%;"
-                    const progressMatch = trimmed.match(/Progress:\s*(\d+)%/);
-                    if (progressMatch) {
-                        PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
-                    }
-
-                    // Check for print completion
-                    if (trimmed.includes('Done printing file')) {
-                        PrusaMonitor.state.progress.percent = 100;
-                        PrusaMonitor.state.progress.time = 0;
-                        PrusaMonitor.state.progress.change = null;
-                    }
-
-                    // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
-                    const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
-                    if (timeMatch) {
-                        const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
-                        const mins = parseInt(timeMatch[2]);
-                        PrusaMonitor.state.progress.time = (hours * 60) + mins;
-                    }
-
-                    // Change due: "Change: 16m;" or "Change: 1h 5m;"
-                    // Note: If no "Change:" line appears, value stays as previously set (could be null or a number)
-                    const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
-                    if (changeMatch) {
-                        const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
-                        const mins = parseInt(changeMatch[2]);
-                        PrusaMonitor.state.progress.change = (hours * 60) + mins;
-                    }
-
-                    // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
-                    if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
-                        const beforeCount = trimmed.split('Count')[0];
-                        const zMatch = beforeCount.match(/Z:([\d.]+)/);
-                        if (zMatch && zMatch[1]) {
-                            PrusaMonitor.state.progress.zHeight = parseFloat(zMatch[1]).toFixed(2);
-                        }
-                    }
-                }
+                connectionErrorShown: false,
+                statusErrorShown: false,
+                activeNotification: null,
+                currentProgress: 0,
+                currentChange: null,
+                titleAlternate: false,
+                currentZHeight: null
             },
 
             // ========================================
             // UI FUNCTIONS
             // ========================================
             ui: {
-                updateDisplay: function() {
-                    document.querySelectorAll('.loading').forEach(el => el.classList.remove('loading'));
-
-                    // Update page title with progress
-                    PrusaMonitor.pageTitle.update();
-
-                    document.getElementById('nozzle-temp').textContent = Math.round(PrusaMonitor.state.temps.nozzle.cur);
-                    document.getElementById('nozzle-target').textContent = Math.round(PrusaMonitor.state.temps.nozzle.target);
-                    PrusaMonitor.ui.updateTempColor('nozzle-target', PrusaMonitor.state.temps.nozzle.cur, PrusaMonitor.state.temps.nozzle.target);
-
-                    document.getElementById('bed-temp').textContent = Math.round(PrusaMonitor.state.temps.bed.cur);
-                    document.getElementById('bed-target').textContent = Math.round(PrusaMonitor.state.temps.bed.target);
-                    PrusaMonitor.ui.updateTempColor('bed-target', PrusaMonitor.state.temps.bed.cur, PrusaMonitor.state.temps.bed.target);
-
-                    document.getElementById('chamber-temp').textContent = Math.round(PrusaMonitor.state.temps.chamber.cur);
-
-                    document.getElementById('heatbreak-temp').textContent = Math.round(PrusaMonitor.state.temps.heatbreak.cur);
-                    document.getElementById('heatbreak-target').textContent = Math.round(PrusaMonitor.state.temps.heatbreak.target);
-                    PrusaMonitor.ui.updateTempColor('heatbreak-target', PrusaMonitor.state.temps.heatbreak.cur, PrusaMonitor.state.temps.heatbreak.target);
-
-                    let statusText = 'Progress: ' + PrusaMonitor.state.progress.percent + '% | Time Remaining: ';
-                    if (PrusaMonitor.state.progress.time >= 60) {
-                        const hours = Math.floor(PrusaMonitor.state.progress.time / 60);
-                        const mins = PrusaMonitor.state.progress.time % 60;
-                        statusText += hours + ' hr ' + mins + ' min';
-                    } else {
-                        statusText += PrusaMonitor.state.progress.time + ' min';
-                    }
-
-                    if (PrusaMonitor.state.progress.change !== null) {
-                        if (PrusaMonitor.state.progress.change >= 60) {
-                            const hours = Math.floor(PrusaMonitor.state.progress.change / 60);
-                            const mins = PrusaMonitor.state.progress.change % 60;
-                            statusText += ' | Change in: ' + hours + ' hr ' + mins + ' min';
+                /**
+                 * Update page title based on print progress
+                 */
+                updatePageTitle: function(progress, change) {
+                    if (progress > 0 && progress < 100) {
+                        // Print is in progress
+                        if (change !== 'NA' && change !== null && change !== undefined) {
+                            // Alternate between progress and change
+                            if (PrusaMonitor.state.titleAlternate) {
+                                // Format change time
+                                let changeText = '';
+                                if (change >= 60) {
+                                    const hours = Math.floor(change / 60);
+                                    const mins = change % 60;
+                                    changeText = hours + 'h ' + mins + 'm';
+                                } else {
+                                    changeText = change + ' min';
+                                }
+                                document.title = `Change in ${changeText}`;
+                            } else {
+                                document.title = `Progress ${progress}%`;
+                            }
+                            PrusaMonitor.state.titleAlternate = !PrusaMonitor.state.titleAlternate;
                         } else {
-                            statusText += ' | Change in: ' + PrusaMonitor.state.progress.change + ' min';
+                            // No change due, just show progress
+                            document.title = `Progress ${progress}%`;
                         }
+                    } else {
+                        // Not printing
+                        document.title = 'Prusa CORE One Monitor';
+                        PrusaMonitor.state.titleAlternate = false;
                     }
-
-                    if (PrusaMonitor.state.progress.zHeight !== null) {
-                        statusText += ' | Z: ' + PrusaMonitor.state.progress.zHeight + ' mm';
-                    }
-
-                    document.getElementById('status-message').textContent = statusText;
-
-                    const powerText = 'Powers - Nozzle: ' + Math.round(PrusaMonitor.state.power.nozzle * 100 / CONFIG.MAX_POWER) + 
-                                    '% | Bed: ' + Math.round(PrusaMonitor.state.power.bed * 100 / CONFIG.MAX_POWER) + 
-                                    '% | Heatbreak: ' + Math.round(PrusaMonitor.state.power.heatbreak * 100 / CONFIG.MAX_POWER) + '%';
-                    document.getElementById('power-message').textContent = powerText;
                 },
 
-                updateGraph: function() {
-                    const now = Date.now();
-                    if (now - PrusaMonitor.state.lastGraphUpdate < 1000) return;
-                    PrusaMonitor.state.lastGraphUpdate = now;
+                /**
+                 * Show notification to user
+                 * If persistent=true, notification stays until manually dismissed
+                 */
+                showNotification: function(message, type = 'info', persistent = false) {
+                    // If there's an active persistent notification with the same message, don't create another
+                    if (PrusaMonitor.state.activeNotification && 
+                        PrusaMonitor.state.activeNotification.textContent === message) {
+                        return;
+                    }
 
-                    const timeLabel = new Date().toLocaleTimeString();
-                    PrusaMonitor.state.tempHistory.timestamps.push(timeLabel);
-                    PrusaMonitor.state.tempHistory.nozzle.push(PrusaMonitor.state.temps.nozzle.cur);
-                    PrusaMonitor.state.tempHistory.bed.push(PrusaMonitor.state.temps.bed.cur);
-                    PrusaMonitor.state.tempHistory.chamber.push(PrusaMonitor.state.temps.chamber.cur);
-                    PrusaMonitor.state.tempHistory.heatbreak.push(PrusaMonitor.state.temps.heatbreak.cur);
+                    // Remove any existing active notification
+                    if (PrusaMonitor.state.activeNotification) {
+                        PrusaMonitor.state.activeNotification.remove();
+                        PrusaMonitor.state.activeNotification = null;
+                    }
 
-                    // No limit - keeps all history for infinite scrolling graph
-
-                    const chart = PrusaMonitor.state.chart;
-                    chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
-                    chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
-                    chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
-                    chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
-                    chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
-                    chart.update('none');
+                    const notification = document.createElement('div');
+                    notification.className = `notification notification-${type}`;
+                    notification.textContent = message;
+                    document.body.appendChild(notification);
+                    
+                    if (persistent) {
+                        // Store reference to persistent notification
+                        PrusaMonitor.state.activeNotification = notification;
+                    } else {
+                        // Auto-dismiss non-persistent notifications
+                        setTimeout(() => {
+                            notification.style.opacity = '0';
+                            setTimeout(() => notification.remove(), 300);
+                        }, CONFIG.NOTIFICATION_DURATION);
+                    }
                 },
 
+                /**
+                 * Dismiss active persistent notification
+                 */
+                dismissNotification: function() {
+                    if (PrusaMonitor.state.activeNotification) {
+                        PrusaMonitor.state.activeNotification.style.opacity = '0';
+                        setTimeout(() => {
+                            if (PrusaMonitor.state.activeNotification) {
+                                PrusaMonitor.state.activeNotification.remove();
+                                PrusaMonitor.state.activeNotification = null;
+                            }
+                        }, 300);
+                    }
+                },
+
+                /**
+                 * Update Temperature Color Coding
+                 * Updates target temp color based on heating state
+                 */
                 updateTempColor: function(elementId, current, target) {
                     const element = document.getElementById(elementId).parentElement;
 
+                    // Special handling for heatbreak - we DON'T want to reach target
+                    // Target is a maximum threshold, not a goal
                     if (elementId === 'heatbreak-target') {
+                        // Reset first
                         element.classList.remove('heating', 'at-temp');
                         element.style.color = '';
                         
                         if (target > 0) {
                             if (current >= target) {
+                                // Exceeded target - RED (danger)
                                 element.classList.add('heating');
                             } else if (current >= target * CONFIG.HEATBREAK_WARNING_THRESHOLD) {
+                                // Within 5% of target - AMBER (warning)
                                 element.style.color = '#FFA500';
                             }
                         }
                         return;
                     }
 
+                    // Normal handling for nozzle and bed
+                    // Green when at target, red when heating
                     if (target > 0) {
                         const diff = Math.abs(current - target);
                         const tolerance = target * CONFIG.TEMP_TOLERANCE;
@@ -722,28 +771,69 @@
                             element.classList.add('heating');
                         }
                     } else {
+                        // No target set - remove all color coding
                         element.classList.remove('heating', 'at-temp');
                     }
                 },
 
+                /**
+                 * Clear Console Log
+                 * Clears the log display and resets the server-side buffer
+                 */
                 clearLog: function() {
                     document.getElementById('log-box').innerHTML = '';
                     PrusaMonitor.state.lastLogLen = 0;
                     PrusaMonitor.state.userScrolling = false;
-                    fetch('/clear').catch(err => console.error('Failed to clear log:', err));
+                    
+                    fetch('/clear')
+                        .catch(err => {
+                            console.error('Failed to clear log:', err);
+                            PrusaMonitor.ui.showNotification('Failed to clear log on server', 'error');
+                        });
                 },
 
+                /**
+                 * Validate G-code command format
+                 */
+                isValidGcode: function(cmd) {
+                    const trimmed = cmd.trim().toUpperCase();
+                    // Basic G-code validation (starts with G, M, T, or common commands)
+                    return /^[GMT]\d+/.test(trimmed) || 
+                           trimmed.startsWith('N') || // Line numbers
+                           trimmed === '' || // Empty lines are OK
+                           trimmed.startsWith(';'); // Comments
+                },
+
+                /**
+                 * Send G-code Command(s)
+                 * Sends one or more G-code commands to the printer
+                 */
                 sendCommand: function() {
                     const input = document.getElementById('command-input');
                     const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
 
-                    if (commands.length === 0) return;
+                    if (commands.length === 0) {
+                        PrusaMonitor.ui.showNotification('Please enter a command', 'warning');
+                        return;
+                    }
 
+                    // Validate commands
+                    const invalidCommands = commands.filter(cmd => !PrusaMonitor.ui.isValidGcode(cmd));
+                    if (invalidCommands.length > 0) {
+                        const proceed = confirm(
+                            `These commands don't look like standard G-code:\n${invalidCommands.join('\n')}\n\nSend anyway?`
+                        );
+                        if (!proceed) return;
+                    }
+
+                    // Send each command
                     commands.forEach(command => {
                         const cmd = command.trim();
                         if (cmd) {
+                            // Add to command history
                             PrusaMonitor.state.commandHistory.push(cmd);
                             
+                            // Display in command history box
                             const history = document.getElementById('command-history');
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
@@ -753,8 +843,17 @@
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
 
+                            // Send to ESP32
                             fetch('/send?cmd=' + encodeURIComponent(cmd))
-                                .catch(err => console.error('Failed to send command:', err));
+                                .then(resp => {
+                                    if (!resp.ok) {
+                                        throw new Error(`HTTP ${resp.status}`);
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error('Failed to send command:', err);
+                                    PrusaMonitor.ui.showNotification(`Failed to send: ${cmd}`, 'error');
+                                });
                         }
                     });
 
@@ -762,13 +861,18 @@
                     input.value = '';
                 },
 
+                /**
+                 * Send commands from dropdown
+                 */
                 sendPresetCommands: function(commands) {
                     const history = document.getElementById('command-history');
 
                     commands.forEach(cmd => {
                         if (cmd.trim()) {
+                            // Add to command history
                             PrusaMonitor.state.commandHistory.push(cmd);
 
+                            // Display in command history box
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
                             entry.className = 'log-entry';
@@ -777,10 +881,29 @@
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
 
+                            // Send to ESP32
                             fetch('/send?cmd=' + encodeURIComponent(cmd))
-                                .catch(err => console.error('Failed to send command:', err));
+                                .then(resp => {
+                                    if (!resp.ok) {
+                                        throw new Error(`HTTP ${resp.status}`);
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error('Failed to send command:', err);
+                                    PrusaMonitor.ui.showNotification(`Failed to send: ${cmd}`, 'error');
+                                });
                         }
                     });
+                },
+
+                /**
+                 * Toggle dropdown menu
+                 */
+                toggleDropdown: function() {
+                    const menu = document.querySelector('.dropdown-menu');
+                    const isOpen = menu.style.display === 'flex';
+                    
+                    menu.style.display = isOpen ? 'none' : 'flex';
                 }
             },
 
@@ -788,12 +911,127 @@
             // API FUNCTIONS
             // ========================================
             api: {
+                /**
+                 * Update Temperature Data
+                 * Fetches temps from /temps endpoint and updates display + graph
+                 */
+                updateTemps: async function() {
+                    try {
+                        const resp = await fetch('/temps');
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                        const data = await resp.json();
+
+                        // Connection successful - dismiss any error notification and reset flag
+                        if (PrusaMonitor.state.connectionErrorShown) {
+                            PrusaMonitor.ui.dismissNotification();
+                            PrusaMonitor.state.connectionErrorShown = false;
+                        }
+
+                        // Remove loading class on first successful load
+                        document.querySelectorAll('.loading').forEach(el => el.classList.remove('loading'));
+
+                        // Update nozzle display
+                        document.getElementById('nozzle-temp').textContent = data.nozzle.cur;
+                        document.getElementById('nozzle-target').textContent = data.nozzle.target;
+                        PrusaMonitor.ui.updateTempColor('nozzle-target', data.nozzle.cur, data.nozzle.target);
+
+                        // Update bed display
+                        document.getElementById('bed-temp').textContent = data.bed.cur;
+                        document.getElementById('bed-target').textContent = data.bed.target;
+                        PrusaMonitor.ui.updateTempColor('bed-target', data.bed.cur, data.bed.target);
+
+                        // Update chamber display (no target)
+                        document.getElementById('chamber-temp').textContent = data.chamber.cur;
+
+                        // Update heatbreak display
+                        document.getElementById('heatbreak-temp').textContent = data.heatbreak.cur;
+                        document.getElementById('heatbreak-target').textContent = data.heatbreak.target;
+                        PrusaMonitor.ui.updateTempColor('heatbreak-target', data.heatbreak.cur, data.heatbreak.target);
+
+                        // Add new data point to graph
+                        const timeLabel = new Date().toLocaleTimeString();
+                        PrusaMonitor.state.tempHistory.timestamps.push(timeLabel);
+                        PrusaMonitor.state.tempHistory.nozzle.push(data.nozzle.cur);
+                        PrusaMonitor.state.tempHistory.bed.push(data.bed.cur);
+                        PrusaMonitor.state.tempHistory.chamber.push(data.chamber.cur);
+                        PrusaMonitor.state.tempHistory.heatbreak.push(data.heatbreak.cur);
+
+                        // Update chart with new data
+                        const chart = PrusaMonitor.state.chart;
+                        chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
+                        chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
+                        chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
+                        chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
+                        chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
+                        chart.update('none');
+
+                        // Store current progress and change
+                        PrusaMonitor.state.currentProgress = data.progress;
+                        PrusaMonitor.state.currentChange = data.change;
+
+                        // Update page title based on progress and change
+                        PrusaMonitor.ui.updatePageTitle(data.progress, data.change);
+
+                        // Update progress status
+                        let statusText = 'Progress: ' + data.progress + '% | Time Remaining: ';
+
+                        // Format time remaining (hours + minutes if >= 60 mins)
+                        if (data.time >= 60) {
+                            const hours = Math.floor(data.time / 60);
+                            const mins = data.time % 60;
+                            statusText += hours + ' hr ' + mins + ' min';
+                        } else {
+                            statusText += data.time + ' min';
+                        }
+
+                        // Add filament change time if applicable
+                        if (data.change !== 'NA' && data.change !== null && data.change !== undefined) {
+                            if (data.change >= 60) {
+                                const hours = Math.floor(data.change / 60);
+                                const mins = data.change % 60;
+                                statusText += ' | Change in: ' + hours + ' hr ' + mins + ' min';
+                            } else {
+                                statusText += ' | Change in: ' + data.change + ' min';
+                            }
+                        }
+                        document.getElementById('status-message').textContent = statusText;
+
+                        // Add Z height to status if available
+                        if (PrusaMonitor.state.currentZHeight !== null) {
+                            document.getElementById('status-message').textContent += ' | Z: ' + PrusaMonitor.state.currentZHeight + ' mm';
+                        }
+
+                        // Update heater power display
+                        const powerText = 'Power - Nozzle Heater: ' + (data.nozzle_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
+                                        '% | Bed Heater: ' + (data.bed_power * 100 / CONFIG.MAX_POWER).toFixed(0) + 
+                                        '% | Heatbreak Fan: ' + (data.heatbreak_power * 100 / CONFIG.MAX_POWER).toFixed(0) + '%';
+                        document.getElementById('power-message').textContent = powerText;
+                    } catch (e) {
+                        console.error('Failed to update temps:', e);
+                        // Only show error notification once, and make it persistent
+                        if (!PrusaMonitor.state.connectionErrorShown) {
+                            PrusaMonitor.ui.showNotification('Connection error: Unable to fetch temperatures', 'error', true);
+                            PrusaMonitor.state.connectionErrorShown = true;
+                        }
+                    }
+                },
+
+                /**
+                 * Update Connection Status
+                 * Checks if printer is connected and updates status indicator
+                 */
                 updateStatus: async function() {
                     try {
                         const resp = await fetch('/status');
                         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                         const text = await resp.text();
                         const connected = text.trim() === '1';
+
+                        // Connection successful - dismiss any error notification and reset flag
+                        if (PrusaMonitor.state.statusErrorShown) {
+                            PrusaMonitor.ui.dismissNotification();
+                            PrusaMonitor.state.statusErrorShown = false;
+                        }
 
                         const statusIcon = document.querySelector('.status-icon');
                         const statusBanner = document.querySelector('.status-banner');
@@ -808,9 +1046,18 @@
                         }
                     } catch (e) {
                         console.error('Failed to update status:', e);
+                        // Only show error notification once, and make it persistent
+                        if (!PrusaMonitor.state.statusErrorShown) {
+                            PrusaMonitor.ui.showNotification('Connection error: Unable to check printer status', 'error', true);
+                            PrusaMonitor.state.statusErrorShown = true;
+                        }
                     }
                 },
 
+                /**
+                 * Update Console Log
+                 * Fetches new log data and appends to display
+                 */
                 updateLog: async function() {
                     try {
                         const resp = await fetch('/log');
@@ -823,11 +1070,22 @@
                             const hideTemps = document.getElementById('hide-temps').checked;
                             const wasAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + CONFIG.SCROLL_THRESHOLD;
 
+                            // Process each line
                             newText.split(/\r?\n/).forEach(line => {
                                 const trimmed = line.trim();
                                 if (trimmed) {
-                                    PrusaMonitor.parser.parseLine(trimmed);
+                                    // Check for Z height in position reports
+                                    // Pattern: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
+                                    // We want the Z value BEFORE "Count"
+                                    if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
+                                        const beforeCount = trimmed.split('Count')[0];
+                                        const zMatch = beforeCount.match(/Z:([\d.]+)/);
+                                        if (zMatch && zMatch[1]) {
+                                            PrusaMonitor.state.currentZHeight = parseFloat(zMatch[1]).toFixed(2);
+                                        }
+                                    }
 
+                                    // Check if this is a temperature line (and if we should hide it)
                                     const isTemp = trimmed.startsWith('T:') && 
                                                  trimmed.includes(' B:') && 
                                                  trimmed.includes(' @:') && 
@@ -844,16 +1102,15 @@
                                 }
                             });
 
+                            // Auto-scroll to bottom only if user was already at bottom
                             if (wasAtBottom && !PrusaMonitor.state.userScrolling) {
                                 logBox.scrollTop = logBox.scrollHeight;
                             }
-
-                            PrusaMonitor.ui.updateDisplay();
-                            PrusaMonitor.ui.updateGraph();
                         }
                         PrusaMonitor.state.lastLogLen = text.length;
                     } catch (e) {
                         console.error('Failed to update log:', e);
+                        // Don't show notification for log errors as they happen frequently
                     }
                 }
             },
@@ -862,8 +1119,7 @@
             // INITIALIZATION
             // ========================================
             init: function() {
-                console.log('Prusa Monitor V2.0 - Client-side parsing enabled');
-                
+                // Initialize Chart
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 this.state.chart = new Chart(ctx, {
                     type: 'line',
@@ -969,17 +1225,28 @@
                     }
                 });
 
+                // Setup event listeners
                 this.setupEventListeners();
+
+                // Setup dropdown menu
                 this.setupDropdown();
 
+                // Start polling
                 setInterval(() => this.api.updateStatus(), CONFIG.UPDATE_INTERVALS.STATUS);
+                setInterval(() => this.api.updateTemps(), CONFIG.UPDATE_INTERVALS.TEMPS);
                 setInterval(() => this.api.updateLog(), CONFIG.UPDATE_INTERVALS.LOG);
 
+                // Initial updates
                 this.api.updateStatus();
+                this.api.updateTemps();
                 this.api.updateLog();
             },
 
+            // ========================================
+            // EVENT LISTENER SETUP
+            // ========================================
             setupEventListeners: function() {
+                // Track user scrolling in log box
                 const logBox = document.getElementById('log-box');
                 logBox.addEventListener('scroll', () => {
                     const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + CONFIG.SCROLL_THRESHOLD;
@@ -989,12 +1256,15 @@
                     PrusaMonitor.state.userScrolling = true;
                 });
 
+                // Command input keyboard handling
                 const commandInput = document.getElementById('command-input');
                 commandInput.addEventListener('keydown', e => {
+                    // Enter (without Shift) - Send command
                     if (e.key === 'Enter' && !e.shiftKey) {
                         PrusaMonitor.ui.sendCommand();
                         e.preventDefault();
                     } 
+                    // Up Arrow - Previous command in history
                     else if (e.key === 'ArrowUp') {
                         e.preventDefault();
                         if (PrusaMonitor.state.commandHistory.length > 0) {
@@ -1006,6 +1276,7 @@
                             commandInput.value = PrusaMonitor.state.commandHistory[PrusaMonitor.state.commandHistoryIndex];
                         }
                     } 
+                    // Down Arrow - Next command in history
                     else if (e.key === 'ArrowDown') {
                         e.preventDefault();
                         if (PrusaMonitor.state.commandHistoryIndex !== -1) {
@@ -1020,28 +1291,27 @@
                     }
                 });
 
-                document.addEventListener('click', (e) => {
-                    const menu = document.querySelector('.dropdown-menu');
-                    const toggle = document.querySelector('.dropdown-toggle');
-                    
-                    if (toggle.contains(e.target)) {
-                        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-                    } else if (!menu.contains(e.target)) {
-                        menu.style.display = 'none';
-                    }
+                // Dropdown click handling
+                const dropdownToggle = document.querySelector('.section-title-clickable');
+                dropdownToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    PrusaMonitor.ui.toggleDropdown();
                 });
 
-                // Auto-refresh progress when returning to tab
-                document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) {
-                        // Tab became visible - request fresh progress update
-                        console.log('Tab visible - requesting progress update (M73)');
-                        fetch('/send?cmd=' + encodeURIComponent('M73'))
-                            .catch(err => console.error('Failed to send M73:', err));
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    const menu = document.querySelector('.dropdown-menu');
+                    const toggle = document.querySelector('.section-title-clickable');
+                    
+                    if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+                        menu.style.display = 'none';
                     }
                 });
             },
 
+            // ========================================
+            // DROPDOWN SETUP
+            // ========================================
             setupDropdown: function() {
                 const dropdownMenu = document.querySelector('.dropdown-menu');
                 dropdownMenu.innerHTML = '';
@@ -1051,6 +1321,7 @@
                     item.className = 'dropdown-item';
                     item.textContent = label;
                     
+                    // Click handler
                     item.addEventListener('click', () => {
                         const commands = GCODE_MAP[label];
                         if (commands) {
@@ -1064,12 +1335,16 @@
             }
         };
 
+        // ========================================
+        // START APPLICATION
+        // ========================================
         document.addEventListener('DOMContentLoaded', () => {
             PrusaMonitor.init();
         });
     </script>
 
-    <div class="version-label">v2.0.2-embedded</div>
+    <!-- Version Label - Easy to find and edit at bottom of file -->
+    <div class="version-label">v0.1.0-embedded</div>
 </body>
 
 </html>
