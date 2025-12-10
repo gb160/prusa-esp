@@ -353,9 +353,9 @@
                     <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
                 </div>
                 <div class="temp-value">
-                    <span id="nozzle-temp" class="loading">--</span>Ã‚Â°C
+                    <span id="nozzle-temp" class="loading">--</span>°C
                 </div>
-                <div class="temp-target">Target: <span id="nozzle-target">--</span>Ã‚Â°C</div>
+                <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
             </div>
 
             <div class="temp-card">
@@ -363,9 +363,9 @@
                     <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
                 </div>
                 <div class="temp-value">
-                    <span id="bed-temp" class="loading">--</span>Ã‚Â°C
+                    <span id="bed-temp" class="loading">--</span>°C
                 </div>
-                <div class="temp-target">Target: <span id="bed-target">--</span>Ã‚Â°C</div>
+                <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
             </div>
 
             <div class="temp-card">
@@ -373,9 +373,9 @@
                     <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
                 </div>
                 <div class="temp-value">
-                    <span id="chamber-temp" class="loading">--</span>Ã‚Â°C
+                    <span id="chamber-temp" class="loading">--</span>°C
                 </div>
-                <div class="temp-target">Target: <span id="chamber-target">--</span>Ã‚Â°C</div>
+                <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
             </div>
 
             <div class="temp-card">
@@ -383,9 +383,9 @@
                     <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
                 </div>
                 <div class="temp-value">
-                    <span id="heatbreak-temp" class="loading">--</span>Ã‚Â°C
+                    <span id="heatbreak-temp" class="loading">--</span>°C
                 </div>
-                <div class="temp-target">Target: <span id="heatbreak-target">--</span>Ã‚Â°C</div>
+                <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
             </div>
         </div>
 
@@ -431,7 +431,7 @@
                 <div class="section-title">
                     <span>Send Command</span>
                     <div class="dropdown">
-                        <div class="dropdown-toggle">Ã¢â€¹Â®</div>
+                        <div class="dropdown-toggle">⋮</div>
                         <div class="dropdown-menu"></div>
                     </div>
                 </div>              
@@ -523,7 +523,7 @@
                         document.title = `${progress}% - Prusa Monitor`;
                     } else if (progress === 100) {
                         // Print complete
-                        document.title = 'Ã¢Å“â€œ Complete - Prusa Monitor';
+                        document.title = '✓ Complete - Prusa Monitor';
                     } else {
                         // Idle or no print
                         document.title = 'Prusa Core One Monitor';
@@ -959,7 +959,7 @@
                                 ticks: {
                                     color: '#666',
                                     callback: function (value) {
-                                        return value + 'Ã‚Â°C';
+                                        return value + '°C';
                                     }
                                 },
                                 suggestedMin: 0,
