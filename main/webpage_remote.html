@@ -467,7 +467,13 @@
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
-            'Unload Filament': ['M702']
+            'Unload Filament': ['M702'],
+            'Chamber Fans 20%': ['M106 S51 P3'],
+            'Chamber Fans 40%': ['M106 S102 P3'],
+            'Chamber Fans 60%': ['M106 S153 P3'],
+            'Chamber Fans 80%': ['M106 S204 P3'],
+            'Chamber Fans 100%': ['M106 S255 P3']
+
         };
 
         // ========================================
@@ -1069,7 +1075,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.0-remote</div>
+    <div class="version-label">v2.0.1-remote</div>
 </body>
 
 </html>
