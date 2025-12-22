@@ -39,12 +39,16 @@
 // WiFi and networking includes
 #include "esp_wifi.h"
 #include "esp_event.h"
-#include "nvs_flash.h"
+// #include "nvs_flash.h"
 #include "esp_netif.h"
 #include "esp_http_server.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
 #include "mdns.h"
+
+// components
+#include "ble_provisioning.h"
+#include "status_led.h"
 
 // ============================================================================
 // CONFIGURATION
@@ -58,10 +62,6 @@
 #define USB_HOST_TASK_PRIORITY      (20)
 #define USB_TX_TIMEOUT_MS           (1000)
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
-
-// WiFi credentials
-#define WIFI_SSID                   ""
-#define WIFI_PASS                   ""
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)  // Set to 0 to disable GitHub fetching and use only embedded HTML
@@ -116,33 +116,33 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt)
     download_buffer_t *output = (download_buffer_t *)evt->user_data;
     
     switch (evt->event_id) {
-        case HTTP_EVENT_ON_DATA:
-            if (!esp_http_client_is_chunked_response(evt->client)) {
-                if (output->buffer == NULL) {
-                    int content_length = esp_http_client_get_content_length(evt->client);
-                    ESP_LOGI(TAG, "Downloading HTML, size: %d bytes", content_length);
-                    
-                    if (content_length <= 0 || content_length > 500000) {
-                        ESP_LOGE(TAG, "Invalid content length: %d", content_length);
-                        return ESP_FAIL;
-                    }
-                    
-                    output->buffer = (char *)malloc(content_length + 1);
-                    if (output->buffer == NULL) {
-                        ESP_LOGE(TAG, "Failed to allocate memory");
-                        return ESP_FAIL;
-                    }
-                    output->len = 0;
+    case HTTP_EVENT_ON_DATA:
+        if (!esp_http_client_is_chunked_response(evt->client)) {
+            if (output->buffer == NULL) {
+                int content_length = esp_http_client_get_content_length(evt->client);
+                ESP_LOGI(TAG, "Downloading HTML, size: %d bytes", content_length);
+
+                if (content_length <= 0 || content_length > 500000) {
+                    ESP_LOGE(TAG, "Invalid content length: %d", content_length);
+                    return ESP_FAIL;
                 }
-                
-                memcpy(output->buffer + output->len, evt->data, evt->data_len);
-                output->len += evt->data_len;
-                output->buffer[output->len] = '\0';
+
+                output->buffer = (char *)malloc(content_length + 1);
+                if (output->buffer == NULL) {
+                    ESP_LOGE(TAG, "Failed to allocate memory");
+                    return ESP_FAIL;
+                }
+                output->len = 0;
             }
-            break;
-            
-        default:
-            break;
+
+            memcpy(output->buffer + output->len, evt->data, evt->data_len);
+            output->len += evt->data_len;
+            output->buffer[output->len] = '\0';
+        }
+        break;
+
+    default:
+        break;
     }
     return ESP_OK;
 }
@@ -166,7 +166,7 @@ void download_html_from_github(void)
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (client == NULL) {
         snprintf(last_download_error, sizeof(last_download_error), 
-                 "Failed to initialize HTTP client");
+           "Failed to initialize HTTP client");
         return;
     }
     
@@ -185,11 +185,11 @@ void download_html_from_github(void)
             xSemaphoreGive(html_mutex);
             
             snprintf(last_download_error, sizeof(last_download_error), 
-                     "Success! Downloaded %d bytes", download.len);
+               "Success! Downloaded %d bytes", download.len);
             ESP_LOGI(TAG, "HTML cached successfully (%d bytes)", download.len);
         } else {
             snprintf(last_download_error, sizeof(last_download_error), 
-                     "HTTP %d, len=%d", status_code, download.len);
+               "HTTP %d, len=%d", status_code, download.len);
             ESP_LOGE(TAG, "Download failed: HTTP %d", status_code);
             if (download.buffer != NULL) {
                 free(download.buffer);
@@ -197,7 +197,7 @@ void download_html_from_github(void)
         }
     } else {
         snprintf(last_download_error, sizeof(last_download_error), 
-                 "Failed: %s", esp_err_to_name(err));
+           "Failed: %s", esp_err_to_name(err));
         ESP_LOGE(TAG, "Download error: %s", esp_err_to_name(err));
         if (download.buffer != NULL) {
             free(download.buffer);
@@ -237,18 +237,18 @@ static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
 static void handle_event(const cdc_acm_host_dev_event_data_t *event, void *user_ctx)
 {
     switch (event->type) {
-        case CDC_ACM_HOST_ERROR:
-            ESP_LOGE(TAG, "CDC error: %d", event->data.error);
-            break;
-        case CDC_ACM_HOST_DEVICE_DISCONNECTED:
-            ESP_LOGI(TAG, "Printer disconnected");
-            ESP_ERROR_CHECK(cdc_acm_host_close(event->data.cdc_hdl));
-            g_prusa_dev = NULL;
-            initial_chirp_sent = false;
-            xSemaphoreGive(device_disconnected_sem);
-            break;
-        default:
-            break;
+    case CDC_ACM_HOST_ERROR:
+        ESP_LOGE(TAG, "CDC error: %d", event->data.error);
+        break;
+    case CDC_ACM_HOST_DEVICE_DISCONNECTED:
+        ESP_LOGI(TAG, "Printer disconnected");
+        ESP_ERROR_CHECK(cdc_acm_host_close(event->data.cdc_hdl));
+        g_prusa_dev = NULL;
+        initial_chirp_sent = false;
+        xSemaphoreGive(device_disconnected_sem);
+        break;
+    default:
+        break;
     }
 }
 
@@ -261,50 +261,6 @@ static void usb_lib_task(void *arg)
             ESP_ERROR_CHECK(usb_host_device_free_all());
         }
     }
-}
-
-// ============================================================================
-// WIFI
-// ============================================================================
-
-static void wifi_event_handler(void *arg, esp_event_base_t event_base, 
-                               int32_t event_id, void *event_data)
-{
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGI(TAG, "WiFi disconnected, reconnecting...");
-        esp_wifi_connect();
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
-    }
-}
-
-void wifi_init_sta(void)
-{
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL, NULL));
-
-    wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASS,
-        },
-    };
-    
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 // ============================================================================
@@ -384,15 +340,15 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
 #else
     // Remote HTML disabled
     const char *disabled_msg = 
-        "<!DOCTYPE html>"
-        "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'></head>"
-        "<body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Oxygen,Ubuntu,sans-serif;line-height:1.6;'>"
-        "<div style='max-width:600px;margin:0 auto;'>"
-        "<h1 style='color:#FFA500;font-size:2rem;font-weight:300;margin-bottom:20px;'>Remote HTML Disabled</h1>"
-        "<p style='margin-bottom:15px;'>Remote HTML fetching is disabled in firmware configuration.</p>"
-        "<p style='margin-bottom:15px;'>To enable: Set <code style='background:#1a1a1a;padding:2px 6px;border-radius:4px;'>ENABLE_REMOTE_HTML</code> to 1 and recompile.</p>"
-        "<p><a href='/' style='color:#4CAF50;text-decoration:none;padding:10px 20px;border:1px solid #4CAF50;border-radius:8px;display:inline-block;transition:all 0.3s ease;'>Back to Monitor</a></p>"
-        "</div></body></html>";
+    "<!DOCTYPE html>"
+    "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1.0'></head>"
+    "<body style='background:#0f0f0f;color:#e0e0e0;padding:40px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,Oxygen,Ubuntu,sans-serif;line-height:1.6;'>"
+    "<div style='max-width:600px;margin:0 auto;'>"
+    "<h1 style='color:#FFA500;font-size:2rem;font-weight:300;margin-bottom:20px;'>Remote HTML Disabled</h1>"
+    "<p style='margin-bottom:15px;'>Remote HTML fetching is disabled in firmware configuration.</p>"
+    "<p style='margin-bottom:15px;'>To enable: Set <code style='background:#1a1a1a;padding:2px 6px;border-radius:4px;'>ENABLE_REMOTE_HTML</code> to 1 and recompile.</p>"
+    "<p><a href='/' style='color:#4CAF50;text-decoration:none;padding:10px 20px;border:1px solid #4CAF50;border-radius:8px;display:inline-block;transition:all 0.3s ease;'>Back to Monitor</a></p>"
+    "</div></body></html>";
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, disabled_msg);
@@ -511,9 +467,32 @@ static void start_webserver(void)
 
 void app_main(void)
 {
+
     ESP_LOGI(TAG, "=== Prusa Core One Monitor V2.0 ===");
     ESP_LOGI(TAG, "Client-side parsing enabled");
+
+    // led initial start
+    status_led_init(48);
+    status_led_blink(WHITE, 25, 1000, 1000);
     
+    // wifi prov chack and start
+    ble_prov_config_t prov_config = {
+        .device_name = "PRUSA_ESP_MONITOR",
+        .pop = "abcd1234",
+        .reset_provisioned = false
+    };
+
+    esp_err_t ret = ble_prov_start(&prov_config);
+    if (ret != ESP_OK) {
+        ESP_LOGE(TAG, "Provisioning failed!");
+        status_led_blink(RED, 100, 1000, 1000);
+        return;
+    }
+
+    ESP_LOGI(TAG, "WiFi connected! Starting HTTP requests...");
+    status_led_blink(BLUE, 25, 1000, 1000);
+
+
     // Create synchronization primitives
     device_disconnected_sem = xSemaphoreCreateBinary();
     log_mutex = xSemaphoreCreateMutex();
@@ -541,11 +520,7 @@ void app_main(void)
         .event_cb = handle_event,
         .data_cb = handle_rx
     };
-    
-    // Initialize NVS and WiFi
-    ESP_ERROR_CHECK(nvs_flash_init());
-    wifi_init_sta();
-    
+        
 #if ENABLE_REMOTE_HTML
     // Wait for WiFi connection
     ESP_LOGI(TAG, "Waiting for WiFi connection...");
@@ -574,7 +549,7 @@ void app_main(void)
     // Main USB connection loop
     while (true) {
         esp_err_t err = cdc_acm_host_open(PRUSA_USB_VID, PRUSA_USB_PID, 0, 
-                                          &dev_config, &g_prusa_dev);
+          &dev_config, &g_prusa_dev);
         if (err != ESP_OK) {
             if (err == ESP_ERR_NOT_FOUND) {
                 ESP_LOGD(TAG, "Printer not found, retrying...");
