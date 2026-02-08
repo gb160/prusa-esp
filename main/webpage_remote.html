@@ -604,7 +604,6 @@
         };
 
         const GCODE_MAP = {
-            'Bed Mesh Visualization': null,  // Special handler
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -612,7 +611,8 @@
             'Chamber Fans 25%': ['M106 S64 P3'],
             'Chamber Fans 50%': ['M106 S128 P3'],
             'Chamber Fans 75%': ['M106 S192 P3'],
-            'Chamber Fans 100%': ['M106 S255 P3']
+            'Chamber Fans 100%': ['M106 S255 P3'],
+            'Bed Mesh Visualization': null  // Special handler
         };
 
         // ========================================
@@ -620,94 +620,87 @@
         // ========================================
         const BedMesh = {
             modal: null,
-            isCollecting: false,
-            collectedLines: [],
 
             open: function() {
                 this.modal = document.getElementById('bedMeshModal');
                 this.modal.classList.add('active');
                 document.getElementById('bedMeshStats').style.display = 'none';
-                document.getElementById('bedMeshPlot').innerHTML = '<div class="bed-mesh-loading">Requesting bed mesh data...</div>';
+                document.getElementById('bedMeshPlot').innerHTML = '<div class="bed-mesh-loading">Loading bed mesh...</div>';
                 
-                // Start collecting
-                this.isCollecting = true;
-                this.collectedLines = [];
-                
-                // Send M420 V command
+                // Send M420 V - response is instant
                 fetch('/send?cmd=' + encodeURIComponent('M420 V'))
-                    .then(() => console.log('M420 V sent'))
+                    .then(() => {
+                        // Give it 200ms for the log to be written, then fetch
+                        setTimeout(() => {
+                            fetch('/log')
+                                .then(resp => resp.text())
+                                .then(text => this.parseMeshData(text))
+                                .catch(err => {
+                                    console.error('Log fetch failed:', err);
+                                    document.getElementById('bedMeshPlot').innerHTML = 
+                                        '<div class="bed-mesh-error">Failed to retrieve mesh data</div>';
+                                });
+                        }, 200);
+                    })
                     .catch(err => {
-                        console.error('Failed to send M420 V:', err);
+                        console.error('Command failed:', err);
                         document.getElementById('bedMeshPlot').innerHTML = 
-                            '<div class="bed-mesh-error">Failed to send command. Please try again.</div>';
-                        this.isCollecting = false;
+                            '<div class="bed-mesh-error">Failed to send command</div>';
                     });
             },
 
             close: function() {
                 if (this.modal) {
                     this.modal.classList.remove('active');
-                    this.isCollecting = false;
-                    this.collectedLines = [];
                 }
             },
 
-            // Called by PrusaMonitor for each new log line
-            processLogLine: function(line) {
-                if (!this.isCollecting) return;
-
-                const trimmed = line.trim();
-                
-                // Start collecting
-                if (trimmed.includes('Bed Topography Report:')) {
-                    this.collectedLines = [trimmed];
-                    console.log('Collecting bed mesh...');
-                    return;
-                }
-
-                // Keep collecting
-                if (this.collectedLines.length > 0) {
-                    this.collectedLines.push(trimmed);
-                }
-
-                // Done collecting
-                if (trimmed.includes('Mesh is valid')) {
-                    console.log('Parsing mesh data...');
-                    this.isCollecting = false;
-                    this.parseMeshData();
-                }
-            },
-
-            parseMeshData: function() {
+            parseMeshData: function(logText) {
                 try {
+                    // Find the LAST occurrence (most recent)
+                    const lastIdx = logText.lastIndexOf('Bed Topography Report:');
+                    if (lastIdx === -1) {
+                        throw new Error('No bed topography found in log');
+                    }
+
+                    // Get everything from that point
+                    const section = logText.substring(lastIdx);
+                    const lines = section.split(/\r?\n/);
+                    
                     const meshData = [];
                     let gridSize = 0;
                     
-                    for (const line of this.collectedLines) {
-                        // Match: "20 | -0.526 -0.465 ..."
-                        const match = line.match(/^(\d+)\s*\|([\s\d\.\-\+]+)/);
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        
+                        // Match row data: "20 | -0.526 -0.465 ..."
+                        const match = trimmed.match(/^(\d+)\s*\|\s*([\s\d\.\-\+]+)/);
                         if (match) {
                             const rowNum = parseInt(match[1]);
                             const values = match[2].trim().split(/\s+/).map(v => parseFloat(v));
                             meshData[rowNum] = values;
                             if (values.length > gridSize) gridSize = values.length;
                         }
+                        
+                        // Stop when we hit the end
+                        if (trimmed.includes('Mesh is valid')) break;
                     }
 
                     if (meshData.length === 0) {
-                        throw new Error('No mesh data found');
+                        throw new Error('No mesh rows parsed');
                     }
 
-                    // Reverse for correct orientation
+                    // Reverse to get row 0 at bottom
                     meshData.reverse();
 
-                    console.log('Parsed:', meshData.length + 'x' + gridSize);
+                    console.log('Successfully parsed:', meshData.length + 'x' + gridSize);
                     this.renderMesh(meshData, gridSize);
                     
                 } catch (err) {
-                    console.error('Parse error:', err);
+                    console.error('Parse failed:', err);
                     document.getElementById('bedMeshPlot').innerHTML = 
-                        '<div class="bed-mesh-error">Parse error: ' + err.message + '</div>';
+                        '<div class="bed-mesh-error">Failed to parse: ' + err.message + '</div>';
                 }
             },
 
@@ -1136,9 +1129,6 @@
                                 const trimmed = line.trim();
                                 if (trimmed) {
                                     PrusaMonitor.parser.parseLine(trimmed);
-                                    
-                                    // Pass to BedMesh for collection
-                                    BedMesh.processLogLine(trimmed);
 
                                     const isTemp = trimmed.startsWith('T:') && 
                                                  trimmed.includes(' B:') && 
@@ -1171,7 +1161,7 @@
             },
 
             init: function() {
-                console.log('Prusa Monitor V2.0.3 - With fast bed mesh visualization');
+                console.log('Prusa Monitor V2.0.4 - Instant bed mesh visualization');
                 
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 this.state.chart = new Chart(ctx, {
@@ -1380,7 +1370,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.3-remote</div>
+    <div class="version-label">v2.0.4-remote</div>
 </body>
 
 </html>
