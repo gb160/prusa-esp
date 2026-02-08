@@ -328,6 +328,112 @@
         }
 
         /* ========================================
+           BED MESH MODAL
+           ======================================== */
+        .bed-mesh-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            overflow: auto;
+        }
+
+        .bed-mesh-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bed-mesh-content {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 30px;
+            max-width: 1200px;
+            width: 90%;
+            max-height: 90vh;
+            overflow: auto;
+            position: relative;
+        }
+
+        .bed-mesh-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 28px;
+            color: #888;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: auto;
+            height: auto;
+        }
+
+        .bed-mesh-close:hover {
+            color: #fff;
+            transform: none;
+        }
+
+        .bed-mesh-title {
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 20px;
+        }
+
+        .bed-mesh-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .bed-mesh-stat {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .bed-mesh-stat-label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .bed-mesh-stat-value {
+            font-size: 1.3rem;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        #bedMeshPlot {
+            width: 100%;
+            height: 600px;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+        }
+
+        .bed-mesh-loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+
+        .bed-mesh-error {
+            text-align: center;
+            padding: 40px;
+            color: #f44336;
+        }
+
+        /* ========================================
            RESPONSIVE DESIGN
            ======================================== */
         @media (max-width: 768px) {
@@ -446,7 +552,41 @@
         </div>
     </div>
 
+    <!-- Bed Mesh Modal -->
+    <div id="bedMeshModal" class="bed-mesh-modal">
+        <div class="bed-mesh-content">
+            <button class="bed-mesh-close" onclick="BedMesh.close()">&times;</button>
+            <h2 class="bed-mesh-title">Bed Mesh Visualization</h2>
+            <div id="bedMeshStats" class="bed-mesh-stats" style="display: none;">
+                <div class="bed-mesh-stat">
+                    <div class="bed-mesh-stat-label">Lowest Point</div>
+                    <div class="bed-mesh-stat-value" id="bedMeshMin">--</div>
+                </div>
+                <div class="bed-mesh-stat">
+                    <div class="bed-mesh-stat-label">Highest Point</div>
+                    <div class="bed-mesh-stat-value" id="bedMeshMax">--</div>
+                </div>
+                <div class="bed-mesh-stat">
+                    <div class="bed-mesh-stat-label">Total Range</div>
+                    <div class="bed-mesh-stat-value" id="bedMeshRange">--</div>
+                </div>
+                <div class="bed-mesh-stat">
+                    <div class="bed-mesh-stat-label">Mean Deviation</div>
+                    <div class="bed-mesh-stat-value" id="bedMeshMean">--</div>
+                </div>
+                <div class="bed-mesh-stat">
+                    <div class="bed-mesh-stat-label">Grid Size</div>
+                    <div class="bed-mesh-stat-value" id="bedMeshGrid">--</div>
+                </div>
+            </div>
+            <div id="bedMeshPlot">
+                <div class="bed-mesh-loading">Loading bed mesh data...</div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     
     <script>
         // ========================================
@@ -471,8 +611,234 @@
             'Chamber Fans 25%': ['M106 S64 P3'],
             'Chamber Fans 50%': ['M106 S128 P3'],
             'Chamber Fans 75%': ['M106 S192 P3'],
-            'Chamber Fans 100%': ['M106 S255 P3']
+            'Chamber Fans 100%': ['M106 S255 P3'],
+            'Bed Mesh Visualization': null  // Special handler
+        };
 
+        // ========================================
+        // BED MESH VISUALIZATION
+        // ========================================
+        const BedMesh = {
+            modal: null,
+            logBuffer: '',
+            isCollecting: false,
+
+            open: function() {
+                this.modal = document.getElementById('bedMeshModal');
+                this.modal.classList.add('active');
+                document.getElementById('bedMeshStats').style.display = 'none';
+                document.getElementById('bedMeshPlot').innerHTML = '<div class="bed-mesh-loading">Sending M420 V command...</div>';
+                
+                // Start collecting log data
+                this.logBuffer = '';
+                this.isCollecting = true;
+                
+                // Send M420 V command
+                fetch('/send?cmd=' + encodeURIComponent('M420 V'))
+                    .then(() => {
+                        console.log('M420 V command sent, waiting for response...');
+                        // Wait for data to arrive in log
+                        setTimeout(() => this.checkForMeshData(), 2000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to send M420 V:', err);
+                        document.getElementById('bedMeshPlot').innerHTML = 
+                            '<div class="bed-mesh-error">Failed to send command. Please try again.</div>';
+                        this.isCollecting = false;
+                    });
+            },
+
+            close: function() {
+                if (this.modal) {
+                    this.modal.classList.remove('active');
+                    this.isCollecting = false;
+                    this.logBuffer = '';
+                }
+            },
+
+            checkForMeshData: function() {
+                // Fetch current log to look for bed mesh data
+                fetch('/log')
+                    .then(resp => resp.text())
+                    .then(text => {
+                        // Look for "Bed Topography Report:" in the log
+                        if (text.includes('Bed Topography Report:')) {
+                            console.log('Found bed mesh data, parsing...');
+                            this.parseMeshData(text);
+                            this.isCollecting = false;
+                        } else {
+                            console.log('Bed mesh data not yet available, checking again...');
+                            // Keep checking for up to 10 seconds
+                            if (this.isCollecting) {
+                                setTimeout(() => this.checkForMeshData(), 1000);
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to fetch log:', err);
+                        document.getElementById('bedMeshPlot').innerHTML = 
+                            '<div class="bed-mesh-error">Failed to retrieve mesh data. Please try again.</div>';
+                        this.isCollecting = false;
+                    });
+            },
+
+            parseMeshData: function(logText) {
+                try {
+                    // Find the bed topography section
+                    const startIdx = logText.indexOf('Bed Topography Report:');
+                    if (startIdx === -1) {
+                        throw new Error('Bed Topography Report not found');
+                    }
+
+                    // Extract the section (look for the grid of numbers)
+                    const section = logText.substring(startIdx);
+                    const lines = section.split('\n');
+                    
+                    // Find lines with mesh data (they start with row numbers like "20 |", "19 |", etc.)
+                    const meshData = [];
+                    let gridSize = 0;
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        // Match lines like: "20 | -0.526 -0.465 -0.404 ..."
+                        const match = line.match(/^(\d+)\s*\|([\s\d\.\-\+]+)/);
+                        if (match) {
+                            const rowNum = parseInt(match[1]);
+                            const values = match[2].trim().split(/\s+/).map(v => parseFloat(v));
+                            meshData[rowNum] = values;
+                            if (values.length > gridSize) gridSize = values.length;
+                        }
+                    }
+
+                    // Verify we have data
+                    if (meshData.length === 0) {
+                        throw new Error('No mesh data found in response');
+                    }
+
+                    // Reverse array to get correct orientation (row 0 at bottom)
+                    meshData.reverse();
+
+                    console.log('Parsed mesh data:', meshData.length + 'x' + gridSize);
+                    this.renderMesh(meshData, gridSize);
+                    
+                } catch (err) {
+                    console.error('Failed to parse mesh data:', err);
+                    document.getElementById('bedMeshPlot').innerHTML = 
+                        '<div class="bed-mesh-error">Failed to parse mesh data: ' + err.message + '</div>';
+                }
+            },
+
+            renderMesh: function(zData, gridSize) {
+                // Calculate statistics
+                const flatData = zData.flat();
+                const min = Math.min(...flatData);
+                const max = Math.max(...flatData);
+                const range = max - min;
+                const mean = flatData.reduce((a, b) => a + b, 0) / flatData.length;
+
+                // Update stats display
+                document.getElementById('bedMeshStats').style.display = 'grid';
+                document.getElementById('bedMeshMin').textContent = min.toFixed(3) + ' mm';
+                document.getElementById('bedMeshMax').textContent = max.toFixed(3) + ' mm';
+                document.getElementById('bedMeshRange').textContent = range.toFixed(3) + ' mm';
+                document.getElementById('bedMeshMean').textContent = mean.toFixed(3) + ' mm';
+                document.getElementById('bedMeshGrid').textContent = zData.length + ' × ' + gridSize;
+
+                // Create coordinate arrays
+                const xData = Array.from({length: gridSize}, (_, i) => i);
+                const yData = Array.from({length: zData.length}, (_, i) => i);
+
+                // Create Plotly surface plot
+                const data = [{
+                    z: zData,
+                    x: xData,
+                    y: yData,
+                    type: 'surface',
+                    colorscale: [
+                        [0, 'rgb(0,0,255)'],      // Deep blue
+                        [0.3, 'rgb(0,150,255)'],  // Light blue
+                        [0.45, 'rgb(100,200,255)'],// Lighter blue
+                        [0.5, 'rgb(255,255,255)'],// White for zero
+                        [0.55, 'rgb(255,200,100)'],// Light orange
+                        [0.7, 'rgb(255,150,0)'],  // Orange
+                        [1, 'rgb(255,0,0)']       // Red
+                    ],
+                    colorbar: {
+                        title: {
+                            text: 'Height (mm)',
+                            side: 'right'
+                        },
+                        thickness: 20,
+                        len: 0.7,
+                        tickfont: {
+                            color: '#888'
+                        }
+                    },
+                    contours: {
+                        z: {
+                            show: true,
+                            usecolormap: true,
+                            highlightcolor: "#444",
+                            project: {z: true}
+                        }
+                    },
+                    hovertemplate: 'X: %{x}<br>Y: %{y}<br>Z: %{z:.3f} mm<extra></extra>'
+                }];
+
+                const layout = {
+                    autosize: true,
+                    paper_bgcolor: '#0a0a0a',
+                    plot_bgcolor: '#0a0a0a',
+                    scene: {
+                        xaxis: {
+                            title: 'X Position',
+                            gridcolor: '#333',
+                            showbackground: true,
+                            backgroundcolor: '#1a1a1a',
+                            color: '#888'
+                        },
+                        yaxis: {
+                            title: 'Y Position',
+                            gridcolor: '#333',
+                            showbackground: true,
+                            backgroundcolor: '#1a1a1a',
+                            color: '#888'
+                        },
+                        zaxis: {
+                            title: 'Height (mm)',
+                            gridcolor: '#333',
+                            showbackground: true,
+                            backgroundcolor: '#1a1a1a',
+                            color: '#888'
+                        },
+                        camera: {
+                            eye: {x: 1.5, y: 1.5, z: 1.3}
+                        },
+                        aspectmode: 'manual',
+                        aspectratio: {
+                            x: 1,
+                            y: 1,
+                            z: 0.5
+                        }
+                    },
+                    margin: {
+                        l: 0,
+                        r: 0,
+                        b: 0,
+                        t: 0
+                    }
+                };
+
+                const config = {
+                    responsive: true,
+                    displayModeBar: true,
+                    displaylogo: false,
+                    modeBarButtonsToRemove: ['toImage']
+                };
+
+                document.getElementById('bedMeshPlot').innerHTML = '';
+                Plotly.newPlot('bedMeshPlot', data, layout, config);
+            }
         };
 
         // ========================================
@@ -1057,9 +1423,14 @@
                     item.textContent = label;
                     
                     item.addEventListener('click', () => {
-                        const commands = GCODE_MAP[label];
-                        if (commands) {
-                            PrusaMonitor.ui.sendPresetCommands(commands);
+                        // Special handling for Bed Mesh Visualization
+                        if (label === 'Bed Mesh Visualization') {
+                            BedMesh.open();
+                        } else {
+                            const commands = GCODE_MAP[label];
+                            if (commands) {
+                                PrusaMonitor.ui.sendPresetCommands(commands);
+                            }
                         }
                         dropdownMenu.style.display = 'none';
                     });
@@ -1074,7 +1445,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.1-remote</div>
+    <div class="version-label">v2.0.2-remote</div>
 </body>
 
 </html>
