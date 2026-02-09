@@ -328,112 +328,6 @@
         }
 
         /* ========================================
-           BED MESH MODAL
-           ======================================== */
-        .bed-mesh-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 2000;
-            overflow: auto;
-        }
-
-        .bed-mesh-modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .bed-mesh-content {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 30px;
-            max-width: 1200px;
-            width: 90%;
-            max-height: 90vh;
-            overflow: auto;
-            position: relative;
-        }
-
-        .bed-mesh-close {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 28px;
-            color: #888;
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 0;
-            width: auto;
-            height: auto;
-        }
-
-        .bed-mesh-close:hover {
-            color: #fff;
-            transform: none;
-        }
-
-        .bed-mesh-title {
-            font-size: 1.5rem;
-            color: #fff;
-            margin-bottom: 20px;
-        }
-
-        .bed-mesh-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .bed-mesh-stat {
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
-
-        .bed-mesh-stat-label {
-            font-size: 0.8rem;
-            color: #888;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .bed-mesh-stat-value {
-            font-size: 1.3rem;
-            color: #4CAF50;
-            font-weight: bold;
-        }
-
-        #bedMeshPlot {
-            width: 100%;
-            height: 600px;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-        }
-
-        .bed-mesh-loading {
-            text-align: center;
-            padding: 40px;
-            color: #888;
-        }
-
-        .bed-mesh-error {
-            text-align: center;
-            padding: 40px;
-            color: #f44336;
-        }
-
-        /* ========================================
            RESPONSIVE DESIGN
            ======================================== */
         @media (max-width: 768px) {
@@ -552,41 +446,7 @@
         </div>
     </div>
 
-    <!-- Bed Mesh Modal -->
-    <div id="bedMeshModal" class="bed-mesh-modal">
-        <div class="bed-mesh-content">
-            <button class="bed-mesh-close" onclick="BedMesh.close()">&times;</button>
-            <h2 class="bed-mesh-title">Bed Mesh Visualization</h2>
-            <div id="bedMeshStats" class="bed-mesh-stats" style="display: none;">
-                <div class="bed-mesh-stat">
-                    <div class="bed-mesh-stat-label">Lowest Point</div>
-                    <div class="bed-mesh-stat-value" id="bedMeshMin">--</div>
-                </div>
-                <div class="bed-mesh-stat">
-                    <div class="bed-mesh-stat-label">Highest Point</div>
-                    <div class="bed-mesh-stat-value" id="bedMeshMax">--</div>
-                </div>
-                <div class="bed-mesh-stat">
-                    <div class="bed-mesh-stat-label">Total Range</div>
-                    <div class="bed-mesh-stat-value" id="bedMeshRange">--</div>
-                </div>
-                <div class="bed-mesh-stat">
-                    <div class="bed-mesh-stat-label">Mean Deviation</div>
-                    <div class="bed-mesh-stat-value" id="bedMeshMean">--</div>
-                </div>
-                <div class="bed-mesh-stat">
-                    <div class="bed-mesh-stat-label">Grid Size</div>
-                    <div class="bed-mesh-stat-value" id="bedMeshGrid">--</div>
-                </div>
-            </div>
-            <div id="bedMeshPlot">
-                <div class="bed-mesh-loading">Loading bed mesh data...</div>
-            </div>
-        </div>
-    </div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     
     <script>
         // ========================================
@@ -604,7 +464,6 @@
         };
 
         const GCODE_MAP = {
-            'Bed Mesh Visualization': null,  // Special handler - moved to top
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -613,199 +472,7 @@
             'Chamber Fans 50%': ['M106 S128 P3'],
             'Chamber Fans 75%': ['M106 S192 P3'],
             'Chamber Fans 100%': ['M106 S255 P3']
-        };
 
-        // ========================================
-        // BED MESH VISUALIZATION
-        // ========================================
-        const BedMesh = {
-            modal: null,
-            isCollecting: false,
-            meshLines: [],
-
-            open: function() {
-                this.modal = document.getElementById('bedMeshModal');
-                this.modal.classList.add('active');
-                document.getElementById('bedMeshStats').style.display = 'none';
-                document.getElementById('bedMeshPlot').innerHTML = '<div class="bed-mesh-loading">Requesting bed mesh data...</div>';
-                
-                // Start collecting from the real-time log stream
-                this.isCollecting = true;
-                this.meshLines = [];
-                
-                // Send M420 V - the response will come through the normal log update mechanism
-                fetch('/send?cmd=' + encodeURIComponent('M420 V'))
-                    .catch(err => {
-                        console.error('Failed to send M420 V:', err);
-                        document.getElementById('bedMeshPlot').innerHTML = 
-                            '<div class="bed-mesh-error">Failed to send command</div>';
-                        this.isCollecting = false;
-                    });
-            },
-
-            close: function() {
-                if (this.modal) {
-                    this.modal.classList.remove('active');
-                    this.isCollecting = false;
-                    this.meshLines = [];
-                }
-            },
-
-            // Called by the existing updateLog mechanism for each line
-            processLine: function(line) {
-                if (!this.isCollecting) return;
-
-                // Start collecting when we see the header
-                if (line.includes('Bed Topography Report:')) {
-                    this.meshLines = [];
-                    console.log('Started collecting mesh data');
-                }
-
-                // Collect all lines once we've started
-                if (this.meshLines.length > 0 || line.includes('Bed Topography Report:')) {
-                    this.meshLines.push(line);
-                }
-
-                // Parse when complete
-                if (line.includes('Mesh is valid')) {
-                    console.log('Mesh complete, parsing...');
-                    this.isCollecting = false;
-                    this.parseMeshData();
-                }
-            },
-
-            parseMeshData: function() {
-                try {
-                    const meshData = [];
-                    let gridSize = 0;
-                    
-                    for (const line of this.meshLines) {
-                        const trimmed = line.trim();
-                        // Match row data: "20 | -0.526 -0.465 ..."
-                        const match = trimmed.match(/^(\d+)\s*\|\s*([\s\d\.\-\+]+)/);
-                        if (match) {
-                            const rowNum = parseInt(match[1]);
-                            const values = match[2].trim().split(/\s+/).map(v => parseFloat(v));
-                            meshData[rowNum] = values;
-                            if (values.length > gridSize) gridSize = values.length;
-                        }
-                    }
-
-                    // Filter out any undefined rows and compact the array
-                    const cleanedData = meshData.filter(row => row !== undefined);
-
-                    if (cleanedData.length === 0) {
-                        throw new Error('No mesh rows parsed');
-                    }
-
-                    // Reverse to get row 0 at bottom
-                    cleanedData.reverse();
-
-                    console.log('Successfully parsed:', cleanedData.length + 'x' + gridSize);
-                    this.renderMesh(cleanedData, gridSize);
-                    
-                } catch (err) {
-                    console.error('Parse failed:', err);
-                    document.getElementById('bedMeshPlot').innerHTML = 
-                        '<div class="bed-mesh-error">Failed to parse: ' + err.message + '</div>';
-                }
-            },
-
-            renderMesh: function(zData, gridSize) {
-                // Calculate statistics
-                const flatData = zData.flat();
-                const min = Math.min(...flatData);
-                const max = Math.max(...flatData);
-                const range = max - min;
-                const mean = flatData.reduce((a, b) => a + b, 0) / flatData.length;
-
-                // Update stats display
-                document.getElementById('bedMeshStats').style.display = 'grid';
-                document.getElementById('bedMeshMin').textContent = min.toFixed(3) + ' mm';
-                document.getElementById('bedMeshMax').textContent = max.toFixed(3) + ' mm';
-                document.getElementById('bedMeshRange').textContent = range.toFixed(3) + ' mm';
-                document.getElementById('bedMeshMean').textContent = mean.toFixed(3) + ' mm';
-                document.getElementById('bedMeshGrid').textContent = zData.length + ' × ' + gridSize;
-
-                // Create coordinate arrays
-                const xData = Array.from({length: gridSize}, (_, i) => i);
-                const yData = Array.from({length: zData.length}, (_, i) => i);
-
-                // Create Plotly surface plot
-                const data = [{
-                    z: zData,
-                    x: xData,
-                    y: yData,
-                    type: 'surface',
-                    colorscale: [
-                        [0, 'rgb(0,0,255)'],
-                        [0.3, 'rgb(0,150,255)'],
-                        [0.45, 'rgb(100,200,255)'],
-                        [0.5, 'rgb(255,255,255)'],
-                        [0.55, 'rgb(255,200,100)'],
-                        [0.7, 'rgb(255,150,0)'],
-                        [1, 'rgb(255,0,0)']
-                    ],
-                    colorbar: {
-                        title: { text: 'Height (mm)', side: 'right' },
-                        thickness: 20,
-                        len: 0.7,
-                        tickfont: { color: '#888' }
-                    },
-                    contours: {
-                        z: {
-                            show: true,
-                            usecolormap: true,
-                            highlightcolor: "#444",
-                            project: {z: true}
-                        }
-                    },
-                    hovertemplate: 'X: %{x}<br>Y: %{y}<br>Z: %{z:.3f} mm<extra></extra>'
-                }];
-
-                const layout = {
-                    autosize: true,
-                    paper_bgcolor: '#0a0a0a',
-                    plot_bgcolor: '#0a0a0a',
-                    scene: {
-                        xaxis: {
-                            title: 'X Position',
-                            gridcolor: '#333',
-                            showbackground: true,
-                            backgroundcolor: '#1a1a1a',
-                            color: '#888'
-                        },
-                        yaxis: {
-                            title: 'Y Position',
-                            gridcolor: '#333',
-                            showbackground: true,
-                            backgroundcolor: '#1a1a1a',
-                            color: '#888'
-                        },
-                        zaxis: {
-                            title: 'Height (mm)',
-                            gridcolor: '#333',
-                            showbackground: true,
-                            backgroundcolor: '#1a1a1a',
-                            color: '#888'
-                        },
-                        camera: { eye: {x: 1.5, y: 1.5, z: 1.3} },
-                        aspectmode: 'manual',
-                        aspectratio: { x: 1, y: 1, z: 0.5 }
-                    },
-                    margin: { l: 0, r: 0, b: 0, t: 0 }
-                };
-
-                const config = {
-                    responsive: true,
-                    displayModeBar: true,
-                    displaylogo: false,
-                    modeBarButtonsToRemove: ['toImage']
-                };
-
-                document.getElementById('bedMeshPlot').innerHTML = '';
-                Plotly.newPlot('bedMeshPlot', data, layout, config);
-            }
         };
 
         // ========================================
@@ -845,25 +512,39 @@
                 lastGraphUpdate: 0
             },
 
+            // ========================================
+            // PAGE TITLE MANAGEMENT
+            // ========================================
             pageTitle: {
+                /**
+                 * Update browser tab title with print progress
+                 * Shows progress percentage when printing, default title otherwise
+                 */
                 update: function() {
                     const progress = PrusaMonitor.state.progress.percent;
                     
                     if (progress > 0 && progress < 100) {
+                        // Printing in progress - show percentage in title
                         document.title = `${progress}% - Prusa Monitor`;
                     } else if (progress === 100) {
+                        // Print complete
                         document.title = '✓ Complete - Prusa Monitor';
                     } else {
+                        // Idle or no print
                         document.title = 'Prusa Core One Monitor';
                     }
                 }
             },
 
+            // ========================================
+            // PARSING - ALL CLIENT-SIDE NOW!
+            // ========================================
             parser: {
                 parseLine: function(line) {
                     const trimmed = line.trim();
                     if (!trimmed) return;
 
+                    // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
                     const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
                     if (tempMatch) {
                         PrusaMonitor.state.temps.nozzle.cur = parseFloat(tempMatch[1]);
@@ -898,17 +579,20 @@
                         PrusaMonitor.state.power.heatbreak = parseFloat(heatbreakPowerMatch[1]);
                     }
 
+                    // Progress: "M73 Progress: 9%;"
                     const progressMatch = trimmed.match(/Progress:\s*(\d+)%/);
                     if (progressMatch) {
                         PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
                     }
 
+                    // Check for print completion
                     if (trimmed.includes('Done printing file')) {
                         PrusaMonitor.state.progress.percent = 100;
                         PrusaMonitor.state.progress.time = 0;
                         PrusaMonitor.state.progress.change = null;
                     }
 
+                    // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
                     const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (timeMatch) {
                         const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
@@ -916,6 +600,8 @@
                         PrusaMonitor.state.progress.time = (hours * 60) + mins;
                     }
 
+                    // Change due: "Change: 16m;" or "Change: 1h 5m;"
+                    // Note: If no "Change:" line appears, value stays as previously set (could be null or a number)
                     const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (changeMatch) {
                         const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
@@ -923,6 +609,7 @@
                         PrusaMonitor.state.progress.change = (hours * 60) + mins;
                     }
 
+                    // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
                     if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
                         const beforeCount = trimmed.split('Count')[0];
                         const zMatch = beforeCount.match(/Z:([\d.]+)/);
@@ -933,10 +620,14 @@
                 }
             },
 
+            // ========================================
+            // UI FUNCTIONS
+            // ========================================
             ui: {
                 updateDisplay: function() {
                     document.querySelectorAll('.loading').forEach(el => el.classList.remove('loading'));
 
+                    // Update page title with progress
                     PrusaMonitor.pageTitle.update();
 
                     document.getElementById('nozzle-temp').textContent = Math.round(PrusaMonitor.state.temps.nozzle.cur);
@@ -995,6 +686,8 @@
                     PrusaMonitor.state.tempHistory.bed.push(PrusaMonitor.state.temps.bed.cur);
                     PrusaMonitor.state.tempHistory.chamber.push(PrusaMonitor.state.temps.chamber.cur);
                     PrusaMonitor.state.tempHistory.heatbreak.push(PrusaMonitor.state.temps.heatbreak.cur);
+
+                    // No limit - keeps all history for infinite scrolling graph
 
                     const chart = PrusaMonitor.state.chart;
                     chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
@@ -1096,6 +789,9 @@
                 }
             },
 
+            // ========================================
+            // API FUNCTIONS
+            // ========================================
             api: {
                 updateStatus: async function() {
                     try {
@@ -1136,9 +832,6 @@
                                 const trimmed = line.trim();
                                 if (trimmed) {
                                     PrusaMonitor.parser.parseLine(trimmed);
-                                    
-                                    // Pass to BedMesh if it's collecting
-                                    BedMesh.processLine(trimmed);
 
                                     const isTemp = trimmed.startsWith('T:') && 
                                                  trimmed.includes(' B:') && 
@@ -1170,8 +863,11 @@
                 }
             },
 
+            // ========================================
+            // INITIALIZATION
+            // ========================================
             init: function() {
-                console.log('Prusa Monitor V2.0.4 - Instant bed mesh visualization');
+                console.log('Prusa Monitor V2.0 - Client-side parsing enabled');
                 
                 const ctx = document.getElementById('tempChart').getContext('2d');
                 this.state.chart = new Chart(ctx, {
@@ -1340,8 +1036,10 @@
                     }
                 });
 
+                // Auto-refresh progress when returning to tab
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) {
+                        // Tab became visible - request fresh progress update
                         console.log('Tab visible - requesting progress update (M73)');
                         fetch('/send?cmd=' + encodeURIComponent('M73'))
                             .catch(err => console.error('Failed to send M73:', err));
@@ -1359,13 +1057,9 @@
                     item.textContent = label;
                     
                     item.addEventListener('click', () => {
-                        if (label === 'Bed Mesh Visualization') {
-                            BedMesh.open();
-                        } else {
-                            const commands = GCODE_MAP[label];
-                            if (commands) {
-                                PrusaMonitor.ui.sendPresetCommands(commands);
-                            }
+                        const commands = GCODE_MAP[label];
+                        if (commands) {
+                            PrusaMonitor.ui.sendPresetCommands(commands);
                         }
                         dropdownMenu.style.display = 'none';
                     });
@@ -1380,7 +1074,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.11-remote</div>
+    <div class="version-label">v2.0.1-remote</div>
 </body>
 
 </html>
