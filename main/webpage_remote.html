@@ -604,6 +604,7 @@
         };
 
         const GCODE_MAP = {
+            'Bed Mesh Visualization': null,  // Special handler
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -611,12 +612,12 @@
             'Chamber Fans 25%': ['M106 S64 P3'],
             'Chamber Fans 50%': ['M106 S128 P3'],
             'Chamber Fans 75%': ['M106 S192 P3'],
-            'Chamber Fans 100%': ['M106 S255 P3'],
-            'Bed Mesh Visualization': null  // Special handler
+            'Chamber Fans 100%': ['M106 S255 P3']
         };
 
         // ========================================
         // BED MESH VISUALIZATION
+        // (only open + parseMeshData modified)
         // ========================================
         const BedMesh = {
             modal: null,
@@ -627,10 +628,15 @@
                 document.getElementById('bedMeshStats').style.display = 'none';
                 document.getElementById('bedMeshPlot').innerHTML = '<div class="bed-mesh-loading">Loading bed mesh...</div>';
                 
-                // Send M420 V - response is instant
+                // Send M420 V - response is usually instant
                 fetch('/send?cmd=' + encodeURIComponent('M420 V'))
                     .then(() => {
-                        // Give it 1S for the log to be written, then fetch
+                        // Immediately request the central log updater (same mechanism used elsewhere)
+                        if (typeof PrusaMonitor !== 'undefined' && PrusaMonitor.api && PrusaMonitor.api.updateLog) {
+                            try { PrusaMonitor.api.updateLog(); } catch(e) { console.warn('updateLog failed', e); }
+                        }
+
+                        // Short delay to allow updateLog to append the M420 output, then fetch /log once
                         setTimeout(() => {
                             fetch('/log')
                                 .then(resp => resp.text())
@@ -640,7 +646,7 @@
                                     document.getElementById('bedMeshPlot').innerHTML = 
                                         '<div class="bed-mesh-error">Failed to retrieve mesh data</div>';
                                 });
-                        }, 2000);
+                        }, 400); // conservative short delay (kept small)
                     })
                     .catch(err => {
                         console.error('Command failed:', err);
@@ -657,46 +663,104 @@
 
             parseMeshData: function(logText) {
                 try {
-                    // Find the LAST occurrence (most recent)
-                    const lastIdx = logText.lastIndexOf('Bed Topography Report:');
-                    if (lastIdx === -1) {
+                    if (!logText || !logText.trim()) throw new Error('Empty log');
+
+                    // Find last occurrence of likely headers (case-insensitive and tolerant)
+                    const headerRegex = /bed topography report|mesh bed topography|bed topography|bed mesh/ig;
+                    let match;
+                    let lastIndex = -1;
+                    while ((match = headerRegex.exec(logText)) !== null) {
+                        lastIndex = match.index;
+                    }
+                    if (lastIndex === -1) {
                         throw new Error('No bed topography found in log');
                     }
 
-                    // Get everything from that point
-                    const section = logText.substring(lastIdx);
-                    const lines = section.split(/\r?\n/);
-                    
-                    const meshData = [];
+                    // Extract tail starting at header
+                    const tail = logText.slice(lastIndex);
+
+                    // Terminate at 'Mesh is valid' or an 'ok' line if present
+                    const termMatch = tail.match(/mesh is valid|^ok\b/im);
+                    let section;
+                    if (termMatch && termMatch.index !== undefined) {
+                        section = tail.slice(0, termMatch.index + termMatch[0].length).trim();
+                    } else {
+                        // fallback: up to a double blank line or entire tail
+                        const blankIdx = tail.indexOf('\n\n');
+                        section = (blankIdx >= 0 ? tail.slice(0, blankIdx) : tail).trim();
+                    }
+
+                    if (!section) throw new Error('Extracted mesh section empty');
+
+                    const lines = section.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+                    const meshRows = [];
                     let gridSize = 0;
-                    
+
                     for (const line of lines) {
-                        const trimmed = line.trim();
-                        if (!trimmed) continue;
-                        
-                        // Match row data: "20 | -0.526 -0.465 ..."
-                        const match = trimmed.match(/^(\d+)\s*\|\s*([\s\d\.\-\+]+)/);
-                        if (match) {
-                            const rowNum = parseInt(match[1]);
-                            const values = match[2].trim().split(/\s+/).map(v => parseFloat(v));
-                            meshData[rowNum] = values;
-                            if (values.length > gridSize) gridSize = values.length;
+                        // skip header/footer lines
+                        if (/bed topography|mesh bed|mesh is valid|storage slot|echo:/i.test(line)) continue;
+                        // skip column header like "0 1 2 3 ..."
+                        if (/^\d+(\s+\d+)+$/.test(line)) continue;
+                        // skip lone '|' separators
+                        if (/^\|$/.test(line)) continue;
+
+                        // Try "N | values" form (e.g. "20 | 0.000 0.000 ...")
+                        let m = line.match(/^(\d+)\s*\|\s*([-\d\.\s\+\[\]eE]+)/);
+                        if (m) {
+                            const idx = parseInt(m[1], 10);
+                            const vals = m[2].replace(/[\[\]]/g, ' ').trim().split(/\s+/).map(Number).filter(n => !Number.isNaN(n));
+                            if (vals.length) {
+                                meshRows.push({ idx, vals });
+                                gridSize = Math.max(gridSize, vals.length);
+                            }
+                            continue;
                         }
-                        
-                        // Stop when we hit the end
-                        if (trimmed.includes('Mesh is valid')) break;
+
+                        // Otherwise try to extract floats from the line
+                        const floats = line.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
+                        if (floats && floats.length) {
+                            const vals = floats.map(Number);
+                            meshRows.push({ idx: null, vals });
+                            gridSize = Math.max(gridSize, vals.length);
+                            continue;
+                        }
+                        // ignore anything else
                     }
 
-                    if (meshData.length === 0) {
-                        throw new Error('No mesh rows parsed');
+                    if (meshRows.length === 0) throw new Error('No mesh rows parsed');
+
+                    // Build rows array. Use explicit indices if present (indices may count down)
+                    const hasIdx = meshRows.some(r => r.idx !== null);
+                    let rowsArr;
+                    if (hasIdx) {
+                        const explicit = meshRows.filter(r => r.idx !== null);
+                        const minIdx = Math.min(...explicit.map(r => r.idx));
+                        const maxIdx = Math.max(...explicit.map(r => r.idx));
+                        const height = maxIdx - minIdx + 1;
+                        rowsArr = new Array(height).fill(null);
+                        for (const r of meshRows) {
+                            if (r.idx !== null) rowsArr[r.idx - minIdx] = r.vals.slice();
+                        }
+                        // append anonymous rows if present
+                        const anon = meshRows.filter(r => r.idx === null).map(r => r.vals);
+                        if (anon.length) rowsArr = rowsArr.concat(anon);
+                        // normalize width by padding with NaN
+                        const widest = Math.max(...rowsArr.filter(Boolean).map(a => a.length));
+                        for (let i = 0; i < rowsArr.length; i++) {
+                            if (!rowsArr[i]) rowsArr[i] = Array.from({length: widest}, () => NaN);
+                            else if (rowsArr[i].length < widest) rowsArr[i] = rowsArr[i].concat(Array.from({length: widest - rowsArr[i].length}, () => NaN));
+                        }
+                    } else {
+                        const widest = Math.max(...meshRows.map(r => r.vals.length));
+                        rowsArr = meshRows.map(r => r.vals.length < widest ? r.vals.concat(Array.from({length: widest - r.vals.length}, () => NaN)) : r.vals.slice());
                     }
 
-                    // Reverse to get row 0 at bottom
-                    meshData.reverse();
+                    // Reverse so row 0 is bottom (preserve original visual orientation)
+                    rowsArr.reverse();
 
-                    console.log('Successfully parsed:', meshData.length + 'x' + gridSize);
-                    this.renderMesh(meshData, gridSize);
-                    
+                    console.log('Parsed mesh:', rowsArr.length + 'x' + gridSize);
+                    this.renderMesh(rowsArr, gridSize);
+
                 } catch (err) {
                     console.error('Parse failed:', err);
                     document.getElementById('bedMeshPlot').innerHTML = 
@@ -1134,7 +1198,7 @@
                                                  trimmed.includes(' B:') && 
                                                  trimmed.includes(' @:') && 
                                                  trimmed.includes(' B@:');
-                                    
+                                     
                                     if (!hideTemps || !isTemp) {
                                         const timestamp = new Date().toLocaleTimeString();
                                         const entry = document.createElement('div');
@@ -1370,7 +1434,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.6-remote</div>
+    <div class="version-label">v2.0.7-remote</div>
 </body>
 
 </html>
