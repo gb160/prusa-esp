@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Prusa Core One Monitor</title>
-    
+
     <style>
         /* ========================================
            GLOBAL STYLES
@@ -17,7 +17,8 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+                sans-serif;
             background: #0f0f0f;
             color: #e0e0e0;
             padding: 20px;
@@ -135,8 +136,14 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
 
         /* ========================================
@@ -174,7 +181,7 @@
             padding: 15px;
             height: 250px;
             overflow-y: auto;
-            font-family: 'Courier New', monospace;
+            font-family: "Courier New", monospace;
             font-size: 0.85rem;
             color: #b0b0b0;
             line-height: 1.8;
@@ -220,7 +227,8 @@
             padding: 12px 15px;
             color: #e0e0e0;
             font-size: 0.95rem;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+                sans-serif;
             resize: vertical;
             min-height: 60px;
         }
@@ -287,18 +295,18 @@
             align-items: center;
             cursor: pointer;
         }
-        
+
         .dropdown-toggle {
             font-size: 0.85rem;
             color: #888;
             transition: color 0.2s ease;
             user-select: none;
         }
-        
+
         .dropdown-toggle:hover {
             color: #ccc;
         }
-        
+
         .dropdown-menu {
             position: absolute;
             top: 28px;
@@ -311,18 +319,18 @@
             flex-direction: column;
             z-index: 1000;
         }
-        
+
         .dropdown-item {
             padding: 10px 15px;
             color: #ddd;
             font-size: 0.9rem;
             border-bottom: 1px solid #222;
         }
-        
+
         .dropdown-item:last-child {
             border-bottom: none;
         }
-        
+
         .dropdown-item:hover {
             background: #2a2a2a;
         }
@@ -434,12 +442,10 @@
                         <div class="dropdown-toggle">⋮</div>
                         <div class="dropdown-menu"></div>
                     </div>
-                </div>              
+                </div>
                 <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
-                    <textarea id="command-input" 
-                              placeholder="Enter G-code commands (one per line)..." 
-                              rows="3"></textarea>
+                    <textarea id="command-input" placeholder="Enter G-code commands (one per line)..." rows="3"></textarea>
                     <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
                 </div>
             </div>
@@ -447,7 +453,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    
+
     <script>
         // ========================================
         // CONFIGURATION
@@ -462,6 +468,10 @@
             },
             SCROLL_THRESHOLD: 50
         };
+
+        // Bed topography capture timeout & retry settings
+        const BED_TOPO_TIMEOUT_MS = 5000; // milliseconds to wait for 'Mesh is valid'
+        const BED_TOPO_MAX_RETRIES = 3;   // how many times to retry before giving up
 
         const GCODE_MAP = {
             'Preheat PLA': ['M104 S170', 'M140 S60'],
@@ -480,12 +490,12 @@
         // ========================================
         const PrusaMonitor = {
             state: {
-                tempHistory: { 
-                    timestamps: [], 
-                    nozzle: [], 
-                    bed: [], 
-                    chamber: [], 
-                    heatbreak: [] 
+                tempHistory: {
+                    timestamps: [],
+                    nozzle: [],
+                    bed: [],
+                    chamber: [],
+                    heatbreak: []
                 },
                 temps: {
                     nozzle: { cur: 0, target: 0 },
@@ -512,20 +522,129 @@
                 lastGraphUpdate: 0,
 
                 // NEW: bed topography capture state (raw block only)
-                bedTopography: null,            // raw captured mesh block (timestamp-stripped by upstream; stored as-is)
-                _capturingBedTopography: false, // are we capturing right now?
-                _bedTopographyLines: []         // buffer of lines while capturing
+                bedTopography: null,            // raw captured mesh block (stored as-is)
+                _capturingBedTopography: false, // whether capture in progress
+                _bedTopographyLines: [],        // buffer of lines while capturing
+                _bedTopographyTimer: null,      // timeout timer id
+                _bedTopographyRetryAttempts: 0  // retries used so far
             },
 
-            // helper to get / clear the captured mesh
+            // Optional: implement if you want the client to actively re-request the bed topology on retry.
+            // Left empty by default to avoid guessing G-code. If you want auto-request, put fetch('/send?cmd=...') here.
+            requestBedTopography: function() {
+                // Example: fetch('/send?cmd=YOUR_COMMAND_TO_REQUEST_MESH')
+                console.log('PrusaMonitor.requestBedTopography called (no-op).');
+            },
+
             getBedTopography: function() {
                 return PrusaMonitor.state.bedTopography;
             },
+
             clearBedTopography: function() {
                 PrusaMonitor.state.bedTopography = null;
                 PrusaMonitor.state._bedTopographyLines = [];
                 PrusaMonitor.state._capturingBedTopography = false;
-                console.log('PrusaMonitor: Cleared stored Bed Topography.');
+                if (PrusaMonitor.state._bedTopographyTimer) {
+                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
+                    PrusaMonitor.state._bedTopographyTimer = null;
+                }
+                PrusaMonitor.state._bedTopographyRetryAttempts = 0;
+                console.log('PrusaMonitor: Cleared stored Bed Topography and reset retry counter.');
+            },
+
+            // Start the capture timer & buffer
+            _startBedTopographyCapture: function() {
+                // clear any previous timer just in case
+                if (PrusaMonitor.state._bedTopographyTimer) {
+                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
+                    PrusaMonitor.state._bedTopographyTimer = null;
+                }
+
+                PrusaMonitor.state._bedTopographyTimer = setTimeout(() => {
+                    // timeout occurred: abort capture
+                    PrusaMonitor._abortBedTopographyCapture();
+                }, BED_TOPO_TIMEOUT_MS);
+            },
+
+            // Called when capture should be aborted due to timeout
+            _abortBedTopographyCapture: function() {
+                // clear timer
+                if (PrusaMonitor.state._bedTopographyTimer) {
+                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
+                    PrusaMonitor.state._bedTopographyTimer = null;
+                }
+
+                // discard buffer
+                PrusaMonitor.state._bedTopographyLines = [];
+                PrusaMonitor.state._capturingBedTopography = false;
+                PrusaMonitor.state._bedTopographyRetryAttempts = (PrusaMonitor.state._bedTopographyRetryAttempts || 0) + 1;
+
+                // UI + console note
+                console.warn(`PrusaMonitor: Bed Topography capture timed out (no 'Mesh is valid' received within ${BED_TOPO_TIMEOUT_MS} ms). Attempt ${PrusaMonitor.state._bedTopographyRetryAttempts}/${BED_TOPO_MAX_RETRIES}. Buffer cleared.`);
+
+                try {
+                    const logBox = document.getElementById('log-box');
+                    const ts = new Date().toLocaleTimeString();
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.innerHTML = '<span class="log-timestamp">' + ts + '</span><span>Bed Topography capture timed out — buffer cleared.</span>';
+                    logBox.appendChild(entry);
+                    logBox.scrollTop = logBox.scrollHeight;
+                } catch (e) { /* ignore DOM errors */ }
+
+                // decide whether to retry
+                if ((PrusaMonitor.state._bedTopographyRetryAttempts || 0) < BED_TOPO_MAX_RETRIES) {
+                    // Optionally trigger a request for the mesh (no-op by default)
+                    try {
+                        PrusaMonitor.requestBedTopography();
+                    } catch (e) {
+                        console.error('PrusaMonitor: requestBedTopography threw:', e);
+                    }
+                    console.log('PrusaMonitor: Waiting for a fresh Bed Topography Report (retry).');
+                    // simply leave parser ready to capture next incoming "Bed Topography Report:" line
+                } else {
+                    console.error('PrusaMonitor: Reached maximum Bed Topography retry attempts. Giving up.');
+                    try {
+                        const logBox = document.getElementById('log-box');
+                        const ts = new Date().toLocaleTimeString();
+                        const entry = document.createElement('div');
+                        entry.className = 'log-entry';
+                        entry.innerHTML = '<span class="log-timestamp">' + ts + '</span><span>Bed Topography capture failed after multiple retries. Giving up.</span>';
+                        logBox.appendChild(entry);
+                        logBox.scrollTop = logBox.scrollHeight;
+                    } catch (e) { /* ignore DOM errors */ }
+                    // reset attempts so future manual triggers can start fresh
+                    PrusaMonitor.state._bedTopographyRetryAttempts = 0;
+                }
+            },
+
+            // Called when capture completes successfully
+            _finishBedTopographyCapture: function() {
+                // clear timer
+                if (PrusaMonitor.state._bedTopographyTimer) {
+                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
+                    PrusaMonitor.state._bedTopographyTimer = null;
+                }
+                // reset retry attempts
+                PrusaMonitor.state._bedTopographyRetryAttempts = 0;
+
+                const meshText = PrusaMonitor.state._bedTopographyLines.join('\n');
+                PrusaMonitor.state.bedTopography = meshText;
+                PrusaMonitor.state._bedTopographyLines = [];
+                PrusaMonitor.state._capturingBedTopography = false;
+
+                console.log('PrusaMonitor: Bed Topography capture complete. Mesh is valid.');
+                console.log('PrusaMonitor: Captured mesh (preview):\n', meshText.substring(0, 300));
+
+                try {
+                    const logBox = document.getElementById('log-box');
+                    const timestamp = new Date().toLocaleTimeString();
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    entry.innerHTML = '<span class="log-timestamp">' + timestamp + '</span><span>Bed Topography captured (Mesh is valid)</span>';
+                    logBox.appendChild(entry);
+                    logBox.scrollTop = logBox.scrollHeight;
+                } catch (e) { /* ignore UI errors */ }
             },
 
             // ========================================
@@ -538,7 +657,7 @@
                  */
                 update: function() {
                     const progress = PrusaMonitor.state.progress.percent;
-                    
+
                     if (progress > 0 && progress < 100) {
                         // Printing in progress - show percentage in title
                         document.title = `${progress}% - Prusa Monitor`;
@@ -562,53 +681,32 @@
                     const trimmed = ('' + line).trim();
                     if (!trimmed) return;
 
-                    // ---- NEW: Bed Topography capture ----
-                    // Start capture when we see "Bed Topography Report:" and stop when we see "Mesh is valid"
+                    // ---- Bed Topography capture with timeout & retry ----
                     if (trimmed.includes('Bed Topography Report:')) {
                         PrusaMonitor.state._capturingBedTopography = true;
-                        PrusaMonitor.state._bedTopographyLines = [];
-                        // store the first line as-is (no timestamp stripping)
-                        PrusaMonitor.state._bedTopographyLines.push(trimmed);
-                        // clear any previous stored mesh (we're starting a fresh capture)
+                        PrusaMonitor.state._bedTopographyLines = [ trimmed ];
                         PrusaMonitor.state.bedTopography = null;
                         console.log('PrusaMonitor: Detected start of Bed Topography Report. Beginning capture.');
-                        return; // consumed this line
+                        // start timeout
+                        PrusaMonitor._startBedTopographyCapture();
+                        return;
                     }
 
                     if (PrusaMonitor.state._capturingBedTopography) {
-                        // collect every line as received
                         PrusaMonitor.state._bedTopographyLines.push(trimmed);
 
                         if (trimmed.includes('Mesh is valid')) {
-                            // finish capture
-                            PrusaMonitor.state._capturingBedTopography = false;
-                            const meshText = PrusaMonitor.state._bedTopographyLines.join('\n');
-                            PrusaMonitor.state.bedTopography = meshText;
-
-                            console.log('PrusaMonitor: Bed Topography capture complete. Mesh is valid.');
-                            console.log('PrusaMonitor: Captured mesh (preview):\n', meshText.substring(0, 300));
-
-                            // append a short entry to the on-screen log so the user can see it
-                            try {
-                                const logBox = document.getElementById('log-box');
-                                const timestamp = new Date().toLocaleTimeString();
-                                const entry = document.createElement('div');
-                                entry.className = 'log-entry';
-                                entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + '</span><span>' + 'Bed Topography captured (Mesh is valid)' + '</span>';
-                                logBox.appendChild(entry);
-                                logBox.scrollTop = logBox.scrollHeight;
-                            } catch (e) {
-                                // ignore DOM errors
-                            }
-
-                            return; // don't run the normal parsing on mesh lines
+                            // success
+                            PrusaMonitor._finishBedTopographyCapture();
+                            return; // do not further parse mesh lines
                         }
 
-                        // while capturing, skip further parsing for this line
+                        // still capturing; do not process this line further
                         return;
                     }
 
                     // ---- Existing parsing logic (unchanged) ----
+
                     // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
                     const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
                     if (tempMatch) {
@@ -754,14 +852,12 @@
                     // No limit - keeps all history for infinite scrolling graph
 
                     const chart = PrusaMonitor.state.chart;
-                    if (chart) {
-                        chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
-                        chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
-                        chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
-                        chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
-                        chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
-                        chart.update('none');
-                    }
+                    chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
+                    chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
+                    chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
+                    chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
+                    chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
+                    chart.update('none');
                 },
 
                 updateTempColor: function(elementId, current, target) {
@@ -819,7 +915,7 @@
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
                             entry.className = 'log-entry';
-                            entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
+                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
                                             '</span><span>> ' + cmd + '</span>';
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
@@ -843,7 +939,7 @@
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
                             entry.className = 'log-entry';
-                            entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
+                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
                                             '</span><span>> ' + cmd + '</span>';
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
@@ -897,7 +993,7 @@
                             newText.split(/\r?\n/).forEach(line => {
                                 const trimmed = line.trim();
                                 if (trimmed) {
-                                    // IMPORTANT: pass the **raw trimmed** line to parser — we do not modify timestamps here.
+                                    // Pass the raw trimmed line to parser — the parser capture assumes lines are pre-timestamp
                                     PrusaMonitor.parser.parseLine(trimmed);
 
                                     const isTemp = trimmed.startsWith('T:') && 
@@ -909,7 +1005,7 @@
                                         const timestamp = new Date().toLocaleTimeString();
                                         const entry = document.createElement('div');
                                         entry.className = 'log-entry';
-                                        entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
+                                        entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
                                                         '</span><span>' + trimmed + '</span>';
                                         logBox.appendChild(entry);
                                     }
@@ -1141,7 +1237,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.11-remote</div>
+    <div class="version-label">v2.0.12-remote</div>
 </body>
 
 </html>
