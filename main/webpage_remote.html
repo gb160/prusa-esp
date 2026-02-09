@@ -509,7 +509,23 @@
                 userScrolling: false,
                 lastLogLen: 0,
                 chart: null,
-                lastGraphUpdate: 0
+                lastGraphUpdate: 0,
+
+                // NEW: bed topography capture state (raw block only)
+                bedTopography: null,            // raw captured mesh block (timestamp-stripped by upstream; stored as-is)
+                _capturingBedTopography: false, // are we capturing right now?
+                _bedTopographyLines: []         // buffer of lines while capturing
+            },
+
+            // helper to get / clear the captured mesh
+            getBedTopography: function() {
+                return PrusaMonitor.state.bedTopography;
+            },
+            clearBedTopography: function() {
+                PrusaMonitor.state.bedTopography = null;
+                PrusaMonitor.state._bedTopographyLines = [];
+                PrusaMonitor.state._capturingBedTopography = false;
+                console.log('PrusaMonitor: Cleared stored Bed Topography.');
             },
 
             // ========================================
@@ -541,9 +557,58 @@
             // ========================================
             parser: {
                 parseLine: function(line) {
-                    const trimmed = line.trim();
+                    // IMPORTANT: we DO NOT strip timestamps here because you said parsing happens before timestamps are added.
+                    // We expect the incoming `line` to be the raw data line we need to inspect.
+                    const trimmed = ('' + line).trim();
                     if (!trimmed) return;
 
+                    // ---- NEW: Bed Topography capture ----
+                    // Start capture when we see "Bed Topography Report:" and stop when we see "Mesh is valid"
+                    if (trimmed.includes('Bed Topography Report:')) {
+                        PrusaMonitor.state._capturingBedTopography = true;
+                        PrusaMonitor.state._bedTopographyLines = [];
+                        // store the first line as-is (no timestamp stripping)
+                        PrusaMonitor.state._bedTopographyLines.push(trimmed);
+                        // clear any previous stored mesh (we're starting a fresh capture)
+                        PrusaMonitor.state.bedTopography = null;
+                        console.log('PrusaMonitor: Detected start of Bed Topography Report. Beginning capture.');
+                        return; // consumed this line
+                    }
+
+                    if (PrusaMonitor.state._capturingBedTopography) {
+                        // collect every line as received
+                        PrusaMonitor.state._bedTopographyLines.push(trimmed);
+
+                        if (trimmed.includes('Mesh is valid')) {
+                            // finish capture
+                            PrusaMonitor.state._capturingBedTopography = false;
+                            const meshText = PrusaMonitor.state._bedTopographyLines.join('\n');
+                            PrusaMonitor.state.bedTopography = meshText;
+
+                            console.log('PrusaMonitor: Bed Topography capture complete. Mesh is valid.');
+                            console.log('PrusaMonitor: Captured mesh (preview):\n', meshText.substring(0, 300));
+
+                            // append a short entry to the on-screen log so the user can see it
+                            try {
+                                const logBox = document.getElementById('log-box');
+                                const timestamp = new Date().toLocaleTimeString();
+                                const entry = document.createElement('div');
+                                entry.className = 'log-entry';
+                                entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + '</span><span>' + 'Bed Topography captured (Mesh is valid)' + '</span>';
+                                logBox.appendChild(entry);
+                                logBox.scrollTop = logBox.scrollHeight;
+                            } catch (e) {
+                                // ignore DOM errors
+                            }
+
+                            return; // don't run the normal parsing on mesh lines
+                        }
+
+                        // while capturing, skip further parsing for this line
+                        return;
+                    }
+
+                    // ---- Existing parsing logic (unchanged) ----
                     // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
                     const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
                     if (tempMatch) {
@@ -601,7 +666,6 @@
                     }
 
                     // Change due: "Change: 16m;" or "Change: 1h 5m;"
-                    // Note: If no "Change:" line appears, value stays as previously set (could be null or a number)
                     const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
                     if (changeMatch) {
                         const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
@@ -690,12 +754,14 @@
                     // No limit - keeps all history for infinite scrolling graph
 
                     const chart = PrusaMonitor.state.chart;
-                    chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
-                    chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
-                    chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
-                    chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
-                    chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
-                    chart.update('none');
+                    if (chart) {
+                        chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
+                        chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
+                        chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
+                        chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
+                        chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
+                        chart.update('none');
+                    }
                 },
 
                 updateTempColor: function(elementId, current, target) {
@@ -753,7 +819,7 @@
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
                             entry.className = 'log-entry';
-                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                            entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
                                             '</span><span>> ' + cmd + '</span>';
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
@@ -777,7 +843,7 @@
                             const timestamp = new Date().toLocaleTimeString();
                             const entry = document.createElement('div');
                             entry.className = 'log-entry';
-                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                            entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
                                             '</span><span>> ' + cmd + '</span>';
                             history.appendChild(entry);
                             history.scrollTop = history.scrollHeight;
@@ -831,6 +897,7 @@
                             newText.split(/\r?\n/).forEach(line => {
                                 const trimmed = line.trim();
                                 if (trimmed) {
+                                    // IMPORTANT: pass the **raw trimmed** line to parser — we do not modify timestamps here.
                                     PrusaMonitor.parser.parseLine(trimmed);
 
                                     const isTemp = trimmed.startsWith('T:') && 
@@ -842,7 +909,7 @@
                                         const timestamp = new Date().toLocaleTimeString();
                                         const entry = document.createElement('div');
                                         entry.className = 'log-entry';
-                                        entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
+                                        entry.innerHTML = '<span class=\"log-timestamp\">' + timestamp + 
                                                         '</span><span>' + trimmed + '</span>';
                                         logBox.appendChild(entry);
                                     }
@@ -1074,7 +1141,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.1-remote</div>
+    <div class="version-label">v2.0.11-remote</div>
 </body>
 
 </html>
