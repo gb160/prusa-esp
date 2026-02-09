@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prusa Core One Monitor</title>
-
+    
     <style>
         /* ========================================
            GLOBAL STYLES
@@ -17,8 +17,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-                sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: #0f0f0f;
             color: #e0e0e0;
             padding: 20px;
@@ -136,14 +135,8 @@
         }
 
         @keyframes pulse {
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         /* ========================================
@@ -181,7 +174,7 @@
             padding: 15px;
             height: 250px;
             overflow-y: auto;
-            font-family: "Courier New", monospace;
+            font-family: 'Courier New', monospace;
             font-size: 0.85rem;
             color: #b0b0b0;
             line-height: 1.8;
@@ -227,8 +220,7 @@
             padding: 12px 15px;
             color: #e0e0e0;
             font-size: 0.95rem;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-                sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             resize: vertical;
             min-height: 60px;
         }
@@ -295,18 +287,18 @@
             align-items: center;
             cursor: pointer;
         }
-
+        
         .dropdown-toggle {
             font-size: 0.85rem;
             color: #888;
             transition: color 0.2s ease;
             user-select: none;
         }
-
+        
         .dropdown-toggle:hover {
             color: #ccc;
         }
-
+        
         .dropdown-menu {
             position: absolute;
             top: 28px;
@@ -319,21 +311,30 @@
             flex-direction: column;
             z-index: 1000;
         }
-
+        
         .dropdown-item {
             padding: 10px 15px;
             color: #ddd;
             font-size: 0.9rem;
             border-bottom: 1px solid #222;
         }
-
+        
         .dropdown-item:last-child {
             border-bottom: none;
         }
-
+        
         .dropdown-item:hover {
             background: #2a2a2a;
         }
+
+        /* Mesh modal (Plotly) */
+        .mesh-modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:2000; }
+        .mesh-modal { width:90%; max-width:1100px; height:80%; background:#0b0b0b; border-radius:12px; border:1px solid #333; box-shadow:0 10px 30px rgba(0,0,0,0.8); display:flex; flex-direction:column; overflow:hidden; }
+        .mesh-modal-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid #222; }
+        .mesh-modal-title { color:#ddd; font-weight:600; }
+        .mesh-modal-close { background:transparent; border:none; color:#aaa; font-size:18px; cursor:pointer; }
+        .mesh-plot { flex:1; min-height:0; } 
+        @media (max-width:768px) { .mesh-modal { width:95%; height:85%; } }
 
         /* ========================================
            RESPONSIVE DESIGN
@@ -348,6 +349,9 @@
             }
         }
     </style>
+
+    <!-- Plotly CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
 </head>
 
 <body>
@@ -440,20 +444,33 @@
                     <span>Send Command</span>
                     <div class="dropdown">
                         <div class="dropdown-toggle">⋮</div>
-                        <div class="dropdown-menu"></div>
+                        <div class="dropdown-menu" id="dropdown-menu"></div>
                     </div>
-                </div>
+                </div>              
                 <div class="log-box" id="command-history"></div>
                 <div class="command-input-group">
-                    <textarea id="command-input" placeholder="Enter G-code commands (one per line)..." rows="3"></textarea>
+                    <textarea id="command-input" 
+                              placeholder="Enter G-code commands (one per line)..." 
+                              rows="3"></textarea>
                     <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <!-- Mesh modal (hidden by default) -->
+    <div class="mesh-modal-backdrop" id="mesh-modal-backdrop" role="dialog" aria-hidden="true">
+        <div class="mesh-modal" role="document">
+            <div class="mesh-modal-header">
+                <div class="mesh-modal-title">Bed Mesh Topology</div>
+                <button class="mesh-modal-close" id="mesh-modal-close">&times;</button>
+            </div>
+            <div id="mesh-plot" class="mesh-plot"></div>
+        </div>
+    </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
     <script>
         // ========================================
         // CONFIGURATION
@@ -469,9 +486,8 @@
             SCROLL_THRESHOLD: 50
         };
 
-        // Bed topography capture timeout & retry settings
-        const BED_TOPO_TIMEOUT_MS = 5000; // milliseconds to wait for 'Mesh is valid'
-        const BED_TOPO_MAX_RETRIES = 3;   // how many times to retry before giving up
+        const BED_TOPO_TIMEOUT_MS = 5000; // 5s
+        const BED_TOPO_MAX_RETRIES = 3;
 
         const GCODE_MAP = {
             'Preheat PLA': ['M104 S170', 'M140 S60'],
@@ -482,7 +498,6 @@
             'Chamber Fans 50%': ['M106 S128 P3'],
             'Chamber Fans 75%': ['M106 S192 P3'],
             'Chamber Fans 100%': ['M106 S255 P3']
-
         };
 
         // ========================================
@@ -490,12 +505,12 @@
         // ========================================
         const PrusaMonitor = {
             state: {
-                tempHistory: {
-                    timestamps: [],
-                    nozzle: [],
-                    bed: [],
-                    chamber: [],
-                    heatbreak: []
+                tempHistory: { 
+                    timestamps: [], 
+                    nozzle: [], 
+                    bed: [], 
+                    chamber: [], 
+                    heatbreak: [] 
                 },
                 temps: {
                     nozzle: { cur: 0, target: 0 },
@@ -521,19 +536,22 @@
                 chart: null,
                 lastGraphUpdate: 0,
 
-                // NEW: bed topography capture state (raw block only)
-                bedTopography: null,            // raw captured mesh block (stored as-is)
-                _capturingBedTopography: false, // whether capture in progress
-                _bedTopographyLines: [],        // buffer of lines while capturing
-                _bedTopographyTimer: null,      // timeout timer id
-                _bedTopographyRetryAttempts: 0  // retries used so far
+                // NEW: bed topography capture state
+                bedTopography: null, // will store final captured mesh as a string
+                _capturingBedTopography: false,
+                _bedTopographyLines: [],
+                _bedTopographyTimer: null,
+                _bedTopographyRetryAttempts: 0
             },
 
-            // Optional: implement if you want the client to actively re-request the bed topology on retry.
-            // Left empty by default to avoid guessing G-code. If you want auto-request, put fetch('/send?cmd=...') here.
+            // When user clicks Mesh Topology, send M420 V
             requestBedTopography: function() {
-                // Example: fetch('/send?cmd=YOUR_COMMAND_TO_REQUEST_MESH')
-                console.log('PrusaMonitor.requestBedTopography called (no-op).');
+                try {
+                    fetch('/send?cmd=' + encodeURIComponent('M420 V')).catch(e => console.error('Failed to send M420 V', e));
+                } catch (e) {
+                    console.error('requestBedTopography error:', e);
+                }
+                console.log('PrusaMonitor: requested bed topology (M420 V)');
             },
 
             getBedTopography: function() {
@@ -552,7 +570,18 @@
                 console.log('PrusaMonitor: Cleared stored Bed Topography and reset retry counter.');
             },
 
-            // Start the capture timer & buffer
+            // Callback registry for when bed topology capture completes
+            _onBedTopoCompleteCallbacks: [],
+            onBedTopoComplete: function(cb) {
+                if (typeof cb === 'function') PrusaMonitor._onBedTopoCompleteCallbacks.push(cb);
+            },
+            _fireBedTopoComplete: function(meshText) {
+                PrusaMonitor._onBedTopoCompleteCallbacks.forEach(cb => {
+                    try { cb(meshText); } catch (e) { console.error('Callback threw:', e); }
+                });
+            },
+
+            // Start capture timer & buffer
             _startBedTopographyCapture: function() {
                 // clear any previous timer just in case
                 if (PrusaMonitor.state._bedTopographyTimer) {
@@ -561,25 +590,20 @@
                 }
 
                 PrusaMonitor.state._bedTopographyTimer = setTimeout(() => {
-                    // timeout occurred: abort capture
                     PrusaMonitor._abortBedTopographyCapture();
                 }, BED_TOPO_TIMEOUT_MS);
             },
 
-            // Called when capture should be aborted due to timeout
             _abortBedTopographyCapture: function() {
-                // clear timer
                 if (PrusaMonitor.state._bedTopographyTimer) {
                     clearTimeout(PrusaMonitor.state._bedTopographyTimer);
                     PrusaMonitor.state._bedTopographyTimer = null;
                 }
 
-                // discard buffer
                 PrusaMonitor.state._bedTopographyLines = [];
                 PrusaMonitor.state._capturingBedTopography = false;
                 PrusaMonitor.state._bedTopographyRetryAttempts = (PrusaMonitor.state._bedTopographyRetryAttempts || 0) + 1;
 
-                // UI + console note
                 console.warn(`PrusaMonitor: Bed Topography capture timed out (no 'Mesh is valid' received within ${BED_TOPO_TIMEOUT_MS} ms). Attempt ${PrusaMonitor.state._bedTopographyRetryAttempts}/${BED_TOPO_MAX_RETRIES}. Buffer cleared.`);
 
                 try {
@@ -592,16 +616,13 @@
                     logBox.scrollTop = logBox.scrollHeight;
                 } catch (e) { /* ignore DOM errors */ }
 
-                // decide whether to retry
                 if ((PrusaMonitor.state._bedTopographyRetryAttempts || 0) < BED_TOPO_MAX_RETRIES) {
-                    // Optionally trigger a request for the mesh (no-op by default)
                     try {
                         PrusaMonitor.requestBedTopography();
                     } catch (e) {
                         console.error('PrusaMonitor: requestBedTopography threw:', e);
                     }
                     console.log('PrusaMonitor: Waiting for a fresh Bed Topography Report (retry).');
-                    // simply leave parser ready to capture next incoming "Bed Topography Report:" line
                 } else {
                     console.error('PrusaMonitor: Reached maximum Bed Topography retry attempts. Giving up.');
                     try {
@@ -612,20 +633,16 @@
                         entry.innerHTML = '<span class="log-timestamp">' + ts + '</span><span>Bed Topography capture failed after multiple retries. Giving up.</span>';
                         logBox.appendChild(entry);
                         logBox.scrollTop = logBox.scrollHeight;
-                    } catch (e) { /* ignore DOM errors */ }
-                    // reset attempts so future manual triggers can start fresh
+                    } catch (e) { /* ignore UI errors */ }
                     PrusaMonitor.state._bedTopographyRetryAttempts = 0;
                 }
             },
 
-            // Called when capture completes successfully
             _finishBedTopographyCapture: function() {
-                // clear timer
                 if (PrusaMonitor.state._bedTopographyTimer) {
                     clearTimeout(PrusaMonitor.state._bedTopographyTimer);
                     PrusaMonitor.state._bedTopographyTimer = null;
                 }
-                // reset retry attempts
                 PrusaMonitor.state._bedTopographyRetryAttempts = 0;
 
                 const meshText = PrusaMonitor.state._bedTopographyLines.join('\n');
@@ -645,27 +662,23 @@
                     logBox.appendChild(entry);
                     logBox.scrollTop = logBox.scrollHeight;
                 } catch (e) { /* ignore UI errors */ }
+
+                // Notify listeners (modal plotting)
+                try { PrusaMonitor._fireBedTopoComplete(meshText); } catch (e) { console.error(e); }
             },
 
             // ========================================
             // PAGE TITLE MANAGEMENT
             // ========================================
             pageTitle: {
-                /**
-                 * Update browser tab title with print progress
-                 * Shows progress percentage when printing, default title otherwise
-                 */
                 update: function() {
                     const progress = PrusaMonitor.state.progress.percent;
-
+                    
                     if (progress > 0 && progress < 100) {
-                        // Printing in progress - show percentage in title
                         document.title = `${progress}% - Prusa Monitor`;
                     } else if (progress === 100) {
-                        // Print complete
                         document.title = '✓ Complete - Prusa Monitor';
                     } else {
-                        // Idle or no print
                         document.title = 'Prusa Core One Monitor';
                     }
                 }
@@ -676,8 +689,7 @@
             // ========================================
             parser: {
                 parseLine: function(line) {
-                    // IMPORTANT: we DO NOT strip timestamps here because you said parsing happens before timestamps are added.
-                    // We expect the incoming `line` to be the raw data line we need to inspect.
+                    // Assume incoming line is already the raw line (timestamps stripped earlier upstream)
                     const trimmed = ('' + line).trim();
                     if (!trimmed) return;
 
@@ -687,7 +699,6 @@
                         PrusaMonitor.state._bedTopographyLines = [ trimmed ];
                         PrusaMonitor.state.bedTopography = null;
                         console.log('PrusaMonitor: Detected start of Bed Topography Report. Beginning capture.');
-                        // start timeout
                         PrusaMonitor._startBedTopographyCapture();
                         return;
                     }
@@ -698,14 +709,14 @@
                         if (trimmed.includes('Mesh is valid')) {
                             // success
                             PrusaMonitor._finishBedTopographyCapture();
-                            return; // do not further parse mesh lines
+                            return;
                         }
 
                         // still capturing; do not process this line further
                         return;
                     }
 
-                    // ---- Existing parsing logic (unchanged) ----
+                    // ---- Existing parsing logic (temperatures, progress, z-height) ----
 
                     // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
                     const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
@@ -993,7 +1004,6 @@
                             newText.split(/\r?\n/).forEach(line => {
                                 const trimmed = line.trim();
                                 if (trimmed) {
-                                    // Pass the raw trimmed line to parser — the parser capture assumes lines are pre-timestamp
                                     PrusaMonitor.parser.parseLine(trimmed);
 
                                     const isTemp = trimmed.startsWith('T:') && 
@@ -1145,6 +1155,14 @@
 
                 this.api.updateStatus();
                 this.api.updateLog();
+
+                // register plotting callback: if modal open when capture completes, plot immediately
+                PrusaMonitor.onBedTopoComplete((meshText) => {
+                    const backdrop = document.getElementById('mesh-modal-backdrop');
+                    if (backdrop && backdrop.style.display === 'flex') {
+                        try { plotMeshFromText(meshText); } catch (e) { console.error('Plotting failed:', e); }
+                    }
+                });
             },
 
             setupEventListeners: function() {
@@ -1208,12 +1226,37 @@
                             .catch(err => console.error('Failed to send M73:', err));
                     }
                 });
+
+                // mesh modal controls
+                const closeBtn = document.getElementById('mesh-modal-close');
+                if (closeBtn) closeBtn.addEventListener('click', hideMeshModal);
+                const backdrop = document.getElementById('mesh-modal-backdrop');
+                if (backdrop) {
+                    backdrop.addEventListener('click', (ev) => {
+                        if (ev.target === backdrop) hideMeshModal();
+                    });
+                }
             },
 
             setupDropdown: function() {
-                const dropdownMenu = document.querySelector('.dropdown-menu');
+                const dropdownMenu = document.getElementById('dropdown-menu');
                 dropdownMenu.innerHTML = '';
 
+                // Add "Mesh Topology" at the top
+                const meshItem = document.createElement('div');
+                meshItem.className = 'dropdown-item';
+                meshItem.textContent = 'Mesh Topology';
+                meshItem.addEventListener('click', () => {
+                    // open modal immediately (plot will appear when data arrives)
+                    showMeshModal();
+                    // request mesh via M420 V
+                    PrusaMonitor.requestBedTopography();
+                    // close dropdown
+                    dropdownMenu.style.display = 'none';
+                });
+                dropdownMenu.appendChild(meshItem);
+
+                // then add the existing preset items
                 Object.keys(GCODE_MAP).forEach(label => {
                     const item = document.createElement('div');
                     item.className = 'dropdown-item';
@@ -1232,12 +1275,127 @@
             }
         };
 
+        // ========================================
+        // Mesh modal helpers & Plotly plotting
+        // ========================================
+        function showMeshModal() {
+            const backdrop = document.getElementById('mesh-modal-backdrop');
+            backdrop.style.display = 'flex';
+
+            // If we already have a captured mesh, plot immediately
+            const mesh = PrusaMonitor.getBedTopography();
+            if (mesh) {
+                try { plotMeshFromText(mesh); } catch (e) { console.error('Plotting failed:', e); }
+            } else {
+                // show waiting text while mesh is requested/captured
+                const container = document.getElementById('mesh-plot');
+                container.innerHTML = '<div style="color:#aaa;padding:20px;font-family:monospace">Waiting for mesh data... (sent M420 V)</div>';
+            }
+        }
+
+        function hideMeshModal() {
+            const backdrop = document.getElementById('mesh-modal-backdrop');
+            backdrop.style.display = 'none';
+            const container = document.getElementById('mesh-plot');
+            container.innerHTML = '';
+        }
+
+        /**
+         * Parse the captured bed-topography text and produce a Z matrix for Plotly.
+         * - We look for lines that contain a '|' (grid lines) and extract numbers after the '|'
+         * - Rows may contain extraneous tokens; we filter to numeric tokens only.
+         * - Returns { z: [...], xLabels: [...], yLabels: [...] } or throws on parse failure.
+         */
+        function parseMeshTextToGrid(meshText) {
+            if (!meshText) throw new Error('No mesh text provided');
+
+            const lines = meshText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+            // collect rows that contain '|' or lines of numbers (robust)
+            const gridRows = [];
+            for (const ln of lines) {
+                if (ln.includes('|')) {
+                    const parts = ln.split('|');
+                    const numbersPart = parts.slice(1).join('|').trim();
+                    const toks = numbersPart.split(/\s+/).filter(t => t.length > 0).map(t => t.replace(/^\[|\]$/g, ''));
+                    const nums = toks.map(t => {
+                        const n = parseFloat(t.replace('+', ''));
+                        return isNaN(n) ? null : n;
+                    }).filter(v => v !== null);
+                    if (nums.length > 0) gridRows.push(nums);
+                } else {
+                    // attempt parse numeric-only lines
+                    const toks = ln.split(/\s+/).filter(t => t.length>0).map(t => t.replace(/^\[|\]$/g,''));
+                    const nums = toks.map(t => { const n = parseFloat(t.replace('+','')); return isNaN(n)?null:n; }).filter(v=>v!==null);
+                    if (nums.length > 0 && nums.length >= 3) {
+                        gridRows.push(nums);
+                    }
+                }
+            }
+
+            if (gridRows.length === 0) throw new Error('No numeric grid rows found in mesh text');
+
+            // ensure rectangular grid: trim each row to the minimum length
+            const minLen = Math.min(...gridRows.map(r => r.length));
+            const z = gridRows.map(r => r.slice(0, minLen));
+
+            const yLabels = z.map((_, i) => i);
+            const xLabels = Array.from({ length: minLen }, (_, i) => i);
+
+            return { z, xLabels, yLabels };
+        }
+
+        /**
+         * Plot the mesh using Plotly in the #mesh-plot container.
+         */
+        function plotMeshFromText(meshText) {
+            const container = document.getElementById('mesh-plot');
+            container.innerHTML = ''; // clear
+
+            let parsed;
+            try {
+                parsed = parseMeshTextToGrid(meshText);
+            } catch (e) {
+                container.innerHTML = '<div style="color:#f88;padding:20px;font-family:monospace">' + e.message + '</div>';
+                throw e;
+            }
+
+            const data = [{
+                z: parsed.z,
+                x: parsed.xLabels,
+                y: parsed.yLabels,
+                type: 'surface',
+                contours: {
+                    z: { show:true, usecolormap:true, highlightcolor:"#42f5b9", project:{ z: true } }
+                },
+                colorbar: { title: 'mm' }
+            }];
+
+            const layout = {
+                autosize: true,
+                margin: { l: 0, r: 0, b: 0, t: 0 },
+                scene: {
+                    xaxis: { title: 'X', backgroundcolor: '#0b0b0b', gridcolor: '#222', showbackground: true, zerolinecolor: '#444', tickcolor:'#888', tickfont:{color:'#aaa'} },
+                    yaxis: { title: 'Y', backgroundcolor: '#0b0b0b', gridcolor: '#222', showbackground: true, zerolinecolor: '#444', tickcolor:'#888', tickfont:{color:'#aaa'} },
+                    zaxis: { title: 'Height (mm)', backgroundcolor: '#0b0b0b', gridcolor: '#222', tickcolor:'#888', tickfont:{color:'#aaa'} }
+                },
+                paper_bgcolor: '#0b0b0b',
+                plot_bgcolor: '#0b0b0b'
+            };
+
+            Plotly.newPlot(container, data, layout, { responsive: true, displaylogo: false });
+        }
+
+        // ========================================
+        // INITIALIZE
+        // ========================================
         document.addEventListener('DOMContentLoaded', () => {
             PrusaMonitor.init();
         });
     </script>
 
-    <div class="version-label">v2.0.12-remote</div>
+    <!-- Version label - placed at the very bottom of the page as requested -->
+    <div class="version-label">v2.0.13-remote</div>
 </body>
 
 </html>
