@@ -691,15 +691,18 @@
                         }
                     }
 
-                    if (meshData.length === 0) {
+                    // Filter out any undefined rows and compact the array
+                    const cleanedData = meshData.filter(row => row !== undefined);
+
+                    if (cleanedData.length === 0) {
                         throw new Error('No mesh rows parsed');
                     }
 
                     // Reverse to get row 0 at bottom
-                    meshData.reverse();
+                    cleanedData.reverse();
 
-                    console.log('Successfully parsed:', meshData.length + 'x' + gridSize);
-                    this.renderMesh(meshData, gridSize);
+                    console.log('Successfully parsed:', cleanedData.length + 'x' + gridSize);
+                    this.renderMesh(cleanedData, gridSize);
                     
                 } catch (err) {
                     console.error('Parse failed:', err);
@@ -1377,7 +1380,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.10-remote</div>
+    <div class="version-label">v2.0.11-remote</div>
 </body>
 
 </html>
