@@ -630,7 +630,7 @@
                 // Send M420 V - response is instant
                 fetch('/send?cmd=' + encodeURIComponent('M420 V'))
                     .then(() => {
-                        // Give it 200ms for the log to be written, then fetch
+                        // Give it 1S for the log to be written, then fetch
                         setTimeout(() => {
                             fetch('/log')
                                 .then(resp => resp.text())
@@ -640,7 +640,7 @@
                                     document.getElementById('bedMeshPlot').innerHTML = 
                                         '<div class="bed-mesh-error">Failed to retrieve mesh data</div>';
                                 });
-                        }, 200);
+                        }, 1000);
                     })
                     .catch(err => {
                         console.error('Command failed:', err);
@@ -1370,7 +1370,7 @@
         });
     </script>
 
-    <div class="version-label">v2.0.4-remote</div>
+    <div class="version-label">v2.0.5-remote</div>
 </body>
 
 </html>
