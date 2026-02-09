@@ -640,7 +640,7 @@
                                     document.getElementById('bedMeshPlot').innerHTML = 
                                         '<div class="bed-mesh-error">Failed to retrieve mesh data</div>';
                                 });
-                        }, 200);
+                        }, 5000);
                     })
                     .catch(err => {
                         console.error('Command failed:', err);
