@@ -336,6 +336,69 @@
         }
 
         /* ========================================
+           MESH POPUP MODAL
+           ======================================== */
+        .mesh-popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mesh-popup.visible {
+            display: flex;
+        }
+
+        .mesh-popup-content {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            width: 90%;
+            max-width: 1000px;
+            height: 80%;
+            max-height: 700px;
+            position: relative;
+        }
+
+        .mesh-popup-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .mesh-popup-title {
+            font-size: 1.2rem;
+            color: #e0e0e0;
+        }
+
+        .mesh-popup-close {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .mesh-popup-close:hover {
+            background: #d32f2f;
+        }
+
+        #meshPlot {
+            width: 100%;
+            height: calc(100% - 50px);
+        }
+
+        /* ========================================
            RESPONSIVE DESIGN
            ======================================== */
         @media (max-width: 768px) {
@@ -453,6 +516,7 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
     <script>
         // ========================================
@@ -474,6 +538,7 @@
         const BED_TOPO_MAX_RETRIES = 3;   // how many times to retry before giving up
 
         const GCODE_MAP = {
+            'Bed Mesh': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -526,7 +591,8 @@
                 _capturingBedTopography: false, // whether capture in progress
                 _bedTopographyLines: [],        // buffer of lines while capturing
                 _bedTopographyTimer: null,      // timeout timer id
-                _bedTopographyRetryAttempts: 0  // retries used so far
+                _bedTopographyRetryAttempts: 0, // retries used so far
+                meshData: null                  // Parsed mesh data for 3D visualization
             },
 
             // Optional: implement if you want the client to actively re-request the bed topology on retry.
@@ -783,6 +849,158 @@
             },
 
             // ========================================
+            // MESH VISUALIZATION
+            // ========================================
+            mesh: {
+                parseMeshData: function(logText) {
+                    const meshPattern = /Mesh Bed Leveling (\w+)/;
+                    const pointPattern = /(\d+)\s+\|\s+([-\d.]+)/g;
+                    
+                    const meshMatch = logText.match(meshPattern);
+                    if (!meshMatch) return null;
+                    
+                    const points = [];
+                    let match;
+                    
+                    while ((match = pointPattern.exec(logText)) !== null) {
+                        points.push({
+                            index: parseInt(match[1]),
+                            value: parseFloat(match[2])
+                        });
+                    }
+                    
+                    if (points.length === 0) return null;
+                    
+                    // Determine grid dimensions (assuming square grid)
+                    const gridSize = Math.sqrt(points.length);
+                    if (!Number.isInteger(gridSize)) {
+                        console.warn('Non-square mesh detected');
+                        return null;
+                    }
+                    
+                    // Convert flat array to 2D grid
+                    const grid = [];
+                    for (let i = 0; i < gridSize; i++) {
+                        const row = [];
+                        for (let j = 0; j < gridSize; j++) {
+                            const idx = i * gridSize + j;
+                            row.push(points[idx].value);
+                        }
+                        grid.push(row);
+                    }
+                    
+                    return {
+                        status: meshMatch[1],
+                        gridSize: gridSize,
+                        points: points,
+                        grid: grid
+                    };
+                },
+
+                render: function(meshData) {
+                    if (!meshData || !meshData.grid) {
+                        console.warn('No mesh data to render');
+                        return;
+                    }
+
+                    const gridSize = meshData.gridSize;
+                    const grid = meshData.grid;
+
+                    const x = Array.from({length: gridSize}, (_, i) => i);
+                    const y = Array.from({length: gridSize}, (_, i) => i);
+
+                    const data = [{
+                        type: 'surface',
+                        x: x,
+                        y: y,
+                        z: grid,
+                        colorscale: [
+                            [0, '#0000ff'],
+                            [0.5, '#00ff00'],
+                            [1, '#ff0000']
+                        ],
+                        contours: {
+                            z: {
+                                show: true,
+                                usecolormap: true,
+                                highlightcolor: "#42f462",
+                                project: {z: true}
+                            }
+                        },
+                        colorbar: {
+                            title: 'Height (mm)',
+                            titleside: 'right',
+                            tickmode: 'linear',
+                            tick0: 0,
+                            dtick: 0.05,
+                            len: 0.75,
+                            thickness: 20,
+                            bgcolor: '#1a1a1a',
+                            bordercolor: '#2a2a2a',
+                            borderwidth: 1,
+                            tickfont: { color: '#e0e0e0', size: 12 },
+                            titlefont: { color: '#e0e0e0', size: 14 }
+                        }
+                    }];
+
+                    const layout = {
+                        title: {
+                            text: `Bed Mesh (${gridSize}x${gridSize})`,
+                            font: { color: '#e0e0e0', size: 16 }
+                        },
+                        autosize: true,
+                        scene: {
+                            xaxis: {
+                                title: 'X',
+                                gridcolor: '#2a2a2a',
+                                showbackground: true,
+                                backgroundcolor: '#0f0f0f',
+                                color: '#888'
+                            },
+                            yaxis: {
+                                title: 'Y',
+                                gridcolor: '#2a2a2a',
+                                showbackground: true,
+                                backgroundcolor: '#0f0f0f',
+                                color: '#888'
+                            },
+                            zaxis: {
+                                title: 'Z (mm)',
+                                gridcolor: '#2a2a2a',
+                                showbackground: true,
+                                backgroundcolor: '#0f0f0f',
+                                color: '#888'
+                            },
+                            camera: { eye: {x: 1.5, y: 1.5, z: 1.3} }
+                        },
+                        paper_bgcolor: '#1a1a1a',
+                        plot_bgcolor: '#0f0f0f',
+                        margin: { l: 0, r: 0, b: 0, t: 40 }
+                    };
+
+                    const config = {
+                        responsive: true,
+                        displayModeBar: true,
+                        displaylogo: false,
+                        modeBarButtonsToRemove: ['toImage']
+                    };
+
+                    Plotly.newPlot('meshPlot', data, layout, config);
+                    this.showPopup();
+                    
+                    console.log('Mesh visualization rendered');
+                },
+
+                showPopup: function() {
+                    document.getElementById('meshPopup').classList.add('visible');
+                },
+
+                closePopup: function() {
+                    document.getElementById('meshPopup').classList.remove('visible');
+                }
+            },
+
+            // ========================================
             // UI FUNCTIONS
             // ========================================
             ui: {
@@ -1018,6 +1236,14 @@
 
                             PrusaMonitor.ui.updateDisplay();
                             PrusaMonitor.ui.updateGraph();
+                            
+                            // Parse mesh data from entire log
+                            const meshData = PrusaMonitor.mesh.parseMeshData(text);
+                            if (meshData && (!PrusaMonitor.state.meshData || 
+                                JSON.stringify(meshData) !== JSON.stringify(PrusaMonitor.state.meshData))) {
+                                PrusaMonitor.state.meshData = meshData;
+                                PrusaMonitor.mesh.render(meshData);
+                            }
                         }
                         PrusaMonitor.state.lastLogLen = text.length;
                     } catch (e) {
@@ -1237,7 +1463,18 @@
         });
     </script>
 
-    <div class="version-label">v2.0.12-remote</div>
+    <!-- Mesh Popup Modal -->
+    <div class="mesh-popup" id="meshPopup">
+        <div class="mesh-popup-content">
+            <div class="mesh-popup-header">
+                <div class="mesh-popup-title">Bed Mesh Topology</div>
+                <button class="mesh-popup-close" onclick="PrusaMonitor.mesh.closePopup()">Close</button>
+            </div>
+            <div id="meshPlot"></div>
+        </div>
+    </div>
+
+    <div class="version-label">v2.0.13-remote</div>
 </body>
 
 </html>
