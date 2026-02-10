@@ -871,14 +871,12 @@
                     
                     if (points.length === 0) return null;
                     
-                    // Determine grid dimensions (assuming square grid)
                     const gridSize = Math.sqrt(points.length);
                     if (!Number.isInteger(gridSize)) {
                         console.warn('Non-square mesh detected');
                         return null;
                     }
                     
-                    // Convert flat array to 2D grid
                     const grid = [];
                     for (let i = 0; i < gridSize; i++) {
                         const row = [];
@@ -914,11 +912,7 @@
                         x: x,
                         y: y,
                         z: grid,
-                        colorscale: [
-                            [0, '#0000ff'],
-                            [0.5, '#00ff00'],
-                            [1, '#ff0000']
-                        ],
+                        colorscale: [[0, '#0000ff'], [0.5, '#00ff00'], [1, '#ff0000']],
                         contours: {
                             z: {
                                 show: true,
@@ -944,33 +938,12 @@
                     }];
 
                     const layout = {
-                        title: {
-                            text: `Bed Mesh (${gridSize}x${gridSize})`,
-                            font: { color: '#e0e0e0', size: 16 }
-                        },
+                        title: { text: `Bed Mesh (${gridSize}x${gridSize})`, font: { color: '#e0e0e0', size: 16 } },
                         autosize: true,
                         scene: {
-                            xaxis: {
-                                title: 'X',
-                                gridcolor: '#2a2a2a',
-                                showbackground: true,
-                                backgroundcolor: '#0f0f0f',
-                                color: '#888'
-                            },
-                            yaxis: {
-                                title: 'Y',
-                                gridcolor: '#2a2a2a',
-                                showbackground: true,
-                                backgroundcolor: '#0f0f0f',
-                                color: '#888'
-                            },
-                            zaxis: {
-                                title: 'Z (mm)',
-                                gridcolor: '#2a2a2a',
-                                showbackground: true,
-                                backgroundcolor: '#0f0f0f',
-                                color: '#888'
-                            },
+                            xaxis: { title: 'X', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
+                            yaxis: { title: 'Y', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
+                            zaxis: { title: 'Z (mm)', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
                             camera: { eye: {x: 1.5, y: 1.5, z: 1.3} }
                         },
                         paper_bgcolor: '#1a1a1a',
@@ -987,7 +960,6 @@
 
                     Plotly.newPlot('meshPlot', data, layout, config);
                     this.showPopup();
-                    
                     console.log('Mesh visualization rendered');
                 },
 
@@ -1237,7 +1209,7 @@
                             PrusaMonitor.ui.updateDisplay();
                             PrusaMonitor.ui.updateGraph();
                             
-                            // Parse mesh data from entire log
+                            // Parse mesh data
                             const meshData = PrusaMonitor.mesh.parseMeshData(text);
                             if (meshData && (!PrusaMonitor.state.meshData || 
                                 JSON.stringify(meshData) !== JSON.stringify(PrusaMonitor.state.meshData))) {
