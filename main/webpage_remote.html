@@ -896,7 +896,6 @@
                 },
 
                 render: function(meshData) {
-                    console.log('DEBUG: mesh.render() was called');
                     if (!meshData || !meshData.grid) {
                         console.warn('No mesh data to render');
                         return;
@@ -965,7 +964,6 @@
                 },
 
                 showPopup: function() {
-                    console.log('DEBUG: showPopup() was called');
                     document.getElementById('meshPopup').classList.add('visible');
                 },
 
@@ -1212,20 +1210,11 @@
                             PrusaMonitor.ui.updateGraph();
                             
                             // Parse mesh data
-                            console.log('DEBUG: attempting to parse mesh data');
-
                             const meshData = PrusaMonitor.mesh.parseMeshData(text);
-
-                            console.log('DEBUG: parseMeshData result:', meshData);
-
-                            if (meshData && (!PrusaMonitor.state.meshData ||
+                            if (meshData && (!PrusaMonitor.state.meshData || 
                                 JSON.stringify(meshData) !== JSON.stringify(PrusaMonitor.state.meshData))) {
-
-                                console.log('DEBUG: condition passed, calling mesh.render()');
                                 PrusaMonitor.state.meshData = meshData;
                                 PrusaMonitor.mesh.render(meshData);
-                            } else {
-                                console.log('DEBUG: condition FAILED, render not called');
                             }
                         }
                         PrusaMonitor.state.lastLogLen = text.length;
@@ -1457,7 +1446,7 @@
         </div>
     </div>
 
-    <div class="version-label">v2.0.16-remote</div>
+    <div class="version-label">v2.0.13-remote</div>
 </body>
 
 </html>
