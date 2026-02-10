@@ -1212,11 +1212,20 @@
                             PrusaMonitor.ui.updateGraph();
                             
                             // Parse mesh data
+                            console.log('DEBUG: attempting to parse mesh data');
+
                             const meshData = PrusaMonitor.mesh.parseMeshData(text);
-                            if (meshData && (!PrusaMonitor.state.meshData || 
+
+                            console.log('DEBUG: parseMeshData result:', meshData);
+
+                            if (meshData && (!PrusaMonitor.state.meshData ||
                                 JSON.stringify(meshData) !== JSON.stringify(PrusaMonitor.state.meshData))) {
+
+                                console.log('DEBUG: condition passed, calling mesh.render()');
                                 PrusaMonitor.state.meshData = meshData;
                                 PrusaMonitor.mesh.render(meshData);
+                            } else {
+                                console.log('DEBUG: condition FAILED, render not called');
                             }
                         }
                         PrusaMonitor.state.lastLogLen = text.length;
