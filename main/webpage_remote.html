@@ -699,8 +699,9 @@
                 PrusaMonitor.state._bedTopographyLines = [];
                 PrusaMonitor.state._capturingBedTopography = false;
 
-                console.log('PrusaMonitor: Bed Topography capture complete. Mesh is valid.');
-                console.log('PrusaMonitor: Captured mesh (preview):\n', meshText.substring(0, 300));
+                console.log('DEBUG: Bed Topography capture complete. Mesh is valid.');
+                console.log('DEBUG: Captured mesh (preview):\n', meshText.substring(0, 300));
+                console.log('DEBUG: Full captured mesh:\n', meshText);
 
                 try {
                     const logBox = document.getElementById('log-box');
@@ -711,6 +712,26 @@
                     logBox.appendChild(entry);
                     logBox.scrollTop = logBox.scrollHeight;
                 } catch (e) { /* ignore UI errors */ }
+
+                // NEW: Parse and visualize the captured mesh data
+                console.log('DEBUG: Attempting to parse mesh data...');
+                const meshData = PrusaMonitor.mesh.parseMeshData(meshText);
+                if (meshData) {
+                    console.log('DEBUG: Mesh data parsed successfully:', meshData);
+                    PrusaMonitor.state.meshData = meshData;
+                    PrusaMonitor.mesh.render(meshData);
+                } else {
+                    console.warn('DEBUG: Failed to parse mesh data from captured topography');
+                    console.log('DEBUG: Trying alternative parser for M420 V format...');
+                    const altMeshData = PrusaMonitor.mesh.parseM420MeshData(meshText);
+                    if (altMeshData) {
+                        console.log('DEBUG: M420 mesh data parsed successfully:', altMeshData);
+                        PrusaMonitor.state.meshData = altMeshData;
+                        PrusaMonitor.mesh.render(altMeshData);
+                    } else {
+                        console.error('DEBUG: Both parsers failed. Cannot visualize mesh.');
+                    }
+                }
             },
 
             // ========================================
@@ -749,19 +770,22 @@
 
                     // ---- Bed Topography capture with timeout & retry ----
                     if (trimmed.includes('Bed Topography Report:')) {
+                        console.log('DEBUG: Detected "Bed Topography Report:" - starting capture');
                         PrusaMonitor.state._capturingBedTopography = true;
                         PrusaMonitor.state._bedTopographyLines = [ trimmed ];
                         PrusaMonitor.state.bedTopography = null;
-                        console.log('PrusaMonitor: Detected start of Bed Topography Report. Beginning capture.');
+                        console.log('DEBUG: Beginning Bed Topography capture');
                         // start timeout
                         PrusaMonitor._startBedTopographyCapture();
                         return;
                     }
 
                     if (PrusaMonitor.state._capturingBedTopography) {
+                        console.log('DEBUG: Capturing line:', trimmed);
                         PrusaMonitor.state._bedTopographyLines.push(trimmed);
 
                         if (trimmed.includes('Mesh is valid')) {
+                            console.log('DEBUG: Found "Mesh is valid" - finishing capture');
                             // success
                             PrusaMonitor._finishBedTopographyCapture();
                             return; // do not further parse mesh lines
@@ -853,11 +877,16 @@
             // ========================================
             mesh: {
                 parseMeshData: function(logText) {
+                    console.log('DEBUG: parseMeshData called with text length:', logText.length);
                     const meshPattern = /Mesh Bed Leveling (\w+)/;
                     const pointPattern = /(\d+)\s+\|\s+([-\d.]+)/g;
                     
                     const meshMatch = logText.match(meshPattern);
-                    if (!meshMatch) return null;
+                    console.log('DEBUG: meshPattern match:', meshMatch);
+                    if (!meshMatch) {
+                        console.log('DEBUG: No "Mesh Bed Leveling" pattern found');
+                        return null;
+                    }
                     
                     const points = [];
                     let match;
@@ -869,11 +898,15 @@
                         });
                     }
                     
-                    if (points.length === 0) return null;
+                    console.log('DEBUG: Extracted points:', points.length);
+                    if (points.length === 0) {
+                        console.log('DEBUG: No points found');
+                        return null;
+                    }
                     
                     const gridSize = Math.sqrt(points.length);
                     if (!Number.isInteger(gridSize)) {
-                        console.warn('Non-square mesh detected');
+                        console.warn('DEBUG: Non-square mesh detected, points:', points.length);
                         return null;
                     }
                     
@@ -887,6 +920,7 @@
                         grid.push(row);
                     }
                     
+                    console.log('DEBUG: Created grid of size:', gridSize);
                     return {
                         status: meshMatch[1],
                         gridSize: gridSize,
@@ -895,14 +929,106 @@
                     };
                 },
 
+                // NEW: Parser for M420 V output format (Bed Topography Report)
+                parseM420MeshData: function(logText) {
+                    console.log('DEBUG: parseM420MeshData called');
+                    console.log('DEBUG: Input text length:', logText.length);
+                    
+                    // M420 V format:
+                    // Row format: "20 | -0.526 -0.465 -0.404 ..."
+                    // Each row starts with row number, then |, then space-separated values
+                    
+                    const lines = logText.split('\n');
+                    const dataRows = [];
+                    
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        
+                        // Look for lines that start with a number followed by |
+                        // Pattern: "20 | -0.526 -0.465 ..."
+                        const rowMatch = line.match(/^(\d+)\s*\|\s*(.+)$/);
+                        
+                        if (rowMatch) {
+                            const rowNumber = parseInt(rowMatch[1]);
+                            const valuesStr = rowMatch[2];
+                            
+                            console.log('DEBUG: Found row', rowNumber, 'with values:', valuesStr.substring(0, 50));
+                            
+                            // Parse the values, handling both + and - signs
+                            // Split by whitespace, filter out empty strings and |
+                            const values = valuesStr
+                                .split(/\s+/)
+                                .filter(s => s && s !== '|')
+                                .map(s => parseFloat(s))
+                                .filter(n => !isNaN(n));
+                            
+                            if (values.length > 0) {
+                                console.log('DEBUG: Row', rowNumber, 'has', values.length, 'values');
+                                // Store with row number to ensure correct ordering
+                                dataRows.push({ rowNumber: rowNumber, values: values });
+                            }
+                        }
+                    }
+                    
+                    console.log('DEBUG: Found', dataRows.length, 'data rows');
+                    
+                    if (dataRows.length === 0) {
+                        console.log('DEBUG: No data rows found in M420 format');
+                        return null;
+                    }
+                    
+                    // Sort by row number (descending, since row 20 is first in output)
+                    dataRows.sort((a, b) => b.rowNumber - a.rowNumber);
+                    
+                    // Extract just the values arrays
+                    const grid = dataRows.map(row => row.values);
+                    
+                    // Verify all rows have same length
+                    const rowLength = grid[0].length;
+                    const allSameLength = grid.every(row => row.length === rowLength);
+                    
+                    if (!allSameLength) {
+                        console.warn('DEBUG: Inconsistent row lengths in M420 data');
+                        console.warn('DEBUG: Row lengths:', grid.map(row => row.length));
+                        return null;
+                    }
+                    
+                    const gridSize = grid.length;
+                    
+                    // Flatten to points array
+                    const points = [];
+                    for (let i = 0; i < gridSize; i++) {
+                        for (let j = 0; j < grid[i].length; j++) {
+                            points.push({
+                                index: i * rowLength + j,
+                                value: grid[i][j]
+                            });
+                        }
+                    }
+                    
+                    console.log('DEBUG: M420 parser created grid of size:', gridSize, 'x', rowLength, 'with', points.length, 'points');
+                    console.log('DEBUG: Sample values from grid[0]:', grid[0].slice(0, 5));
+                    console.log('DEBUG: Min value:', Math.min(...points.map(p => p.value)));
+                    console.log('DEBUG: Max value:', Math.max(...points.map(p => p.value)));
+                    
+                    return {
+                        status: 'active',
+                        gridSize: gridSize,
+                        points: points,
+                        grid: grid
+                    };
+                },
+
                 render: function(meshData) {
+                    console.log('DEBUG: mesh.render called with meshData:', meshData);
                     if (!meshData || !meshData.grid) {
-                        console.warn('No mesh data to render');
+                        console.warn('DEBUG: No mesh data to render - meshData is null or missing grid');
                         return;
                     }
 
                     const gridSize = meshData.gridSize;
                     const grid = meshData.grid;
+                    console.log('DEBUG: Rendering mesh with gridSize:', gridSize);
 
                     const x = Array.from({length: gridSize}, (_, i) => i);
                     const y = Array.from({length: gridSize}, (_, i) => i);
@@ -958,17 +1084,35 @@
                         modeBarButtonsToRemove: ['toImage']
                     };
 
-                    Plotly.newPlot('meshPlot', data, layout, config);
-                    this.showPopup();
-                    console.log('Mesh visualization rendered');
+                    console.log('DEBUG: Calling Plotly.newPlot...');
+                    try {
+                        Plotly.newPlot('meshPlot', data, layout, config);
+                        console.log('DEBUG: Plotly.newPlot completed successfully');
+                        this.showPopup();
+                        console.log('DEBUG: Popup shown');
+                    } catch (error) {
+                        console.error('DEBUG: Error in Plotly.newPlot:', error);
+                    }
                 },
 
                 showPopup: function() {
-                    document.getElementById('meshPopup').classList.add('visible');
+                    console.log('DEBUG: showPopup called');
+                    const popup = document.getElementById('meshPopup');
+                    if (popup) {
+                        popup.classList.add('visible');
+                        console.log('DEBUG: Added "visible" class to popup');
+                    } else {
+                        console.error('DEBUG: meshPopup element not found!');
+                    }
                 },
 
                 closePopup: function() {
-                    document.getElementById('meshPopup').classList.remove('visible');
+                    console.log('DEBUG: closePopup called');
+                    const popup = document.getElementById('meshPopup');
+                    if (popup) {
+                        popup.classList.remove('visible');
+                        console.log('DEBUG: Removed "visible" class from popup');
+                    }
                 }
             },
 
@@ -1446,7 +1590,7 @@
         </div>
     </div>
 
-    <div class="version-label">v2.0.13-remote</div>
+    <div class="version-label">v2.0.14-remote</div>
 </body>
 
 </html>
