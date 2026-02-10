@@ -896,6 +896,7 @@
                 },
 
                 render: function(meshData) {
+                    console.log('DEBUG: mesh.render() was called');
                     if (!meshData || !meshData.grid) {
                         console.warn('No mesh data to render');
                         return;
@@ -1447,7 +1448,7 @@
         </div>
     </div>
 
-    <div class="version-label">v2.0.14-remote</div>
+    <div class="version-label">v2.0.15-remote</div>
 </body>
 
 </html>
