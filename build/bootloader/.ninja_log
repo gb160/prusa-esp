@@ -125,3 +125,5 @@
 1085	1168	1770829366854824001	/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/.bin_timestamp	bc7e2ec7e3541853
 1168	1194	1770829366855335586	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	1097f8a95e82963f
 1168	1194	1770829366855335586	/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	1097f8a95e82963f
+5	32	1770829477512129910	esp-idf/esptool_py/CMakeFiles/bootloader_check_size	1097f8a95e82963f
+5	32	1770829477512129910	/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/esp-idf/esptool_py/CMakeFiles/bootloader_check_size	1097f8a95e82963f

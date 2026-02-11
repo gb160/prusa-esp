@@ -839,7 +839,7 @@
         function handlePowerMessage(msg) {
             state.power = msg;
             // Power info is used for temperature status indicators
-            updateTemperatureDisplay();
+            updatePowerDisplay();
         }
 
         function updatePowerDisplay() {
@@ -1189,7 +1189,7 @@
             document.getElementById('gcode-input').focus();
         });
     </script>
-    <div class="version-label">v2.0.3-ws-remote</div>
+    <div class="version-label">v2.0.4-ws-remote</div>
 </body>
 
 </html>
