@@ -17,11 +17,11 @@ dependencies:
       type: service
     version: 0.1.0~2
   espressif/usb_host_cdc_acm:
-    component_hash: 0ca1a47f3b568ad539f2db7938aaa2a64f3017bd50a5ee9b410d2f9d7425ecef
+    component_hash: 71f9ae30021b1edb6f42980eb151ab24d0b602b8463861569a151b5254ba1e4b
     dependencies:
     - name: idf
       require: private
-      version: '>=4.4'
+      version: '>=5.0'
     - name: espressif/usb
       registry_url: https://components.espressif.com
       require: public
@@ -38,7 +38,7 @@ dependencies:
     - esp32p4
     - esp32h4
     - linux
-    version: 2.1.1
+    version: 2.3.0
   idf:
     source:
       type: idf
@@ -48,6 +48,6 @@ direct_dependencies:
 - espressif/qrcode
 - espressif/usb_host_cdc_acm
 - idf
-manifest_hash: 90a0904871e4514e8e7876224797ea4b1bbcd88032fd9a78f30f598a36fe0a7a
+manifest_hash: e296bfad48df61c4336d5b04754376f666c4831402106205bbe94b779fc30b2a
 target: esp32s3
 version: 2.0.0
