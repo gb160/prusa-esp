@@ -1,1 +1,0 @@
-Command: cmake -G Ninja -DPYTHON_DEPS_CHECKED=1 -DPYTHON=/Users/gavin/.espressif/python_env/idf5.5_py3.13_env/bin/python -DESP_PLATFORM=1 -DCCACHE_ENABLE=0 /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws

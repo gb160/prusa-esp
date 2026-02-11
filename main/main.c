@@ -378,10 +378,17 @@ static void parse_and_broadcast_line(const char *line)
     
     xSemaphoreTake(printer_state_mutex, portMAX_DELAY);
     
-    // Temperature parsing: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5
+    // Temperature parsing - handle A: field (mainboard temp, not displayed)
     if (strstr(line, "T:") && strstr(line, "B:")) {
+        const char *t_pos = strstr(line, "T:");
+        const char *b_pos = strstr(line, "B:");
+        
         float nozzle_cur, nozzle_tgt, bed_cur, bed_tgt;
-        if (sscanf(line, "T:%f/%f B:%f/%f", &nozzle_cur, &nozzle_tgt, &bed_cur, &bed_tgt) == 4) {
+        
+        // Parse T: and B: separately to handle A: field in between
+        if (t_pos && sscanf(t_pos, "T:%f/%f", &nozzle_cur, &nozzle_tgt) == 2 &&
+            b_pos && sscanf(b_pos, "B:%f/%f", &bed_cur, &bed_tgt) == 2) {
+            
             current_temps.nozzle_current = nozzle_cur;
             current_temps.nozzle_target = nozzle_tgt;
             current_temps.bed_current = bed_cur;

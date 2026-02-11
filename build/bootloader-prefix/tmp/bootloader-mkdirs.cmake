@@ -10,18 +10,18 @@ if(NOT EXISTS "/Users/gavin/esp/v5.5.1/esp-idf/components/bootloader/subproject"
   file(MAKE_DIRECTORY "/Users/gavin/esp/v5.5.1/esp-idf/components/bootloader/subproject")
 endif()
 file(MAKE_DIRECTORY
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader"
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix"
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/tmp"
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp"
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src"
-  "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/tmp"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src"
+  "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp"
 )
 
 set(configSubDirs )
 foreach(subDir IN LISTS configSubDirs)
-    file(MAKE_DIRECTORY "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
+    file(MAKE_DIRECTORY "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/${subDir}")
 endforeach()
 if(cfgdir)
-  file(MAKE_DIRECTORY "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
+  file(MAKE_DIRECTORY "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp${cfgdir}") # cfgdir has leading slash
 endif()

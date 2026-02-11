@@ -1,4 +1,4 @@
-/* * Data converted from /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/esp-idf/mbedtls/x509_crt_bundle
+/* * Data converted from /Users/gavin/Documents/GitHub/prusa-esp/build/esp-idf/mbedtls/x509_crt_bundle
  */
 .data
 #if !defined (__APPLE__) && !defined (__linux__)

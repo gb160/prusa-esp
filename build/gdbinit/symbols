@@ -13,8 +13,8 @@ end
 
 # Load bootloader symbols
 set confirm off
-    add-symbol-file /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/bootloader.elf
+    add-symbol-file /Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/bootloader.elf
 set confirm on
 
 # Load application symbols
-file /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/Core_One_Monitor.elf
+file /Users/gavin/Documents/GitHub/prusa-esp/build/Core_One_Monitor.elf

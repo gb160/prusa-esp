@@ -39,12 +39,12 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/esp-idf/newlib/src/port/cmake_install.cmake")
+  include("/Users/gavin/Documents/GitHub/prusa-esp/build/esp-idf/newlib/src/port/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/esp-idf/newlib/install_local_manifest.txt"
+  file(WRITE "/Users/gavin/Documents/GitHub/prusa-esp/build/esp-idf/newlib/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

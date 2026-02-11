@@ -1,8 +1,0 @@
-Command: ninja all
-[1/4] cd /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/esp-idf/esptool_py && /Users/gavin/.espressif/python_env/idf5.5_py3.13_env/bin/python /Users/gavin/esp/v5.5.1/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/partition_table/partition-table.bin /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/Core_One_Monitor.bin
-Core_One_Monitor.bin binary size 0x11a830 bytes. Smallest app partition is 0x177000 bytes. 0x5c7d0 bytes (25%) free.
-[2/4] Performing build step for 'bootloader'
-[1/1] cd /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/esp-idf/esptool_py && /Users/gavin/.espressif/python_env/idf5.5_py3.13_env/bin/python /Users/gavin/esp/v5.5.1/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/bootloader.bin
-Bootloader binary size 0x5240 bytes. 0x2dc0 bytes (36%) free.
-[3/4] No install step for 'bootloader'
-[4/4] Completed 'bootloader'

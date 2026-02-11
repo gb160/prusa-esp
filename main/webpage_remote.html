@@ -341,6 +341,61 @@
             border-color: #4a4a4a;
         }
 
+
+        /* ========================================
+           POWER INDICATORS
+           ======================================== */
+        .power-indicators {
+            display: grid;
+            gap: 20px;
+        }
+
+        .power-indicator {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .power-label {
+            font-size: 0.9rem;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .power-bar-container {
+            background: #1a1a1a;
+            border-radius: 6px;
+            height: 24px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .power-bar {
+            background: linear-gradient(90deg, #f44336, #ff5722);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .power-bar-fan {
+            background: linear-gradient(90deg, #2196F3, #03A9F4);
+        }
+
+        .power-value {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+        
         /* ========================================
            LOG CONSOLE
            ======================================== */
@@ -542,6 +597,38 @@
                 </div>
             </div>
         </div>
+
+        <!-- Power Indicators -->
+        <div class="controls">
+            <div class="controls-title">Heater Power (PWM)</div>
+            <div class="power-indicators">
+                <div class="power-indicator">
+                    <div class="power-label">Nozzle Heater</div>
+                    <div class="power-bar-container">
+                        <div class="power-bar" id="power-bar-nozzle" style="width: 0%"></div>
+                    </div>
+                    <div class="power-value" id="power-nozzle">0%</div>
+                </div>
+                
+                <div class="power-indicator">
+                    <div class="power-label">Bed Heater</div>
+                    <div class="power-bar-container">
+                        <div class="power-bar" id="power-bar-bed" style="width: 0%"></div>
+                    </div>
+                    <div class="power-value" id="power-bed">0%</div>
+                </div>
+                
+                <div class="power-indicator">
+                    <div class="power-label">Heatbreak Fan</div>
+                    <div class="power-bar-container">
+                        <div class="power-bar power-bar-fan" id="power-bar-heatbreak" style="width: 0%"></div>
+                    </div>
+                    <div class="power-value" id="power-heatbreak">0%</div>
+                </div>
+            </div>
+        </div>
+
+
 
         <!-- Controls -->
         <div class="controls">
@@ -754,6 +841,26 @@
             // Power info is used for temperature status indicators
             updateTemperatureDisplay();
         }
+
+        function updatePowerDisplay() {
+            const { nozzle, bed, heatbreak } = state.power;
+            
+            // Convert PWM (0-255) to percentage
+            const nozzlePercent = Math.round((nozzle / 255) * 100);
+            const bedPercent = Math.round((bed / 255) * 100);
+            const heatbreakPercent = Math.round((heatbreak / 255) * 100);
+            
+            // Update bars
+            document.getElementById('power-bar-nozzle').style.width = `${nozzlePercent}%`;
+            document.getElementById('power-bar-bed').style.width = `${bedPercent}%`;
+            document.getElementById('power-bar-heatbreak').style.width = `${heatbreakPercent}%`;
+            
+            // Update text values
+            document.getElementById('power-nozzle').textContent = `${nozzlePercent}% (${nozzle}/255)`;
+            document.getElementById('power-bed').textContent = `${bedPercent}% (${bed}/255)`;
+            document.getElementById('power-heatbreak').textContent = `${heatbreakPercent}% (${heatbreak}/255)`;
+        }        
+
 
         function handleLogMessage(msg) {
             const hideTemps = document.getElementById('hide-temps').checked;
@@ -1082,7 +1189,7 @@
             document.getElementById('gcode-input').focus();
         });
     </script>
-    <div class="version-label">v2.0.2-ws-remote</div>
+    <div class="version-label">v2.0.3-ws-remote</div>
 </body>
 
 </html>

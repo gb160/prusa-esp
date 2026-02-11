@@ -2,34 +2,34 @@
 	"sources" : 
 	[
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/CMakeFiles/bootloader"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/CMakeFiles/bootloader"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/CMakeFiles/bootloader.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/CMakeFiles/bootloader.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/CMakeFiles/bootloader-complete.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/CMakeFiles/bootloader-complete.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-build.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-configure.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-download.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-install.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-mkdir.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-patch.rule"
 		},
 		{
-			"file" : "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
+			"file" : "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader-prefix/src/bootloader-stamp/bootloader-update.rule"
 		}
 	],
 	"target" : 

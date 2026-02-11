@@ -15,7 +15,7 @@
 
 set(HEAD_HASH)
 
-file(READ "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/CMakeFiles/git-data/HEAD" HEAD_CONTENTS LIMIT 1024)
+file(READ "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/CMakeFiles/git-data/HEAD" HEAD_CONTENTS LIMIT 1024)
 
 string(STRIP "${HEAD_CONTENTS}" HEAD_CONTENTS)
 set(GIT_DIR "/Users/gavin/esp/v5.5.1/esp-idf/.git")
@@ -34,17 +34,17 @@ if(HEAD_CONTENTS MATCHES "ref")
 	# named branch
 	string(REPLACE "ref: " "" HEAD_REF "${HEAD_CONTENTS}")
 	if(EXISTS "${GIT_DIR}/${HEAD_REF}")
-		configure_file("${GIT_DIR}/${HEAD_REF}" "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
+		configure_file("${GIT_DIR}/${HEAD_REF}" "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
 	elseif(EXISTS "${GIT_DIR}/logs/${HEAD_REF}")
-		configure_file("${GIT_DIR}/logs/${HEAD_REF}" "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
+		configure_file("${GIT_DIR}/logs/${HEAD_REF}" "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
 		set(HEAD_HASH "${HEAD_REF}")
 	endif()
 else()
 	# detached HEAD
-	configure_file("${GIT_DIR}/HEAD" "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
+	configure_file("${GIT_DIR}/HEAD" "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/CMakeFiles/git-data/head-ref" COPYONLY)
 endif()
 
 if(NOT HEAD_HASH)
-	file(READ "/Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/CMakeFiles/git-data/head-ref" HEAD_HASH LIMIT 1024)
+	file(READ "/Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/CMakeFiles/git-data/head-ref" HEAD_HASH LIMIT 1024)
 	string(STRIP "${HEAD_HASH}" HEAD_HASH)
 endif()

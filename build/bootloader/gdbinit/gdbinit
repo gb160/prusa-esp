@@ -1,2 +1,2 @@
-source /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/gdbinit/symbols
-source /Users/gavin/esp/v5.5.1/projects/Core_One_Monitor/Core_One_Monitor_ws/build/bootloader/gdbinit/connect
+source /Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/gdbinit/symbols
+source /Users/gavin/Documents/GitHub/prusa-esp/build/bootloader/gdbinit/connect
