@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Prusa Core One Monitor</title>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prusa Core One Monitor V3</title>
+    
     <style>
         /* ========================================
            GLOBAL STYLES
@@ -17,8 +17,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-                sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: #0f0f0f;
             color: #e0e0e0;
             padding: 20px;
@@ -28,6 +27,60 @@
         .container {
             max-width: 1400px;
             margin: 0 auto;
+        }
+
+        /* ========================================
+           CONNECTION STATUS BANNER
+           ======================================== */
+        .connection-status {
+            background: #1a1a1a;
+            border-left: 4px solid #f44336;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .connection-status.connected {
+            border-left-color: #4CAF50;
+        }
+
+        .connection-status.connecting {
+            border-left-color: #FFC107;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #f44336;
+            animation: pulse 2s infinite;
+        }
+
+        .connection-status.connected .status-indicator {
+            background: #4CAF50;
+            animation: none;
+        }
+
+        .connection-status.connecting .status-indicator {
+            background: #FFC107;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .status-text {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+
+        .status-text strong {
+            font-weight: 600;
         }
 
         /* ========================================
@@ -68,11 +121,6 @@
             margin-bottom: 5px;
         }
 
-        .loading {
-            animation: pulse 1.5s infinite;
-            opacity: 0.5;
-        }
-
         .temp-target {
             font-size: 0.9rem;
             color: #666;
@@ -104,136 +152,146 @@
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
-            height: 400px;
+        }
+
+        .graph-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .graph-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+
+        .graph-legend {
+            display: flex;
+            gap: 20px;
+            font-size: 0.85rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
         }
 
         canvas {
             width: 100% !important;
-            height: 100% !important;
-        }
-
-        /* ========================================
-           STATUS BANNERS
-           ======================================== */
-        .status-banner {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-left: 4px solid #4CAF50;
+            height: 200px !important;
             border-radius: 8px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .status-icon {
-            width: 10px;
-            height: 10px;
-            background: #4CAF50;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
         }
 
         /* ========================================
-           CONSOLE AND COMMAND SECTIONS
+           PROGRESS SECTION
            ======================================== */
-        .bottom-section {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-
-        .log-container,
-        .command-container {
+        .progress-section {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
             padding: 20px;
+            margin-bottom: 20px;
         }
 
-        .section-title {
-            font-size: 0.85rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 15px;
+        .progress-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 15px;
         }
 
-        .log-box {
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
+        .progress-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .progress-percent {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: #4CAF50;
+        }
+
+        .progress-bar-container {
+            background: #2a2a2a;
             border-radius: 8px;
-            padding: 15px;
-            height: 250px;
-            overflow-y: auto;
-            font-family: "Courier New", monospace;
+            height: 12px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            background: linear-gradient(90deg, #4CAF50, #66BB6A);
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 8px;
+        }
+
+        .progress-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .progress-detail {
+            text-align: center;
+        }
+
+        .detail-label {
             font-size: 0.85rem;
-            color: #b0b0b0;
-            line-height: 1.8;
-        }
-
-        .log-box::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .log-box::-webkit-scrollbar-track {
-            background: #0a0a0a;
-        }
-
-        .log-box::-webkit-scrollbar-thumb {
-            background: #333;
-            border-radius: 4px;
-        }
-
-        .log-entry {
-            margin-bottom: 8px;
-        }
-
-        .log-timestamp {
             color: #888;
-            margin-right: 8px;
+            margin-bottom: 5px;
+        }
+
+        .detail-value {
+            font-size: 1.2rem;
+            color: #e0e0e0;
         }
 
         /* ========================================
-           INPUT AND BUTTONS
+           CONTROLS
            ======================================== */
-        .command-input-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-            justify-content: flex-end;
+        .controls {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
-        textarea {
+        .controls-title {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-bottom: 15px;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"] {
             flex: 1;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
             border-radius: 8px;
             padding: 12px 15px;
             color: #e0e0e0;
             font-size: 0.95rem;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
-                sans-serif;
-            resize: vertical;
-            min-height: 60px;
+            font-family: 'Courier New', monospace;
         }
 
-        textarea:focus {
+        input[type="text"]:focus {
             outline: none;
             border-color: #4CAF50;
         }
@@ -242,13 +300,12 @@
             background: #4CAF50;
             border: none;
             border-radius: 8px;
-            padding: 12px 30px;
+            padding: 12px 24px;
             color: white;
+            font-size: 0.95rem;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.3s ease;
-            height: 44px;
-            align-self: flex-start;
         }
 
         button:hover {
@@ -260,154 +317,142 @@
             transform: translateY(0);
         }
 
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.8rem;
-            color: #888;
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
         }
 
-        .checkbox-container input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
-            cursor: pointer;
+        .quick-commands {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
         }
 
-        /* ========================================
-           VERSION LABEL
-           ======================================== */
-        .version-label {
-            position: fixed;
-            bottom: 5px;
-            right: 10px;
-            font-size: 0.7rem;
-            color: #444;
-            font-family: monospace;
-        }
-
-        /* ========================================
-           DROPDOWN
-           ======================================== */
-        .dropdown {
-            position: relative;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-        }
-
-        .dropdown-toggle {
-            font-size: 0.85rem;
-            color: #888;
-            transition: color 0.2s ease;
-            user-select: none;
-        }
-
-        .dropdown-toggle:hover {
-            color: #ccc;
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 28px;
-            right: 0;
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            min-width: 150px;
-            display: none;
-            flex-direction: column;
-            z-index: 1000;
-        }
-
-        .dropdown-item {
-            padding: 10px 15px;
-            color: #ddd;
-            font-size: 0.9rem;
-            border-bottom: 1px solid #222;
-        }
-
-        .dropdown-item:last-child {
-            border-bottom: none;
-        }
-
-        .dropdown-item:hover {
+        .quick-cmd-btn {
             background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            padding: 10px;
+            font-size: 0.85rem;
+        }
+
+        .quick-cmd-btn:hover {
+            background: #3a3a3a;
+            border-color: #4a4a4a;
         }
 
         /* ========================================
-           MESH POPUP MODAL
+           LOG CONSOLE
            ======================================== */
-        .mesh-popup {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            z-index: 9999;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .mesh-popup.visible {
-            display: flex;
-        }
-
-        .mesh-popup-content {
+        .log-section {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
             padding: 20px;
-            width: 90%;
-            max-width: 1000px;
-            height: 80%;
-            max-height: 700px;
-            position: relative;
         }
 
-        .mesh-popup-header {
+        .log-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
 
-        .mesh-popup-title {
-            font-size: 1.2rem;
-            color: #e0e0e0;
+        .log-title {
+            font-size: 1.1rem;
+            font-weight: 500;
         }
 
-        .mesh-popup-close {
-            background: #f44336;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-size: 0.9rem;
+            cursor: pointer;
         }
 
-        .mesh-popup-close:hover {
-            background: #d32f2f;
+        input[type="checkbox"] {
+            cursor: pointer;
         }
 
-        #meshPlot {
-            width: 100%;
-            height: calc(100% - 50px);
+        .clear-log-btn {
+            background: #f44336;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .clear-log-btn:hover {
+            background: #da190b;
+        }
+
+        .log-box {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #1a1a1a;
+            display: flex;
+            gap: 10px;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #666;
+            min-width: 90px;
+        }
+
+        .log-box::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-box::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .log-box::-webkit-scrollbar-thumb {
+            background: #3a3a3a;
+            border-radius: 4px;
+        }
+
+        .log-box::-webkit-scrollbar-thumb:hover {
+            background: #4a4a4a;
         }
 
         /* ========================================
            RESPONSIVE DESIGN
            ======================================== */
         @media (max-width: 768px) {
-            .bottom-section {
-                grid-template-columns: 1fr;
+            body {
+                padding: 10px;
             }
 
             .temp-cards {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .quick-commands {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .control-row {
+                flex-direction: column;
             }
         }
     </style>
@@ -415,1182 +460,628 @@
 
 <body>
     <div class="container">
-        <!-- ========================================
-             TEMPERATURE CARDS
-             ======================================== -->
+        <!-- Connection Status Banner -->
+        <div id="connection-status" class="connection-status connecting">
+            <div class="status-indicator"></div>
+            <div class="status-text">
+                <strong id="ws-status">Connecting to printer...</strong>
+                <span id="printer-status"></span>
+            </div>
+        </div>
+
+        <!-- Temperature Cards -->
         <div class="temp-cards">
             <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #FF6B6B;"></span>Nozzle
-                </div>
-                <div class="temp-value">
-                    <span id="nozzle-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="nozzle-target">--</span>°C</div>
+                <div class="temp-label">Nozzle</div>
+                <div class="temp-value" id="temp-nozzle">--°C</div>
+                <div class="temp-target" id="target-nozzle">Target: --°C</div>
             </div>
 
             <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #4ECDC4;"></span>Bed
-                </div>
-                <div class="temp-value">
-                    <span id="bed-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="bed-target">--</span>°C</div>
+                <div class="temp-label">Bed</div>
+                <div class="temp-value" id="temp-bed">--°C</div>
+                <div class="temp-target" id="target-bed">Target: --°C</div>
             </div>
 
             <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #FFE66D;"></span>Chamber
-                </div>
-                <div class="temp-value">
-                    <span id="chamber-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="chamber-target">--</span>°C</div>
+                <div class="temp-label">Heatbreak</div>
+                <div class="temp-value" id="temp-heatbreak">--°C</div>
+                <div class="temp-target" id="target-heatbreak">Target: --°C</div>
             </div>
 
             <div class="temp-card">
-                <div class="temp-label">
-                    <span class="temp-indicator" style="background: #95E1D3;"></span>Heatbreak
-                </div>
-                <div class="temp-value">
-                    <span id="heatbreak-temp" class="loading">--</span>°C
-                </div>
-                <div class="temp-target">Target: <span id="heatbreak-target">--</span>°C</div>
+                <div class="temp-label">Chamber</div>
+                <div class="temp-value" id="temp-chamber">--°C</div>
+                <div class="temp-target">Ambient</div>
             </div>
         </div>
 
-        <!-- ========================================
-             TEMPERATURE GRAPH
-             ======================================== -->
+        <!-- Temperature Graph -->
         <div class="graph-container">
-            <canvas id="tempChart"></canvas>
+            <div class="graph-header">
+                <div class="graph-title">Temperature History</div>
+                <div class="graph-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f44336;"></div>
+                        <span>Nozzle</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2196F3;"></div>
+                        <span>Bed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4CAF50;"></div>
+                        <span>Heatbreak</span>
+                    </div>
+                </div>
+            </div>
+            <canvas id="temp-graph"></canvas>
         </div>
 
-        <!-- ========================================
-             STATUS BANNERS
-             ======================================== -->
-        <div class="status-banner">
-            <div class="status-icon"></div>
-            <span id="status-message">Connecting to printer...</span>
+        <!-- Progress Section -->
+        <div class="progress-section">
+            <div class="progress-header">
+                <div class="progress-title">Print Progress</div>
+                <div class="progress-percent" id="progress-percent">--%</div>
+            </div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="progress-details">
+                <div class="progress-detail">
+                    <div class="detail-label">Time Remaining</div>
+                    <div class="detail-value" id="time-remaining">--</div>
+                </div>
+                <div class="progress-detail">
+                    <div class="detail-label">Next Change</div>
+                    <div class="detail-value" id="next-change">--</div>
+                </div>
+                <div class="progress-detail">
+                    <div class="detail-label">Z Height</div>
+                    <div class="detail-value" id="z-height">-- mm</div>
+                </div>
+            </div>
         </div>
 
-        <div class="status-banner">
-            <div class="status-icon" style="background: transparent; animation: none;"></div>
-            <span id="power-message">Powers - Nozzle: 0% | Bed: 0% | Heatbreak: 0%</span>
+        <!-- Controls -->
+        <div class="controls">
+            <div class="controls-title">G-Code Commands</div>
+            <div class="control-row">
+                <input type="text" id="gcode-input" placeholder="Enter G-code command (e.g., M105)" 
+                       onkeypress="if(event.key==='Enter') sendGCode()">
+                <button onclick="sendGCode()" id="send-btn">Send</button>
+            </div>
+            <div class="quick-commands">
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('M105')">Get Temp (M105)</button>
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('M114')">Get Position (M114)</button>
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('M27')">Get SD Status (M27)</button>
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('M117 Hello!')">Display Message</button>
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('M300 S1000 P200')">Beep</button>
+                <button class="quick-cmd-btn" onclick="sendQuickCmd('G28')">Home All (G28)</button>
+            </div>
         </div>
 
-        <!-- ========================================
-             CONSOLE AND COMMAND SECTIONS
-             ======================================== -->
-        <div class="bottom-section">
-            <div class="log-container">
-                <div class="section-title">
-                    <span>Console Log</span>
-                    <div class="checkbox-container">
+        <!-- Log Console -->
+        <div class="log-section">
+            <div class="log-header">
+                <div class="log-title">Serial Console</div>
+                <div class="log-controls">
+                    <label class="checkbox-label">
                         <input type="checkbox" id="hide-temps" checked>
-                        <label for="hide-temps">Hide Temp Lines</label>
-                    </div>
-                </div>
-                <div class="log-box" id="log-box"></div>
-                <div class="command-input-group">
-                    <button onclick="PrusaMonitor.ui.clearLog()">Clear</button>
-                </div>
-            </div>
-
-            <div class="command-container">
-                <div class="section-title">
-                    <span>Send Command</span>
-                    <div class="dropdown">
-                        <div class="dropdown-toggle">⋮</div>
-                        <div class="dropdown-menu"></div>
-                    </div>
-                </div>
-                <div class="log-box" id="command-history"></div>
-                <div class="command-input-group">
-                    <textarea id="command-input" placeholder="Enter G-code commands (one per line)..." rows="3"></textarea>
-                    <button onclick="PrusaMonitor.ui.sendCommand()">Send</button>
+                        Hide Temperature Reports
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="autoscroll" checked>
+                        Auto-scroll
+                    </label>
+                    <button class="clear-log-btn" onclick="clearLog()">Clear</button>
                 </div>
             </div>
+            <div class="log-box" id="log-box"></div>
         </div>
     </div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 
     <script>
         // ========================================
         // CONFIGURATION
         // ========================================
         const CONFIG = {
-            TEMP_TOLERANCE: 0.05,
-            MAX_POWER: 255,
-            HEATBREAK_WARNING_THRESHOLD: 0.95,
-            UPDATE_INTERVALS: {
-                STATUS: 1000,
-                LOG: 500
-            },
-            SCROLL_THRESHOLD: 50
-        };
-
-        // Bed topography capture timeout & retry settings
-        const BED_TOPO_TIMEOUT_MS = 5000; // milliseconds to wait for 'Mesh is valid'
-        const BED_TOPO_MAX_RETRIES = 3;   // how many times to retry before giving up
-
-        const GCODE_MAP = {
-            'Bed Mesh': ['M420 V'],
-            'Preheat PLA': ['M104 S170', 'M140 S60'],
-            'Preheat PETG': ['M104 S170', 'M140 S85'],
-            'Cooldown': ['M104 S0', 'M140 S0'],
-            'Unload Filament': ['M702'],
-            'Chamber Fans 25%': ['M106 S64 P3'],
-            'Chamber Fans 50%': ['M106 S128 P3'],
-            'Chamber Fans 75%': ['M106 S192 P3'],
-            'Chamber Fans 100%': ['M106 S255 P3']
-
+            WS_URL: `ws://${window.location.hostname}/ws`,
+            RECONNECT_DELAY_MS: 3000,
+            MAX_LOG_ENTRIES: 500,
+            MAX_GRAPH_POINTS: 60,
+            TEMP_TOLERANCE: 0.5
         };
 
         // ========================================
-        // PRUSA MONITOR V2.0 - CLIENT-SIDE PARSING
+        // STATE MANAGEMENT
         // ========================================
-        const PrusaMonitor = {
-            state: {
-                tempHistory: {
-                    timestamps: [],
-                    nozzle: [],
-                    bed: [],
-                    chamber: [],
-                    heatbreak: []
-                },
-                temps: {
-                    nozzle: { cur: 0, target: 0 },
-                    bed: { cur: 0, target: 0 },
-                    chamber: { cur: 0, target: 0 },
-                    heatbreak: { cur: 0, target: 0 }
-                },
-                power: {
-                    nozzle: 0,
-                    bed: 0,
-                    heatbreak: 0
-                },
-                progress: {
-                    percent: 0,
-                    time: 0,
-                    change: null,
-                    zHeight: null
-                },
-                commandHistory: [],
-                commandHistoryIndex: -1,
-                userScrolling: false,
-                lastLogLen: 0,
-                chart: null,
-                lastGraphUpdate: 0,
-
-                // NEW: bed topography capture state (raw block only)
-                bedTopography: null,            // raw captured mesh block (stored as-is)
-                _capturingBedTopography: false, // whether capture in progress
-                _bedTopographyLines: [],        // buffer of lines while capturing
-                _bedTopographyTimer: null,      // timeout timer id
-                _bedTopographyRetryAttempts: 0, // retries used so far
-                meshData: null                  // Parsed mesh data for 3D visualization
+        const state = {
+            ws: null,
+            reconnectTimer: null,
+            connected: false,
+            printerConnected: false,
+            
+            temps: {
+                nozzle: { current: 0, target: 0 },
+                bed: { current: 0, target: 0 },
+                heatbreak: { current: 0, target: 0 },
+                chamber: { current: 0 }
             },
-
-            // Optional: implement if you want the client to actively re-request the bed topology on retry.
-            // Left empty by default to avoid guessing G-code. If you want auto-request, put fetch('/send?cmd=...') here.
-            requestBedTopography: function() {
-                // Example: fetch('/send?cmd=YOUR_COMMAND_TO_REQUEST_MESH')
-                console.log('PrusaMonitor.requestBedTopography called (no-op).');
+            
+            progress: {
+                percent: 0,
+                timeLeft: 0,
+                changeTime: 0
             },
-
-            getBedTopography: function() {
-                return PrusaMonitor.state.bedTopography;
+            
+            position: {
+                x: 0, y: 0, z: 0, e: 0
             },
-
-            clearBedTopography: function() {
-                PrusaMonitor.state.bedTopography = null;
-                PrusaMonitor.state._bedTopographyLines = [];
-                PrusaMonitor.state._capturingBedTopography = false;
-                if (PrusaMonitor.state._bedTopographyTimer) {
-                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
-                    PrusaMonitor.state._bedTopographyTimer = null;
-                }
-                PrusaMonitor.state._bedTopographyRetryAttempts = 0;
-                console.log('PrusaMonitor: Cleared stored Bed Topography and reset retry counter.');
+            
+            power: {
+                nozzle: 0,
+                bed: 0,
+                heatbreak: 0
             },
-
-            // Start the capture timer & buffer
-            _startBedTopographyCapture: function() {
-                // clear any previous timer just in case
-                if (PrusaMonitor.state._bedTopographyTimer) {
-                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
-                    PrusaMonitor.state._bedTopographyTimer = null;
-                }
-
-                PrusaMonitor.state._bedTopographyTimer = setTimeout(() => {
-                    // timeout occurred: abort capture
-                    PrusaMonitor._abortBedTopographyCapture();
-                }, BED_TOPO_TIMEOUT_MS);
-            },
-
-            // Called when capture should be aborted due to timeout
-            _abortBedTopographyCapture: function() {
-                // clear timer
-                if (PrusaMonitor.state._bedTopographyTimer) {
-                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
-                    PrusaMonitor.state._bedTopographyTimer = null;
-                }
-
-                // discard buffer
-                PrusaMonitor.state._bedTopographyLines = [];
-                PrusaMonitor.state._capturingBedTopography = false;
-                PrusaMonitor.state._bedTopographyRetryAttempts = (PrusaMonitor.state._bedTopographyRetryAttempts || 0) + 1;
-
-                // UI + console note
-                console.warn(`PrusaMonitor: Bed Topography capture timed out (no 'Mesh is valid' received within ${BED_TOPO_TIMEOUT_MS} ms). Attempt ${PrusaMonitor.state._bedTopographyRetryAttempts}/${BED_TOPO_MAX_RETRIES}. Buffer cleared.`);
-
-                try {
-                    const logBox = document.getElementById('log-box');
-                    const ts = new Date().toLocaleTimeString();
-                    const entry = document.createElement('div');
-                    entry.className = 'log-entry';
-                    entry.innerHTML = '<span class="log-timestamp">' + ts + '</span><span>Bed Topography capture timed out — buffer cleared.</span>';
-                    logBox.appendChild(entry);
-                    logBox.scrollTop = logBox.scrollHeight;
-                } catch (e) { /* ignore DOM errors */ }
-
-                // decide whether to retry
-                if ((PrusaMonitor.state._bedTopographyRetryAttempts || 0) < BED_TOPO_MAX_RETRIES) {
-                    // Optionally trigger a request for the mesh (no-op by default)
-                    try {
-                        PrusaMonitor.requestBedTopography();
-                    } catch (e) {
-                        console.error('PrusaMonitor: requestBedTopography threw:', e);
-                    }
-                    console.log('PrusaMonitor: Waiting for a fresh Bed Topography Report (retry).');
-                    // simply leave parser ready to capture next incoming "Bed Topography Report:" line
-                } else {
-                    console.error('PrusaMonitor: Reached maximum Bed Topography retry attempts. Giving up.');
-                    try {
-                        const logBox = document.getElementById('log-box');
-                        const ts = new Date().toLocaleTimeString();
-                        const entry = document.createElement('div');
-                        entry.className = 'log-entry';
-                        entry.innerHTML = '<span class="log-timestamp">' + ts + '</span><span>Bed Topography capture failed after multiple retries. Giving up.</span>';
-                        logBox.appendChild(entry);
-                        logBox.scrollTop = logBox.scrollHeight;
-                    } catch (e) { /* ignore DOM errors */ }
-                    // reset attempts so future manual triggers can start fresh
-                    PrusaMonitor.state._bedTopographyRetryAttempts = 0;
-                }
-            },
-
-            // Called when capture completes successfully
-            _finishBedTopographyCapture: function() {
-                // clear timer
-                if (PrusaMonitor.state._bedTopographyTimer) {
-                    clearTimeout(PrusaMonitor.state._bedTopographyTimer);
-                    PrusaMonitor.state._bedTopographyTimer = null;
-                }
-                // reset retry attempts
-                PrusaMonitor.state._bedTopographyRetryAttempts = 0;
-
-                const meshText = PrusaMonitor.state._bedTopographyLines.join('\n');
-                PrusaMonitor.state.bedTopography = meshText;
-                PrusaMonitor.state._bedTopographyLines = [];
-                PrusaMonitor.state._capturingBedTopography = false;
-
-                console.log('DEBUG: Bed Topography capture complete. Mesh is valid.');
-                console.log('DEBUG: Captured mesh (preview):\n', meshText.substring(0, 300));
-                console.log('DEBUG: Full captured mesh:\n', meshText);
-
-                try {
-                    const logBox = document.getElementById('log-box');
-                    const timestamp = new Date().toLocaleTimeString();
-                    const entry = document.createElement('div');
-                    entry.className = 'log-entry';
-                    entry.innerHTML = '<span class="log-timestamp">' + timestamp + '</span><span>Bed Topography captured (Mesh is valid)</span>';
-                    logBox.appendChild(entry);
-                    logBox.scrollTop = logBox.scrollHeight;
-                } catch (e) { /* ignore UI errors */ }
-
-                // NEW: Parse and visualize the captured mesh data
-                console.log('DEBUG: Attempting to parse mesh data...');
-                const meshData = PrusaMonitor.mesh.parseMeshData(meshText);
-                if (meshData) {
-                    console.log('DEBUG: Mesh data parsed successfully:', meshData);
-                    PrusaMonitor.state.meshData = meshData;
-                    PrusaMonitor.mesh.render(meshData);
-                } else {
-                    console.warn('DEBUG: Failed to parse mesh data from captured topography');
-                    console.log('DEBUG: Trying alternative parser for M420 V format...');
-                    const altMeshData = PrusaMonitor.mesh.parseM420MeshData(meshText);
-                    if (altMeshData) {
-                        console.log('DEBUG: M420 mesh data parsed successfully:', altMeshData);
-                        PrusaMonitor.state.meshData = altMeshData;
-                        PrusaMonitor.mesh.render(altMeshData);
-                    } else {
-                        console.error('DEBUG: Both parsers failed. Cannot visualize mesh.');
-                    }
-                }
-            },
-
-            // ========================================
-            // PAGE TITLE MANAGEMENT
-            // ========================================
-            pageTitle: {
-                /**
-                 * Update browser tab title with print progress
-                 * Shows progress percentage when printing, default title otherwise
-                 */
-                update: function() {
-                    const progress = PrusaMonitor.state.progress.percent;
-
-                    if (progress > 0 && progress < 100) {
-                        // Printing in progress - show percentage in title
-                        document.title = `${progress}% - Prusa Monitor`;
-                    } else if (progress === 100) {
-                        // Print complete
-                        document.title = '✓ Complete - Prusa Monitor';
-                    } else {
-                        // Idle or no print
-                        document.title = 'Prusa Core One Monitor';
-                    }
-                }
-            },
-
-            // ========================================
-            // PARSING - ALL CLIENT-SIDE NOW!
-            // ========================================
-            parser: {
-                parseLine: function(line) {
-                    // IMPORTANT: we DO NOT strip timestamps here because you said parsing happens before timestamps are added.
-                    // We expect the incoming `line` to be the raw data line we need to inspect.
-                    const trimmed = ('' + line).trim();
-                    if (!trimmed) return;
-
-                    // ---- Bed Topography capture with timeout & retry ----
-                    if (trimmed.includes('Bed Topography Report:')) {
-                        console.log('DEBUG: Detected "Bed Topography Report:" - starting capture');
-                        PrusaMonitor.state._capturingBedTopography = true;
-                        PrusaMonitor.state._bedTopographyLines = [ trimmed ];
-                        PrusaMonitor.state.bedTopography = null;
-                        console.log('DEBUG: Beginning Bed Topography capture');
-                        // start timeout
-                        PrusaMonitor._startBedTopographyCapture();
-                        return;
-                    }
-
-                    if (PrusaMonitor.state._capturingBedTopography) {
-                        console.log('DEBUG: Capturing line:', trimmed);
-                        PrusaMonitor.state._bedTopographyLines.push(trimmed);
-
-                        if (trimmed.includes('Mesh is valid')) {
-                            console.log('DEBUG: Found "Mesh is valid" - finishing capture');
-                            // success
-                            PrusaMonitor._finishBedTopographyCapture();
-                            return; // do not further parse mesh lines
-                        }
-
-                        // still capturing; do not process this line further
-                        return;
-                    }
-
-                    // ---- Existing parsing logic (unchanged) ----
-
-                    // Temperature line: T:210.0/210.0 B:60.0/60.0 X:45.0/45.0 C@:22.5 @:127 B@:64 HBR@:89
-                    const tempMatch = trimmed.match(/T:([\d.]+)\/([\d.]+).*B:([\d.]+)\/([\d.]+)/);
-                    if (tempMatch) {
-                        PrusaMonitor.state.temps.nozzle.cur = parseFloat(tempMatch[1]);
-                        PrusaMonitor.state.temps.nozzle.target = parseFloat(tempMatch[2]);
-                        PrusaMonitor.state.temps.bed.cur = parseFloat(tempMatch[3]);
-                        PrusaMonitor.state.temps.bed.target = parseFloat(tempMatch[4]);
-                    }
-
-                    const heatbreakMatch = trimmed.match(/X:([\d.]+)\/([\d.]+)/);
-                    if (heatbreakMatch) {
-                        PrusaMonitor.state.temps.heatbreak.cur = parseFloat(heatbreakMatch[1]);
-                        PrusaMonitor.state.temps.heatbreak.target = parseFloat(heatbreakMatch[2]);
-                    }
-
-                    const chamberMatch = trimmed.match(/C@:([\d.]+)/);
-                    if (chamberMatch) {
-                        PrusaMonitor.state.temps.chamber.cur = parseFloat(chamberMatch[1]);
-                    }
-
-                    const nozzlePowerMatch = trimmed.match(/@:([\d.]+)/);
-                    if (nozzlePowerMatch) {
-                        PrusaMonitor.state.power.nozzle = parseFloat(nozzlePowerMatch[1]);
-                    }
-
-                    const bedPowerMatch = trimmed.match(/B@:([\d.]+)/);
-                    if (bedPowerMatch) {
-                        PrusaMonitor.state.power.bed = parseFloat(bedPowerMatch[1]);
-                    }
-
-                    const heatbreakPowerMatch = trimmed.match(/HBR@:([\d.]+)/);
-                    if (heatbreakPowerMatch) {
-                        PrusaMonitor.state.power.heatbreak = parseFloat(heatbreakPowerMatch[1]);
-                    }
-
-                    // Progress: "M73 Progress: 9%;"
-                    const progressMatch = trimmed.match(/Progress:\s*(\d+)%/);
-                    if (progressMatch) {
-                        PrusaMonitor.state.progress.percent = parseInt(progressMatch[1]);
-                    }
-
-                    // Check for print completion
-                    if (trimmed.includes('Done printing file')) {
-                        PrusaMonitor.state.progress.percent = 100;
-                        PrusaMonitor.state.progress.time = 0;
-                        PrusaMonitor.state.progress.change = null;
-                    }
-
-                    // Time left: "Time left: 19m;" or "Time left: 1h 23m;"
-                    const timeMatch = trimmed.match(/Time left:\s*(?:(\d+)h\s*)?(\d+)m/);
-                    if (timeMatch) {
-                        const hours = timeMatch[1] ? parseInt(timeMatch[1]) : 0;
-                        const mins = parseInt(timeMatch[2]);
-                        PrusaMonitor.state.progress.time = (hours * 60) + mins;
-                    }
-
-                    // Change due: "Change: 16m;" or "Change: 1h 5m;"
-                    const changeMatch = trimmed.match(/Change:\s*(?:(\d+)h\s*)?(\d+)m/);
-                    if (changeMatch) {
-                        const hours = changeMatch[1] ? parseInt(changeMatch[1]) : 0;
-                        const mins = parseInt(changeMatch[2]);
-                        PrusaMonitor.state.progress.change = (hours * 60) + mins;
-                    }
-
-                    // Z height: X:108.67 Y:90.41 Z:2.20 E:0.00 Count...
-                    if (trimmed.includes('X:') && trimmed.includes('Y:') && trimmed.includes('Z:')) {
-                        const beforeCount = trimmed.split('Count')[0];
-                        const zMatch = beforeCount.match(/Z:([\d.]+)/);
-                        if (zMatch && zMatch[1]) {
-                            PrusaMonitor.state.progress.zHeight = parseFloat(zMatch[1]).toFixed(2);
-                        }
-                    }
-                }
-            },
-
-            // ========================================
-            // MESH VISUALIZATION
-            // ========================================
-            mesh: {
-                parseMeshData: function(logText) {
-                    console.log('DEBUG: parseMeshData called with text length:', logText.length);
-                    const meshPattern = /Mesh Bed Leveling (\w+)/;
-                    const pointPattern = /(\d+)\s+\|\s+([-\d.]+)/g;
-                    
-                    const meshMatch = logText.match(meshPattern);
-                    console.log('DEBUG: meshPattern match:', meshMatch);
-                    if (!meshMatch) {
-                        console.log('DEBUG: No "Mesh Bed Leveling" pattern found');
-                        return null;
-                    }
-                    
-                    const points = [];
-                    let match;
-                    
-                    while ((match = pointPattern.exec(logText)) !== null) {
-                        points.push({
-                            index: parseInt(match[1]),
-                            value: parseFloat(match[2])
-                        });
-                    }
-                    
-                    console.log('DEBUG: Extracted points:', points.length);
-                    if (points.length === 0) {
-                        console.log('DEBUG: No points found');
-                        return null;
-                    }
-                    
-                    const gridSize = Math.sqrt(points.length);
-                    if (!Number.isInteger(gridSize)) {
-                        console.warn('DEBUG: Non-square mesh detected, points:', points.length);
-                        return null;
-                    }
-                    
-                    const grid = [];
-                    for (let i = 0; i < gridSize; i++) {
-                        const row = [];
-                        for (let j = 0; j < gridSize; j++) {
-                            const idx = i * gridSize + j;
-                            row.push(points[idx].value);
-                        }
-                        grid.push(row);
-                    }
-                    
-                    console.log('DEBUG: Created grid of size:', gridSize);
-                    return {
-                        status: meshMatch[1],
-                        gridSize: gridSize,
-                        points: points,
-                        grid: grid
-                    };
-                },
-
-                // NEW: Parser for M420 V output format (Bed Topography Report)
-                parseM420MeshData: function(logText) {
-                    console.log('DEBUG: parseM420MeshData called');
-                    console.log('DEBUG: Input text length:', logText.length);
-                    
-                    // M420 V format:
-                    // Row format: "20 | -0.526 -0.465 -0.404 ..."
-                    // Each row starts with row number, then |, then space-separated values
-                    
-                    const lines = logText.split('\n');
-                    const dataRows = [];
-                    
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i].trim();
-                        
-                        // Look for lines that start with a number followed by |
-                        // Pattern: "20 | -0.526 -0.465 ..."
-                        const rowMatch = line.match(/^(\d+)\s*\|\s*(.+)$/);
-                        
-                        if (rowMatch) {
-                            const rowNumber = parseInt(rowMatch[1]);
-                            const valuesStr = rowMatch[2];
-                            
-                            console.log('DEBUG: Found row', rowNumber, 'with values:', valuesStr.substring(0, 50));
-                            
-                            // Parse the values, handling both + and - signs
-                            // Split by whitespace, filter out empty strings and |
-                            const values = valuesStr
-                                .split(/\s+/)
-                                .filter(s => s && s !== '|')
-                                .map(s => parseFloat(s))
-                                .filter(n => !isNaN(n));
-                            
-                            if (values.length > 0) {
-                                console.log('DEBUG: Row', rowNumber, 'has', values.length, 'values');
-                                // Store with row number to ensure correct ordering
-                                dataRows.push({ rowNumber: rowNumber, values: values });
-                            }
-                        }
-                    }
-                    
-                    console.log('DEBUG: Found', dataRows.length, 'data rows');
-                    
-                    if (dataRows.length === 0) {
-                        console.log('DEBUG: No data rows found in M420 format');
-                        return null;
-                    }
-                    
-                    // Sort by row number (descending, since row 20 is first in output)
-                    dataRows.sort((a, b) => b.rowNumber - a.rowNumber);
-                    
-                    // Extract just the values arrays
-                    const grid = dataRows.map(row => row.values);
-                    
-                    // Verify all rows have same length
-                    const rowLength = grid[0].length;
-                    const allSameLength = grid.every(row => row.length === rowLength);
-                    
-                    if (!allSameLength) {
-                        console.warn('DEBUG: Inconsistent row lengths in M420 data');
-                        console.warn('DEBUG: Row lengths:', grid.map(row => row.length));
-                        return null;
-                    }
-                    
-                    const gridSize = grid.length;
-                    
-                    // Flatten to points array
-                    const points = [];
-                    for (let i = 0; i < gridSize; i++) {
-                        for (let j = 0; j < grid[i].length; j++) {
-                            points.push({
-                                index: i * rowLength + j,
-                                value: grid[i][j]
-                            });
-                        }
-                    }
-                    
-                    console.log('DEBUG: M420 parser created grid of size:', gridSize, 'x', rowLength, 'with', points.length, 'points');
-                    console.log('DEBUG: Sample values from grid[0]:', grid[0].slice(0, 5));
-                    console.log('DEBUG: Min value:', Math.min(...points.map(p => p.value)));
-                    console.log('DEBUG: Max value:', Math.max(...points.map(p => p.value)));
-                    
-                    return {
-                        status: 'active',
-                        gridSize: gridSize,
-                        points: points,
-                        grid: grid
-                    };
-                },
-
-                render: function(meshData) {
-                    console.log('DEBUG: mesh.render called with meshData:', meshData);
-                    if (!meshData || !meshData.grid) {
-                        console.warn('DEBUG: No mesh data to render - meshData is null or missing grid');
-                        return;
-                    }
-
-                    const gridSize = meshData.gridSize;
-                    const grid = meshData.grid;
-                    console.log('DEBUG: Rendering mesh with gridSize:', gridSize);
-
-                    const x = Array.from({length: gridSize}, (_, i) => i);
-                    const y = Array.from({length: gridSize}, (_, i) => i);
-
-                    const data = [{
-                        type: 'surface',
-                        x: x,
-                        y: y,
-                        z: grid,
-                        colorscale: [[0, '#0000ff'], [0.5, '#00ff00'], [1, '#ff0000']],
-                        contours: {
-                            z: {
-                                show: true,
-                                usecolormap: true,
-                                highlightcolor: "#42f462",
-                                project: {z: true}
-                            }
-                        },
-                        colorbar: {
-                            title: 'Height (mm)',
-                            titleside: 'right',
-                            tickmode: 'linear',
-                            tick0: 0,
-                            dtick: 0.05,
-                            len: 0.75,
-                            thickness: 20,
-                            bgcolor: '#1a1a1a',
-                            bordercolor: '#2a2a2a',
-                            borderwidth: 1,
-                            tickfont: { color: '#e0e0e0', size: 12 },
-                            titlefont: { color: '#e0e0e0', size: 14 }
-                        }
-                    }];
-
-                    const layout = {
-                        title: { text: `Bed Mesh (${gridSize}x${gridSize})`, font: { color: '#e0e0e0', size: 16 } },
-                        autosize: true,
-                        scene: {
-                            xaxis: { title: 'X', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
-                            yaxis: { title: 'Y', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
-                            zaxis: { title: 'Z (mm)', gridcolor: '#2a2a2a', showbackground: true, backgroundcolor: '#0f0f0f', color: '#888' },
-                            camera: { eye: {x: 1.5, y: 1.5, z: 1.3} }
-                        },
-                        paper_bgcolor: '#1a1a1a',
-                        plot_bgcolor: '#0f0f0f',
-                        margin: { l: 0, r: 0, b: 0, t: 40 }
-                    };
-
-                    const config = {
-                        responsive: true,
-                        displayModeBar: true,
-                        displaylogo: false,
-                        modeBarButtonsToRemove: ['toImage']
-                    };
-
-                    console.log('DEBUG: Calling Plotly.newPlot...');
-                    try {
-                        Plotly.newPlot('meshPlot', data, layout, config);
-                        console.log('DEBUG: Plotly.newPlot completed successfully');
-                        this.showPopup();
-                        console.log('DEBUG: Popup shown');
-                    } catch (error) {
-                        console.error('DEBUG: Error in Plotly.newPlot:', error);
-                    }
-                },
-
-                showPopup: function() {
-                    console.log('DEBUG: showPopup called');
-                    const popup = document.getElementById('meshPopup');
-                    if (popup) {
-                        popup.classList.add('visible');
-                        console.log('DEBUG: Added "visible" class to popup');
-                    } else {
-                        console.error('DEBUG: meshPopup element not found!');
-                    }
-                },
-
-                closePopup: function() {
-                    console.log('DEBUG: closePopup called');
-                    const popup = document.getElementById('meshPopup');
-                    if (popup) {
-                        popup.classList.remove('visible');
-                        console.log('DEBUG: Removed "visible" class from popup');
-                    }
-                }
-            },
-
-            // ========================================
-            // UI FUNCTIONS
-            // ========================================
-            ui: {
-                updateDisplay: function() {
-                    document.querySelectorAll('.loading').forEach(el => el.classList.remove('loading'));
-
-                    // Update page title with progress
-                    PrusaMonitor.pageTitle.update();
-
-                    document.getElementById('nozzle-temp').textContent = Math.round(PrusaMonitor.state.temps.nozzle.cur);
-                    document.getElementById('nozzle-target').textContent = Math.round(PrusaMonitor.state.temps.nozzle.target);
-                    PrusaMonitor.ui.updateTempColor('nozzle-target', PrusaMonitor.state.temps.nozzle.cur, PrusaMonitor.state.temps.nozzle.target);
-
-                    document.getElementById('bed-temp').textContent = Math.round(PrusaMonitor.state.temps.bed.cur);
-                    document.getElementById('bed-target').textContent = Math.round(PrusaMonitor.state.temps.bed.target);
-                    PrusaMonitor.ui.updateTempColor('bed-target', PrusaMonitor.state.temps.bed.cur, PrusaMonitor.state.temps.bed.target);
-
-                    document.getElementById('chamber-temp').textContent = Math.round(PrusaMonitor.state.temps.chamber.cur);
-
-                    document.getElementById('heatbreak-temp').textContent = Math.round(PrusaMonitor.state.temps.heatbreak.cur);
-                    document.getElementById('heatbreak-target').textContent = Math.round(PrusaMonitor.state.temps.heatbreak.target);
-                    PrusaMonitor.ui.updateTempColor('heatbreak-target', PrusaMonitor.state.temps.heatbreak.cur, PrusaMonitor.state.temps.heatbreak.target);
-
-                    let statusText = 'Progress: ' + PrusaMonitor.state.progress.percent + '% | Time Remaining: ';
-                    if (PrusaMonitor.state.progress.time >= 60) {
-                        const hours = Math.floor(PrusaMonitor.state.progress.time / 60);
-                        const mins = PrusaMonitor.state.progress.time % 60;
-                        statusText += hours + ' hr ' + mins + ' min';
-                    } else {
-                        statusText += PrusaMonitor.state.progress.time + ' min';
-                    }
-
-                    if (PrusaMonitor.state.progress.change !== null) {
-                        if (PrusaMonitor.state.progress.change >= 60) {
-                            const hours = Math.floor(PrusaMonitor.state.progress.change / 60);
-                            const mins = PrusaMonitor.state.progress.change % 60;
-                            statusText += ' | Change in: ' + hours + ' hr ' + mins + ' min';
-                        } else {
-                            statusText += ' | Change in: ' + PrusaMonitor.state.progress.change + ' min';
-                        }
-                    }
-
-                    if (PrusaMonitor.state.progress.zHeight !== null) {
-                        statusText += ' | Z: ' + PrusaMonitor.state.progress.zHeight + ' mm';
-                    }
-
-                    document.getElementById('status-message').textContent = statusText;
-
-                    const powerText = 'Powers - Nozzle: ' + Math.round(PrusaMonitor.state.power.nozzle * 100 / CONFIG.MAX_POWER) + 
-                                    '% | Bed: ' + Math.round(PrusaMonitor.state.power.bed * 100 / CONFIG.MAX_POWER) + 
-                                    '% | Heatbreak: ' + Math.round(PrusaMonitor.state.power.heatbreak * 100 / CONFIG.MAX_POWER) + '%';
-                    document.getElementById('power-message').textContent = powerText;
-                },
-
-                updateGraph: function() {
-                    const now = Date.now();
-                    if (now - PrusaMonitor.state.lastGraphUpdate < 1000) return;
-                    PrusaMonitor.state.lastGraphUpdate = now;
-
-                    const timeLabel = new Date().toLocaleTimeString();
-                    PrusaMonitor.state.tempHistory.timestamps.push(timeLabel);
-                    PrusaMonitor.state.tempHistory.nozzle.push(PrusaMonitor.state.temps.nozzle.cur);
-                    PrusaMonitor.state.tempHistory.bed.push(PrusaMonitor.state.temps.bed.cur);
-                    PrusaMonitor.state.tempHistory.chamber.push(PrusaMonitor.state.temps.chamber.cur);
-                    PrusaMonitor.state.tempHistory.heatbreak.push(PrusaMonitor.state.temps.heatbreak.cur);
-
-                    // No limit - keeps all history for infinite scrolling graph
-
-                    const chart = PrusaMonitor.state.chart;
-                    chart.data.labels = PrusaMonitor.state.tempHistory.timestamps;
-                    chart.data.datasets[0].data = PrusaMonitor.state.tempHistory.nozzle;
-                    chart.data.datasets[1].data = PrusaMonitor.state.tempHistory.bed;
-                    chart.data.datasets[2].data = PrusaMonitor.state.tempHistory.chamber;
-                    chart.data.datasets[3].data = PrusaMonitor.state.tempHistory.heatbreak;
-                    chart.update('none');
-                },
-
-                updateTempColor: function(elementId, current, target) {
-                    const element = document.getElementById(elementId).parentElement;
-
-                    if (elementId === 'heatbreak-target') {
-                        element.classList.remove('heating', 'at-temp');
-                        element.style.color = '';
-                        
-                        if (target > 0) {
-                            if (current >= target) {
-                                element.classList.add('heating');
-                            } else if (current >= target * CONFIG.HEATBREAK_WARNING_THRESHOLD) {
-                                element.style.color = '#FFA500';
-                            }
-                        }
-                        return;
-                    }
-
-                    if (target > 0) {
-                        const diff = Math.abs(current - target);
-                        const tolerance = target * CONFIG.TEMP_TOLERANCE;
-                        
-                        if (diff <= tolerance) {
-                            element.classList.remove('heating');
-                            element.classList.add('at-temp');
-                        } else {
-                            element.classList.remove('at-temp');
-                            element.classList.add('heating');
-                        }
-                    } else {
-                        element.classList.remove('heating', 'at-temp');
-                    }
-                },
-
-                clearLog: function() {
-                    document.getElementById('log-box').innerHTML = '';
-                    PrusaMonitor.state.lastLogLen = 0;
-                    PrusaMonitor.state.userScrolling = false;
-                    fetch('/clear').catch(err => console.error('Failed to clear log:', err));
-                },
-
-                sendCommand: function() {
-                    const input = document.getElementById('command-input');
-                    const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
-
-                    if (commands.length === 0) return;
-
-                    commands.forEach(command => {
-                        const cmd = command.trim();
-                        if (cmd) {
-                            PrusaMonitor.state.commandHistory.push(cmd);
-                            
-                            const history = document.getElementById('command-history');
-                            const timestamp = new Date().toLocaleTimeString();
-                            const entry = document.createElement('div');
-                            entry.className = 'log-entry';
-                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
-                                            '</span><span>> ' + cmd + '</span>';
-                            history.appendChild(entry);
-                            history.scrollTop = history.scrollHeight;
-
-                            fetch('/send?cmd=' + encodeURIComponent(cmd))
-                                .catch(err => console.error('Failed to send command:', err));
-                        }
-                    });
-
-                    PrusaMonitor.state.commandHistoryIndex = -1;
-                    input.value = '';
-                },
-
-                sendPresetCommands: function(commands) {
-                    const history = document.getElementById('command-history');
-
-                    commands.forEach(cmd => {
-                        if (cmd.trim()) {
-                            PrusaMonitor.state.commandHistory.push(cmd);
-
-                            const timestamp = new Date().toLocaleTimeString();
-                            const entry = document.createElement('div');
-                            entry.className = 'log-entry';
-                            entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
-                                            '</span><span>> ' + cmd + '</span>';
-                            history.appendChild(entry);
-                            history.scrollTop = history.scrollHeight;
-
-                            fetch('/send?cmd=' + encodeURIComponent(cmd))
-                                .catch(err => console.error('Failed to send command:', err));
-                        }
-                    });
-                }
-            },
-
-            // ========================================
-            // API FUNCTIONS
-            // ========================================
-            api: {
-                updateStatus: async function() {
-                    try {
-                        const resp = await fetch('/status');
-                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                        const text = await resp.text();
-                        const connected = text.trim() === '1';
-
-                        const statusIcon = document.querySelector('.status-icon');
-                        const statusBanner = document.querySelector('.status-banner');
-
-                        if (connected) {
-                            statusIcon.style.background = '#4CAF50';
-                            statusBanner.style.borderLeftColor = '#4CAF50';
-                        } else {
-                            statusIcon.style.background = '#f44336';
-                            statusBanner.style.borderLeftColor = '#f44336';
-                            document.getElementById('status-message').textContent = 'Printer Disconnected';
-                        }
-                    } catch (e) {
-                        console.error('Failed to update status:', e);
-                    }
-                },
-
-                updateLog: async function() {
-                    try {
-                        const resp = await fetch('/log');
-                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                        const text = await resp.text();
-                        const newText = text.substring(PrusaMonitor.state.lastLogLen);
-
-                        if (newText) {
-                            const logBox = document.getElementById('log-box');
-                            const hideTemps = document.getElementById('hide-temps').checked;
-                            const wasAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + CONFIG.SCROLL_THRESHOLD;
-
-                            newText.split(/\r?\n/).forEach(line => {
-                                const trimmed = line.trim();
-                                if (trimmed) {
-                                    // Pass the raw trimmed line to parser — the parser capture assumes lines are pre-timestamp
-                                    PrusaMonitor.parser.parseLine(trimmed);
-
-                                    const isTemp = trimmed.startsWith('T:') && 
-                                                 trimmed.includes(' B:') && 
-                                                 trimmed.includes(' @:') && 
-                                                 trimmed.includes(' B@:');
-                                    
-                                    if (!hideTemps || !isTemp) {
-                                        const timestamp = new Date().toLocaleTimeString();
-                                        const entry = document.createElement('div');
-                                        entry.className = 'log-entry';
-                                        entry.innerHTML = '<span class="log-timestamp">' + timestamp + 
-                                                        '</span><span>' + trimmed + '</span>';
-                                        logBox.appendChild(entry);
-                                    }
-                                }
-                            });
-
-                            if (wasAtBottom && !PrusaMonitor.state.userScrolling) {
-                                logBox.scrollTop = logBox.scrollHeight;
-                            }
-
-                            PrusaMonitor.ui.updateDisplay();
-                            PrusaMonitor.ui.updateGraph();
-                            
-                            // Parse mesh data
-                            const meshData = PrusaMonitor.mesh.parseMeshData(text);
-                            if (meshData && (!PrusaMonitor.state.meshData || 
-                                JSON.stringify(meshData) !== JSON.stringify(PrusaMonitor.state.meshData))) {
-                                PrusaMonitor.state.meshData = meshData;
-                                PrusaMonitor.mesh.render(meshData);
-                            }
-                        }
-                        PrusaMonitor.state.lastLogLen = text.length;
-                    } catch (e) {
-                        console.error('Failed to update log:', e);
-                    }
-                }
-            },
-
-            // ========================================
-            // INITIALIZATION
-            // ========================================
-            init: function() {
-                console.log('Prusa Monitor V2.0 - Client-side parsing enabled');
-                
-                const ctx = document.getElementById('tempChart').getContext('2d');
-                this.state.chart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [
-                            {
-                                label: 'Nozzle',
-                                data: [],
-                                borderColor: '#FF6B6B',
-                                backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                                tension: 0.4,
-                                borderWidth: 2,
-                                pointRadius: 0
-                            },
-                            {
-                                label: 'Bed',
-                                data: [],
-                                borderColor: '#4ECDC4',
-                                backgroundColor: 'rgba(78, 205, 196, 0.1)',
-                                tension: 0.4,
-                                borderWidth: 2,
-                                pointRadius: 0
-                            },
-                            {
-                                label: 'Chamber',
-                                data: [],
-                                borderColor: '#FFE66D',
-                                backgroundColor: 'rgba(255, 230, 109, 0.1)',
-                                tension: 0.4,
-                                borderWidth: 2,
-                                pointRadius: 0
-                            },
-                            {
-                                label: 'Heatbreak',
-                                data: [],
-                                borderColor: '#95E1D3',
-                                backgroundColor: 'rgba(149, 225, 211, 0.1)',
-                                tension: 0.4,
-                                borderWidth: 2,
-                                pointRadius: 0
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            intersect: false,
-                            mode: 'index'
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: {
-                                    color: '#888',
-                                    usePointStyle: true,
-                                    padding: 20,
-                                    font: { size: 11 }
-                                }
-                            },
-                            tooltip: {
-                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                                padding: 12,
-                                titleColor: '#fff',
-                                bodyColor: '#fff',
-                                borderColor: '#333',
-                                borderWidth: 1
-                            }
-                        },
-                        scales: {
-                            x: {
-                                display: true,
-                                grid: {
-                                    color: '#222',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#666',
-                                    maxTicksLimit: 10,
-                                    autoSkip: true,
-                                    maxRotation: 45,
-                                    minRotation: 0
-                                }
-                            },
-                            y: {
-                                display: true,
-                                grid: {
-                                    color: '#444',
-                                    drawBorder: false
-                                },
-                                ticks: {
-                                    color: '#666',
-                                    callback: function (value) {
-                                        return value + '°C';
-                                    }
-                                },
-                                suggestedMin: 0,
-                                suggestedMax: 250
-                            }
-                        }
-                    }
-                });
-
-                this.setupEventListeners();
-                this.setupDropdown();
-
-                setInterval(() => this.api.updateStatus(), CONFIG.UPDATE_INTERVALS.STATUS);
-                setInterval(() => this.api.updateLog(), CONFIG.UPDATE_INTERVALS.LOG);
-
-                this.api.updateStatus();
-                this.api.updateLog();
-            },
-
-            setupEventListeners: function() {
-                const logBox = document.getElementById('log-box');
-                logBox.addEventListener('scroll', () => {
-                    const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + CONFIG.SCROLL_THRESHOLD;
-                    PrusaMonitor.state.userScrolling = !isAtBottom;
-                });
-                logBox.addEventListener('wheel', () => {
-                    PrusaMonitor.state.userScrolling = true;
-                });
-
-                const commandInput = document.getElementById('command-input');
-                commandInput.addEventListener('keydown', e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        PrusaMonitor.ui.sendCommand();
-                        e.preventDefault();
-                    } 
-                    else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        if (PrusaMonitor.state.commandHistory.length > 0) {
-                            if (PrusaMonitor.state.commandHistoryIndex === -1) {
-                                PrusaMonitor.state.commandHistoryIndex = PrusaMonitor.state.commandHistory.length - 1;
-                            } else if (PrusaMonitor.state.commandHistoryIndex > 0) {
-                                PrusaMonitor.state.commandHistoryIndex--;
-                            }
-                            commandInput.value = PrusaMonitor.state.commandHistory[PrusaMonitor.state.commandHistoryIndex];
-                        }
-                    } 
-                    else if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        if (PrusaMonitor.state.commandHistoryIndex !== -1) {
-                            PrusaMonitor.state.commandHistoryIndex++;
-                            if (PrusaMonitor.state.commandHistoryIndex >= PrusaMonitor.state.commandHistory.length) {
-                                PrusaMonitor.state.commandHistoryIndex = -1;
-                                commandInput.value = '';
-                            } else {
-                                commandInput.value = PrusaMonitor.state.commandHistory[PrusaMonitor.state.commandHistoryIndex];
-                            }
-                        }
-                    }
-                });
-
-                document.addEventListener('click', (e) => {
-                    const menu = document.querySelector('.dropdown-menu');
-                    const toggle = document.querySelector('.dropdown-toggle');
-                    
-                    if (toggle.contains(e.target)) {
-                        menu.style.display = menu.style.display === 'flex' ? 'none' : 'flex';
-                    } else if (!menu.contains(e.target)) {
-                        menu.style.display = 'none';
-                    }
-                });
-
-                // Auto-refresh progress when returning to tab
-                document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) {
-                        // Tab became visible - request fresh progress update
-                        console.log('Tab visible - requesting progress update (M73)');
-                        fetch('/send?cmd=' + encodeURIComponent('M73'))
-                            .catch(err => console.error('Failed to send M73:', err));
-                    }
-                });
-            },
-
-            setupDropdown: function() {
-                const dropdownMenu = document.querySelector('.dropdown-menu');
-                dropdownMenu.innerHTML = '';
-
-                Object.keys(GCODE_MAP).forEach(label => {
-                    const item = document.createElement('div');
-                    item.className = 'dropdown-item';
-                    item.textContent = label;
-                    
-                    item.addEventListener('click', () => {
-                        const commands = GCODE_MAP[label];
-                        if (commands) {
-                            PrusaMonitor.ui.sendPresetCommands(commands);
-                        }
-                        dropdownMenu.style.display = 'none';
-                    });
-
-                    dropdownMenu.appendChild(item);
-                });
+            
+            // Temperature history for graphing
+            tempHistory: {
+                timestamps: [],
+                nozzle: [],
+                bed: [],
+                heatbreak: []
             }
         };
 
-        document.addEventListener('DOMContentLoaded', () => {
-            PrusaMonitor.init();
+        // ========================================
+        // WEBSOCKET CONNECTION
+        // ========================================
+        function connectWebSocket() {
+            console.log('Connecting to WebSocket:', CONFIG.WS_URL);
+            updateConnectionStatus('connecting', 'Connecting to WebSocket...');
+            
+            state.ws = new WebSocket(CONFIG.WS_URL);
+            
+            state.ws.onopen = () => {
+                console.log('WebSocket connected');
+                state.connected = true;
+                updateConnectionStatus('connected', 'WebSocket connected');
+                
+                // Send connection handshake
+                state.ws.send('CONNECT');
+                
+                // Clear reconnect timer if set
+                if (state.reconnectTimer) {
+                    clearTimeout(state.reconnectTimer);
+                    state.reconnectTimer = null;
+                }
+            };
+            
+            state.ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    handleMessage(msg);
+                } catch (e) {
+                    console.error('Failed to parse WebSocket message:', e, event.data);
+                }
+            };
+            
+            state.ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            state.ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                state.connected = false;
+                state.printerConnected = false;
+                updateConnectionStatus('disconnected', 'Disconnected - reconnecting...');
+                
+                // Auto-reconnect
+                state.reconnectTimer = setTimeout(connectWebSocket, CONFIG.RECONNECT_DELAY_MS);
+            };
+        }
+
+        // ========================================
+        // MESSAGE HANDLING
+        // ========================================
+        function handleMessage(msg) {
+            switch (msg.type) {
+                case 'status':
+                    handleStatusMessage(msg);
+                    break;
+                case 'temperature':
+                    handleTemperatureMessage(msg);
+                    break;
+                case 'progress':
+                    handleProgressMessage(msg);
+                    break;
+                case 'position':
+                    handlePositionMessage(msg);
+                    break;
+                case 'power':
+                    handlePowerMessage(msg);
+                    break;
+                case 'log':
+                    handleLogMessage(msg);
+                    break;
+                default:
+                    console.warn('Unknown message type:', msg.type);
+            }
+        }
+
+        function handleStatusMessage(msg) {
+            state.printerConnected = msg.connected;
+            const statusText = msg.connected ? 
+                'Printer connected and ready' : 
+                'Printer disconnected';
+            updateConnectionStatus(state.connected ? 'connected' : 'disconnected', statusText);
+            
+            // Enable/disable send button
+            document.getElementById('send-btn').disabled = !msg.connected;
+        }
+
+        function handleTemperatureMessage(msg) {
+            // Update state
+            state.temps.nozzle = msg.nozzle;
+            state.temps.bed = msg.bed;
+            state.temps.heatbreak = msg.heatbreak;
+            state.temps.chamber = { current: msg.chamber.current };
+            
+            // Update UI
+            updateTemperatureDisplay();
+            
+            // Add to graph history
+            addTemperatureToHistory();
+            updateGraph();
+        }
+
+        function handleProgressMessage(msg) {
+            state.progress.percent = msg.percent;
+            state.progress.timeLeft = msg.timeLeft;
+            state.progress.changeTime = msg.changeTime;
+            
+            updateProgressDisplay();
+        }
+
+        function handlePositionMessage(msg) {
+            state.position = msg;
+            updatePositionDisplay();
+        }
+
+        function handlePowerMessage(msg) {
+            state.power = msg;
+            // Power info is used for temperature status indicators
+            updateTemperatureDisplay();
+        }
+
+        function handleLogMessage(msg) {
+            const hideTemps = document.getElementById('hide-temps').checked;
+            const message = msg.message;
+            
+            // Check if it's a temperature line
+            const isTempLine = message.startsWith('T:') && 
+                             message.includes(' B:') && 
+                             message.includes(' @:');
+            
+            // Skip if hiding temps and this is a temp line
+            if (hideTemps && isTempLine) {
+                return;
+            }
+            
+            addLogEntry(message);
+        }
+
+        // ========================================
+        // UI UPDATE FUNCTIONS
+        // ========================================
+        function updateConnectionStatus(status, message) {
+            const banner = document.getElementById('connection-status');
+            const statusText = document.getElementById('ws-status');
+            const printerStatus = document.getElementById('printer-status');
+            
+            banner.className = `connection-status ${status}`;
+            statusText.textContent = message;
+            
+            if (state.printerConnected) {
+                printerStatus.textContent = ' • Printer online';
+            } else {
+                printerStatus.textContent = '';
+            }
+        }
+
+        function updateTemperatureDisplay() {
+            const { nozzle, bed, heatbreak, chamber } = state.temps;
+            
+            // Update values
+            document.getElementById('temp-nozzle').textContent = `${nozzle.current.toFixed(1)}°C`;
+            document.getElementById('temp-bed').textContent = `${bed.current.toFixed(1)}°C`;
+            document.getElementById('temp-heatbreak').textContent = `${heatbreak.current.toFixed(1)}°C`;
+            document.getElementById('temp-chamber').textContent = `${chamber.current.toFixed(1)}°C`;
+            
+            // Update targets
+            document.getElementById('target-nozzle').textContent = `Target: ${nozzle.target.toFixed(1)}°C`;
+            document.getElementById('target-bed').textContent = `Target: ${bed.target.toFixed(1)}°C`;
+            document.getElementById('target-heatbreak').textContent = `Target: ${heatbreak.target.toFixed(1)}°C`;
+            
+            // Update target status (heating/at-temp)
+            updateTargetStatus('target-nozzle', nozzle.current, nozzle.target);
+            updateTargetStatus('target-bed', bed.current, bed.target);
+            updateTargetStatus('target-heatbreak', heatbreak.current, heatbreak.target);
+            
+            // Update page title with nozzle temp
+            if (state.progress.percent > 0 && state.progress.percent < 100) {
+                document.title = `${state.progress.percent}% | ${nozzle.current.toFixed(0)}°C - Prusa Monitor`;
+            } else {
+                document.title = `${nozzle.current.toFixed(0)}°C - Prusa Core One Monitor`;
+            }
+        }
+
+        function updateTargetStatus(elementId, current, target) {
+            const elem = document.getElementById(elementId);
+            
+            if (target === 0) {
+                elem.className = 'temp-target';
+            } else if (Math.abs(current - target) <= CONFIG.TEMP_TOLERANCE) {
+                elem.className = 'temp-target at-temp';
+            } else {
+                elem.className = 'temp-target heating';
+            }
+        }
+
+        function updateProgressDisplay() {
+            const { percent, timeLeft, changeTime } = state.progress;
+            
+            // Update percentage
+            document.getElementById('progress-percent').textContent = `${percent}%`;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            
+            // Update time remaining
+            if (timeLeft > 0) {
+                const hours = Math.floor(timeLeft / 60);
+                const mins = timeLeft % 60;
+                document.getElementById('time-remaining').textContent = 
+                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+            } else {
+                document.getElementById('time-remaining').textContent = '--';
+            }
+            
+            // Update change time
+            if (changeTime > 0) {
+                const hours = Math.floor(changeTime / 60);
+                const mins = changeTime % 60;
+                document.getElementById('next-change').textContent = 
+                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+            } else {
+                document.getElementById('next-change').textContent = '--';
+            }
+        }
+
+        function updatePositionDisplay() {
+            const { z } = state.position;
+            document.getElementById('z-height').textContent = `${z.toFixed(2)} mm`;
+        }
+
+        function addLogEntry(message) {
+            const logBox = document.getElementById('log-box');
+            const autoscroll = document.getElementById('autoscroll').checked;
+            
+            // Check if we're at bottom before adding entry
+            const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 50;
+            
+            // Create log entry
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span class="log-timestamp">${timestamp}</span>
+                <span>${escapeHtml(message)}</span>
+            `;
+            
+            logBox.appendChild(entry);
+            
+            // Limit log entries
+            while (logBox.children.length > CONFIG.MAX_LOG_ENTRIES) {
+                logBox.removeChild(logBox.firstChild);
+            }
+            
+            // Auto-scroll if enabled and was at bottom
+            if (autoscroll && isAtBottom) {
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearLog() {
+            document.getElementById('log-box').innerHTML = '';
+        }
+
+        // ========================================
+        // TEMPERATURE GRAPH
+        // ========================================
+        let tempChart = null;
+
+        function initGraph() {
+            const canvas = document.getElementById('temp-graph');
+            const ctx = canvas.getContext('2d');
+            
+            tempChart = {
+                canvas: canvas,
+                ctx: ctx,
+                width: 0,
+                height: 0
+            };
+            
+            updateGraphSize();
+            window.addEventListener('resize', updateGraphSize);
+        }
+
+        function updateGraphSize() {
+            const canvas = tempChart.canvas;
+            const rect = canvas.getBoundingClientRect();
+            
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            
+            tempChart.width = canvas.width;
+            tempChart.height = canvas.height;
+            
+            tempChart.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            
+            updateGraph();
+        }
+
+        function addTemperatureToHistory() {
+            const history = state.tempHistory;
+            const now = Date.now();
+            
+            history.timestamps.push(now);
+            history.nozzle.push(state.temps.nozzle.current);
+            history.bed.push(state.temps.bed.current);
+            history.heatbreak.push(state.temps.heatbreak.current);
+            
+            // Keep only last N points
+            while (history.timestamps.length > CONFIG.MAX_GRAPH_POINTS) {
+                history.timestamps.shift();
+                history.nozzle.shift();
+                history.bed.shift();
+                history.heatbreak.shift();
+            }
+        }
+
+        function updateGraph() {
+            if (!tempChart) return;
+            
+            const ctx = tempChart.ctx;
+            const width = tempChart.canvas.offsetWidth;
+            const height = tempChart.canvas.offsetHeight;
+            const history = state.tempHistory;
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+            
+            if (history.timestamps.length < 2) {
+                // Not enough data to draw
+                ctx.fillStyle = '#666';
+                ctx.font = '14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Waiting for temperature data...', width / 2, height / 2);
+                return;
+            }
+            
+            // Calculate scales
+            const maxTemp = Math.max(
+                ...history.nozzle,
+                ...history.bed,
+                ...history.heatbreak,
+                100
+            );
+            
+            const padding = 40;
+            const graphWidth = width - padding * 2;
+            const graphHeight = height - padding * 2;
+            
+            // Draw grid
+            ctx.strokeStyle = '#2a2a2a';
+            ctx.lineWidth = 1;
+            
+            // Horizontal grid lines
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (graphHeight / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(width - padding, y);
+                ctx.stroke();
+                
+                // Temperature labels
+                const temp = maxTemp - (maxTemp / 4) * i;
+                ctx.fillStyle = '#666';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(`${temp.toFixed(0)}°`, padding - 5, y + 4);
+            }
+            
+            // Draw temperature lines
+            drawLine(history.nozzle, '#f44336', 2);
+            drawLine(history.bed, '#2196F3', 2);
+            drawLine(history.heatbreak, '#4CAF50', 2);
+            
+            function drawLine(data, color, lineWidth) {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                ctx.beginPath();
+                
+                for (let i = 0; i < data.length; i++) {
+                    const x = padding + (graphWidth / (data.length - 1)) * i;
+                    const y = padding + graphHeight - (data[i] / maxTemp) * graphHeight;
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                ctx.stroke();
+            }
+        }
+
+        // ========================================
+        // G-CODE SENDING
+        // ========================================
+        function sendGCode() {
+            const input = document.getElementById('gcode-input');
+            const cmd = input.value.trim();
+            
+            if (!cmd) return;
+            if (!state.connected || !state.printerConnected) {
+                alert('Printer not connected!');
+                return;
+            }
+            
+            console.log('Sending G-code:', cmd);
+            state.ws.send(`GCODE:${cmd}`);
+            
+            // Add to log
+            addLogEntry(`> ${cmd}`);
+            
+            // Clear input
+            input.value = '';
+        }
+
+        function sendQuickCmd(cmd) {
+            if (!state.connected || !state.printerConnected) {
+                alert('Printer not connected!');
+                return;
+            }
+            
+            console.log('Sending quick command:', cmd);
+            state.ws.send(`GCODE:${cmd}`);
+            addLogEntry(`> ${cmd}`);
+        }
+
+        // ========================================
+        // INITIALIZATION
+        // ========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('Prusa Monitor V3.0 - WebSocket Edition');
+            
+            // Initialize graph
+            initGraph();
+            
+            // Connect WebSocket
+            connectWebSocket();
+            
+            // Focus G-code input
+            document.getElementById('gcode-input').focus();
         });
     </script>
-
-    <!-- Mesh Popup Modal -->
-    <div class="mesh-popup" id="meshPopup">
-        <div class="mesh-popup-content">
-            <div class="mesh-popup-header">
-                <div class="mesh-popup-title">Bed Mesh Topology</div>
-                <button class="mesh-popup-close" onclick="PrusaMonitor.mesh.closePopup()">Close</button>
-            </div>
-            <div id="meshPlot"></div>
-        </div>
-    </div>
-
-    <div class="version-label">v2.0.14-remote</div>
 </body>
 
 </html>
