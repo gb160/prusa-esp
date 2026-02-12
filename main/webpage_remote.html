@@ -617,9 +617,9 @@
             let text = `${percent}%`;
             
 
-            if (changeTime > 0) {
+            if (changeTime > 1) {
                 const hours = Math.floor(changeTime / 60);
-                const mins = timeLeft % 60;
+                const mins = changeTime % 60;
                 text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
             }
 
@@ -938,7 +938,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.6-ws-remote</div>
+    <div class="version-tag">v3.1.7-ws-remote</div>
     
 </body>
 </html>
