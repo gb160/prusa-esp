@@ -65,8 +65,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT-WXF9FJ"
-#define WIFI_PASS                   "QFLQCPDLWF"
+#define WIFI_SSID                   "BT"
+#define WIFI_PASS                   "QF"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
