@@ -543,6 +543,7 @@
                 case 'progress':
                     state.progress.percent = msg.percent;
                     state.progress.timeLeft = msg.timeLeft;
+                    state.progress.changeTime = msg.changeTime;
                     updateProgressDisplay();
                     break;
                 case 'position':
@@ -612,13 +613,20 @@
         }
         
         function updateProgressDisplay() {
-            const { percent, timeLeft } = state.progress;
+            const { percent, timeLeft, changeTime } = state.progress;
             let text = `${percent}%`;
             
+
+            if (changeTime > 0) {
+                const hours = Math.floor(changeTime / 60);
+                const mins = timeLeft % 60;
+                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
+            }
+
             if (timeLeft > 0) {
                 const hours = Math.floor(timeLeft / 60);
                 const mins = timeLeft % 60;
-                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m left`;
+                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m remaining`;
             }
             
             document.getElementById('progress-inline').textContent = text;
@@ -868,7 +876,8 @@
             const progressMsg = {
                 type: 'progress',
                 percent: Math.floor(Math.random() * 100),
-                timeLeft: Math.floor(Math.random() * 180)  // 0-180 minutes
+                timeLeft: Math.floor(Math.random() * 180),  // 0-180 minutes
+                changeTime: Math.floor(Math.random() * 180)  // 0-180 minutes
             };
             handleMessage(progressMsg);
             
