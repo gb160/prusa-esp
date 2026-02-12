@@ -84,63 +84,42 @@
         }
 
         /* ========================================
-           TEMPERATURE CARDS
+           TEMPERATURE GAUGES
            ======================================== */
-        .temp-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .temp-card {
+        /* ========================================
+           TEMPERATURE AND POWER GAUGES (Pi Stats Style)
+           ======================================== */
+        .gauge-container {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
+            padding: 10px;
+            margin-bottom: 20px;
         }
 
-        .temp-card:hover {
-            border-color: #3a3a3a;
-            transform: translateY(-2px);
+        h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #ffffff;
         }
 
-        .temp-label {
-            font-size: 0.85rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
+        .cpu-row {
+            display: flex;
+            justify-content: center;
         }
 
-        .temp-value {
-            font-size: 2rem;
-            font-weight: 300;
-            margin-bottom: 5px;
+        .cpu-gauge {
+            flex: 1;
+            margin-right: 1%;
+            box-sizing: border-box;
+            width: 100%;
+        }
         }
 
-        .temp-target {
-            font-size: 0.9rem;
-            color: #666;
-            transition: color 0.3s ease;
-        }
-
-        .temp-target.heating {
-            color: #f44336;
-        }
-
-        .temp-target.at-temp {
-            color: #4CAF50;
-        }
-
-        .temp-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
+        .power-gauges .gauge-item > div {
+            height: 140px !important;
+            margin: 0 auto;
         }
 
         /* ========================================
@@ -165,24 +144,6 @@
             font-size: 1.1rem;
             font-weight: 500;
             color: #e0e0e0;
-        }
-
-        .graph-legend {
-            display: flex;
-            gap: 20px;
-            font-size: 0.85rem;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
         }
 
         canvas {
@@ -220,20 +181,19 @@
             color: #4CAF50;
         }
 
-        .progress-bar-container {
-            background: #2a2a2a;
-            border-radius: 8px;
-            height: 12px;
+        .progress-chart-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
             margin-bottom: 15px;
-            overflow: hidden;
+            min-height: 200px;
         }
 
-        .progress-bar {
-            background: linear-gradient(90deg, #4CAF50, #66BB6A);
-            height: 100%;
-            width: 0%;
-            transition: width 0.5s ease;
-            border-radius: 8px;
+        .progress-chart-container canvas {
+            max-width: 200px !important;
+            max-height: 200px !important;
+            width: 200px !important;
+            height: 200px !important;
         }
 
         .progress-details {
@@ -258,169 +218,39 @@
         }
 
         /* ========================================
-           CONTROLS
+           BOTTOM SECTION - SIDE BY SIDE
            ======================================== */
-        .controls {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
             margin-bottom: 20px;
         }
 
-        .controls-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 15px;
-        }
-
-        .control-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 12px 15px;
-            color: #e0e0e0;
-            font-size: 0.95rem;
-            font-family: 'Courier New', monospace;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        button {
-            background: #4CAF50;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            color: white;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        button:hover {
-            background: #45a049;
-            transform: translateY(-1px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .quick-commands {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-        }
-
-        .quick-cmd-btn {
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            padding: 10px;
-            font-size: 0.85rem;
-        }
-
-        .quick-cmd-btn:hover {
-            background: #3a3a3a;
-            border-color: #4a4a4a;
-        }
-
-
-        /* ========================================
-           POWER INDICATORS
-           ======================================== */
-        .power-indicators {
-            display: grid;
-            gap: 20px;
-        }
-
-        .power-indicator {
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 15px;
-        }
-
-        .power-label {
-            font-size: 0.9rem;
-            color: #888;
-            margin-bottom: 8px;
-        }
-
-        .power-bar-container {
-            background: #1a1a1a;
-            border-radius: 6px;
-            height: 24px;
-            overflow: hidden;
-            margin-bottom: 8px;
-        }
-
-        .power-bar {
-            background: linear-gradient(90deg, #f44336, #ff5722);
-            height: 100%;
-            width: 0%;
-            transition: width 0.3s ease;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .power-bar-fan {
-            background: linear-gradient(90deg, #2196F3, #03A9F4);
-        }
-
-        .power-value {
-            text-align: right;
-            font-size: 0.9rem;
-            color: #e0e0e0;
-            font-weight: 500;
-        }
-        
-        /* ========================================
-           LOG CONSOLE
-           ======================================== */
-        .log-section {
+        .section-panel {
             background: #1a1a1a;
             border: 1px solid #2a2a2a;
             border-radius: 12px;
             padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
 
-        .log-header {
+        .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
 
-        .log-title {
+        .section-title {
             font-size: 1.1rem;
             font-weight: 500;
         }
 
-        .log-controls {
+        .section-controls {
             display: flex;
-            gap: 10px;
+            gap: 15px;
             align-items: center;
         }
 
@@ -430,22 +260,72 @@
             gap: 6px;
             font-size: 0.9rem;
             cursor: pointer;
+            color: #888;
         }
 
         input[type="checkbox"] {
             cursor: pointer;
         }
 
-        .clear-log-btn {
-            background: #f44336;
-            padding: 8px 16px;
-            font-size: 0.85rem;
+        /* ========================================
+           DROPDOWN
+           ======================================== */
+        .dropdown {
+            position: relative;
+            display: inline-block;
         }
 
-        .clear-log-btn:hover {
-            background: #da190b;
+        .dropdown-toggle {
+            font-size: 1.5rem;
+            color: #888;
+            cursor: pointer;
+            user-select: none;
+            padding: 0 10px;
+            transition: color 0.2s ease;
         }
 
+        .dropdown-toggle:hover {
+            color: #ccc;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .dropdown-menu.show {
+            display: flex;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            color: #ddd;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item:hover {
+            background: #2a2a2a;
+        }
+
+        /* ========================================
+           LOG CONSOLE
+           ======================================== */
         .log-box {
             background: #0a0a0a;
             border: 1px solid #2a2a2a;
@@ -455,6 +335,8 @@
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 0.85rem;
+            flex: 1;
+            margin-bottom: 15px;
         }
 
         .log-entry {
@@ -491,23 +373,94 @@
         }
 
         /* ========================================
+           CONTROLS
+           ======================================== */
+        .control-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        input[type="text"],
+        textarea {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        button {
+            background: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: white;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .clear-btn {
+            background: #f44336;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+        }
+
+        .clear-btn:hover {
+            background: #da190b;
+        }
+
+        /* ========================================
+           VERSION TAG
+           ======================================== */
+        .version-tag {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* ========================================
            RESPONSIVE DESIGN
            ======================================== */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
+        @media (max-width: 968px) {
+            .bottom-section {
+                grid-template-columns: 1fr;
             }
 
-            .temp-cards {
+            .gauges-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
 
-            .quick-commands {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .control-row {
-                flex-direction: column;
+            .power-gauges {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -524,30 +477,26 @@
             </div>
         </div>
 
-        <!-- Temperature Cards -->
-        <div class="temp-cards">
-            <div class="temp-card">
-                <div class="temp-label">Nozzle</div>
-                <div class="temp-value" id="temp-nozzle">--°C</div>
-                <div class="temp-target" id="target-nozzle">Target: --°C</div>
+        <!-- Temperature Gauges -->
+        <div class="gauge-container">
+            <h2>Temperatures:</h2>
+            <div class="cpu-row">
+                <div class="cpu-gauge" id="gauge-nozzle"></div>
+                <div class="cpu-gauge" id="gauge-bed"></div>
             </div>
-
-            <div class="temp-card">
-                <div class="temp-label">Bed</div>
-                <div class="temp-value" id="temp-bed">--°C</div>
-                <div class="temp-target" id="target-bed">Target: --°C</div>
+            <div class="cpu-row">
+                <div class="cpu-gauge" id="gauge-heatbreak"></div>
+                <div class="cpu-gauge" id="gauge-chamber"></div>
             </div>
+        </div>
 
-            <div class="temp-card">
-                <div class="temp-label">Heatbreak</div>
-                <div class="temp-value" id="temp-heatbreak">--°C</div>
-                <div class="temp-target" id="target-heatbreak">Target: --°C</div>
-            </div>
-
-            <div class="temp-card">
-                <div class="temp-label">Chamber</div>
-                <div class="temp-value" id="temp-chamber">--°C</div>
-                <div class="temp-target">Ambient</div>
+        <!-- Power Gauges -->
+        <div class="gauge-container">
+            <h2>Heater Power (PWM):</h2>
+            <div class="cpu-row">
+                <div class="cpu-gauge" id="gauge-power-nozzle"></div>
+                <div class="cpu-gauge" id="gauge-power-bed"></div>
+                <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
             </div>
         </div>
 
@@ -555,20 +504,6 @@
         <div class="graph-container">
             <div class="graph-header">
                 <div class="graph-title">Temperature History</div>
-                <div class="graph-legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #f44336;"></div>
-                        <span>Nozzle</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #2196F3;"></div>
-                        <span>Bed</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #4CAF50;"></div>
-                        <span>Heatbreak</span>
-                    </div>
-                </div>
             </div>
             <canvas id="temp-graph"></canvas>
         </div>
@@ -579,8 +514,8 @@
                 <div class="progress-title">Print Progress</div>
                 <div class="progress-percent" id="progress-percent">--%</div>
             </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progress-bar"></div>
+            <div class="progress-chart-container">
+                <canvas id="progress-chart"></canvas>
             </div>
             <div class="progress-details">
                 <div class="progress-detail">
@@ -598,75 +533,58 @@
             </div>
         </div>
 
-        <!-- Power Indicators -->
-        <div class="controls">
-            <div class="controls-title">Heater Power (PWM)</div>
-            <div class="power-indicators">
-                <div class="power-indicator">
-                    <div class="power-label">Nozzle Heater</div>
-                    <div class="power-bar-container">
-                        <div class="power-bar" id="power-bar-nozzle" style="width: 0%"></div>
+        <!-- Bottom Section: Console and Commands Side-by-Side -->
+        <div class="bottom-section">
+            <!-- Serial Console -->
+            <div class="section-panel">
+                <div class="section-header">
+                    <div class="section-title">Serial Console</div>
+                    <div class="section-controls">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="hide-temps" checked>
+                            Hide Temps
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoscroll" checked>
+                            Auto-scroll
+                        </label>
+                        <button class="clear-btn" onclick="clearLog()">Clear</button>
                     </div>
-                    <div class="power-value" id="power-nozzle">0%</div>
                 </div>
-                
-                <div class="power-indicator">
-                    <div class="power-label">Bed Heater</div>
-                    <div class="power-bar-container">
-                        <div class="power-bar" id="power-bar-bed" style="width: 0%"></div>
+                <div class="log-box" id="log-box"></div>
+            </div>
+
+            <!-- G-code Commands -->
+            <div class="section-panel">
+                <div class="section-header">
+                    <div class="section-title">G-code Commands</div>
+                    <div class="dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
+                        <div class="dropdown-menu" id="dropdown-menu"></div>
                     </div>
-                    <div class="power-value" id="power-bed">0%</div>
                 </div>
-                
-                <div class="power-indicator">
-                    <div class="power-label">Heatbreak Fan</div>
-                    <div class="power-bar-container">
-                        <div class="power-bar power-bar-fan" id="power-bar-heatbreak" style="width: 0%"></div>
-                    </div>
-                    <div class="power-value" id="power-heatbreak">0%</div>
+                <div class="log-box" id="command-history"></div>
+                <div class="control-row">
+                    <textarea id="gcode-input" 
+                              placeholder="Enter G-code commands (one per line)..." 
+                              rows="3"
+                              onkeydown="handleKeyDown(event)"></textarea>
+                    <button onclick="sendGCode()" id="send-btn">Send</button>
                 </div>
             </div>
         </div>
 
-
-
-        <!-- Controls -->
-        <div class="controls">
-            <div class="controls-title">G-Code Commands</div>
-            <div class="control-row">
-                <input type="text" id="gcode-input" placeholder="Enter G-code command (e.g., M105)" 
-                       onkeypress="if(event.key==='Enter') sendGCode()">
-                <button onclick="sendGCode()" id="send-btn">Send</button>
-            </div>
-            <div class="quick-commands">
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M105')">Get Temp (M105)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M114')">Get Position (M114)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M27')">Get SD Status (M27)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M117 Hello!')">Display Message</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M300 S1000 P200')">Beep</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('G28')">Home All (G28)</button>
-            </div>
-        </div>
-
-        <!-- Log Console -->
-        <div class="log-section">
-            <div class="log-header">
-                <div class="log-title">Serial Console</div>
-                <div class="log-controls">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="hide-temps" checked>
-                        Hide Temperature Reports
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="autoscroll" checked>
-                        Auto-scroll
-                    </label>
-                    <button class="clear-log-btn" onclick="clearLog()">Clear</button>
-                </div>
-            </div>
-            <div class="log-box" id="log-box"></div>
+        <!-- Version Tag -->
+        <div class="version-tag">
+            v3.0.8-ws-remote
         </div>
     </div>
+
+    <!-- JustGage Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
+    <!-- Chart.js for Progress Pie -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
     <script>
         // ========================================
@@ -678,6 +596,14 @@
             MAX_LOG_ENTRIES: 500,
             MAX_GRAPH_POINTS: 60,
             TEMP_TOLERANCE: 0.5
+        };
+
+        // G-code Command Map
+        const GCODE_MAP = {
+            'Preheat PLA': ['M104 S170', 'M140 S60'],
+            'Preheat PETG': ['M104 S170', 'M140 S85'],
+            'Cooldown': ['M104 S0', 'M140 S0'],
+            'Unload Filament': ['M702']
         };
 
         // ========================================
@@ -718,8 +644,272 @@
                 nozzle: [],
                 bed: [],
                 heatbreak: []
-            }
+            },
+
+            // Command history
+            commandHistory: [],
+            commandHistoryIndex: -1
         };
+
+        // ========================================
+        // JUSTGAGE GAUGES
+        // ========================================
+        let gauges = {};
+        let progressChart = null;
+
+        function initGauges() {
+            // Temperature gauges
+            gauges.nozzle = new JustGage({
+                id: 'gauge-nozzle',
+                value: 0,
+                min: 0,
+                max: 300,
+                title: 'Nozzle',
+                symbol: ' °C',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#00FF00"],
+                counter: true,
+                decimals: 1,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            gauges.bed = new JustGage({
+                id: 'gauge-bed',
+                value: 0,
+                min: 0,
+                max: 120,
+                title: 'Bed',
+                symbol: ' °C',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#00D9FF"],
+                counter: true,
+                decimals: 1,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            gauges.heatbreak = new JustGage({
+                id: 'gauge-heatbreak',
+                value: 0,
+                min: 0,
+                max: 100,
+                title: 'Heatbreak',
+                symbol: ' °C',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#7C4DFF"],
+                counter: true,
+                decimals: 1,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            gauges.chamber = new JustGage({
+                id: 'gauge-chamber',
+                value: 0,
+                min: 0,
+                max: 80,
+                title: 'Chamber',
+                symbol: ' °C',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#2196F3"],
+                counter: true,
+                decimals: 1,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            // Power gauges
+            gauges.powerNozzle = new JustGage({
+                id: 'gauge-power-nozzle',
+                value: 0,
+                min: 0,
+                max: 100,
+                title: 'Nozzle',
+                symbol: ' %',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#FF5722"],
+                counter: true,
+                decimals: 0,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            gauges.powerBed = new JustGage({
+                id: 'gauge-power-bed',
+                value: 0,
+                min: 0,
+                max: 100,
+                title: 'Bed',
+                symbol: ' %',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#FFC107"],
+                counter: true,
+                decimals: 0,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+
+            gauges.powerHeatbreak = new JustGage({
+                id: 'gauge-power-heatbreak',
+                value: 0,
+                min: 0,
+                max: 100,
+                title: 'Heatbreak Fan',
+                symbol: ' %',
+                label: '',
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                levelColors: ["#00BCD4"],
+                counter: true,
+                decimals: 0,
+                humanFriendly: false,
+                relativeGaugeSize: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+        }
+        // PROGRESS PIE CHART
+        // ========================================
+        function initProgressChart() {
+            const ctx = document.getElementById('progress-chart').getContext('2d');
+            
+            // Create gradient like Pi Stats
+            function createGradient(ctx, startColor, endColor) {
+                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                gradient.addColorStop(0, startColor);
+                gradient.addColorStop(1, endColor);
+                return gradient;
+                symbol: " %",
+            }
+            
+            progressChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Completed', 'Remaining'],
+                    datasets: [{
+                        data: [0, 100],
+                        backgroundColor: [
+                            createGradient(ctx, 'rgba(236, 107, 86, 1)', 'rgba(236, 107, 86, 0)'),  // Red gradient for completed
+                            createGradient(ctx, 'rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0)')         // Green gradient for remaining
+                        ],
+                        borderColor: ['rgba(0, 0, 0, 0)'],
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    return label + ': ' + value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateProgressChart(percent) {
+            if (progressChart) {
+                progressChart.data.datasets[0].data = [percent, 100 - percent];
+                progressChart.update();
+            }
+        }
+
+        // ========================================
+        // DROPDOWN MENU
+        // ========================================
+        function initDropdown() {
+            const menu = document.getElementById('dropdown-menu');
+            menu.innerHTML = '';
+            
+            Object.keys(GCODE_MAP).forEach(label => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.textContent = label;
+                item.onclick = () => {
+                    executeGCodeMacro(label);
+                    toggleDropdown();
+                };
+                menu.appendChild(item);
+            });
+        }
+
+        function toggleDropdown() {
+            const menu = document.getElementById('dropdown-menu');
+            menu.classList.toggle('show');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown')) {
+                document.getElementById('dropdown-menu').classList.remove('show');
+            }
+        });
+
+        function executeGCodeMacro(label) {
+            const commands = GCODE_MAP[label];
+            commands.forEach(cmd => {
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send(`GCODE:${cmd}`);
+                    addCommandHistoryEntry(`> ${cmd} (${label})`);
+                }
+            });
+        }
 
         // ========================================
         // WEBSOCKET CONNECTION
@@ -815,8 +1005,8 @@
             state.temps.heatbreak = msg.heatbreak;
             state.temps.chamber = { current: msg.chamber.current };
             
-            // Update UI
-            updateTemperatureDisplay();
+            // Update gauges
+            updateTemperatureGauges();
             
             // Add to graph history
             addTemperatureToHistory();
@@ -838,38 +1028,18 @@
 
         function handlePowerMessage(msg) {
             state.power = msg;
-            // Power info is used for temperature status indicators
-            updatePowerDisplay();
+            updatePowerGauges();
         }
-
-        function updatePowerDisplay() {
-            const { nozzle, bed, heatbreak } = state.power;
-            
-            // Convert PWM (0-255) to percentage
-            const nozzlePercent = Math.round((nozzle / 255) * 100);
-            const bedPercent = Math.round((bed / 255) * 100);
-            const heatbreakPercent = Math.round((heatbreak / 255) * 100);
-            
-            // Update bars
-            document.getElementById('power-bar-nozzle').style.width = `${nozzlePercent}%`;
-            document.getElementById('power-bar-bed').style.width = `${bedPercent}%`;
-            document.getElementById('power-bar-heatbreak').style.width = `${heatbreakPercent}%`;
-            
-            // Update text values
-            document.getElementById('power-nozzle').textContent = `${nozzlePercent}% (${nozzle}/255)`;
-            document.getElementById('power-bed').textContent = `${bedPercent}% (${bed}/255)`;
-            document.getElementById('power-heatbreak').textContent = `${heatbreakPercent}% (${heatbreak}/255)`;
-        }        
-
 
         function handleLogMessage(msg) {
             const hideTemps = document.getElementById('hide-temps').checked;
             const message = msg.message;
             
-            // Check if it's a temperature line
-            const isTempLine = message.startsWith('T:') && 
-                             message.includes(' B:') && 
-                             message.includes(' @:');
+            // Check if it's a temperature line - look for the specific pattern
+            const isTempLine = message.includes('T:') && 
+                             message.includes('B:') && 
+                             message.includes('@:') &&
+                             message.includes('B@:');
             
             // Skip if hiding temps and this is a temp line
             if (hideTemps && isTempLine) {
@@ -897,26 +1067,15 @@
             }
         }
 
-        function updateTemperatureDisplay() {
+        function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Update values
-            document.getElementById('temp-nozzle').textContent = `${nozzle.current.toFixed(1)}°C`;
-            document.getElementById('temp-bed').textContent = `${bed.current.toFixed(1)}°C`;
-            document.getElementById('temp-heatbreak').textContent = `${heatbreak.current.toFixed(1)}°C`;
-            document.getElementById('temp-chamber').textContent = `${chamber.current.toFixed(1)}°C`;
+            gauges.nozzle.refresh(nozzle.current);
+            gauges.bed.refresh(bed.current);
+            gauges.heatbreak.refresh(heatbreak.current);
+            gauges.chamber.refresh(chamber.current);
             
-            // Update targets
-            document.getElementById('target-nozzle').textContent = `Target: ${nozzle.target.toFixed(1)}°C`;
-            document.getElementById('target-bed').textContent = `Target: ${bed.target.toFixed(1)}°C`;
-            document.getElementById('target-heatbreak').textContent = `Target: ${heatbreak.target.toFixed(1)}°C`;
-            
-            // Update target status (heating/at-temp)
-            updateTargetStatus('target-nozzle', nozzle.current, nozzle.target);
-            updateTargetStatus('target-bed', bed.current, bed.target);
-            updateTargetStatus('target-heatbreak', heatbreak.current, heatbreak.target);
-            
-            // Update page title with nozzle temp
+            // Update page title
             if (state.progress.percent > 0 && state.progress.percent < 100) {
                 document.title = `${state.progress.percent}% | ${nozzle.current.toFixed(0)}°C - Prusa Monitor`;
             } else {
@@ -924,16 +1083,17 @@
             }
         }
 
-        function updateTargetStatus(elementId, current, target) {
-            const elem = document.getElementById(elementId);
+        function updatePowerGauges() {
+            const { nozzle, bed, heatbreak } = state.power;
             
-            if (target === 0) {
-                elem.className = 'temp-target';
-            } else if (Math.abs(current - target) <= CONFIG.TEMP_TOLERANCE) {
-                elem.className = 'temp-target at-temp';
-            } else {
-                elem.className = 'temp-target heating';
-            }
+            // Convert PWM (0-255) to percentage
+            const nozzlePercent = Math.round((nozzle / 255) * 100);
+            const bedPercent = Math.round((bed / 255) * 100);
+            const heatbreakPercent = Math.round((heatbreak / 255) * 100);
+            
+            gauges.powerNozzle.refresh(nozzlePercent);
+            gauges.powerBed.refresh(bedPercent);
+            gauges.powerHeatbreak.refresh(heatbreakPercent);
         }
 
         function updateProgressDisplay() {
@@ -941,7 +1101,9 @@
             
             // Update percentage
             document.getElementById('progress-percent').textContent = `${percent}%`;
-            document.getElementById('progress-bar').style.width = `${percent}%`;
+            
+            // Update pie chart
+            updateProgressChart(percent);
             
             // Update time remaining
             if (timeLeft > 0) {
@@ -997,6 +1159,29 @@
             if (autoscroll && isAtBottom) {
                 logBox.scrollTop = logBox.scrollHeight;
             }
+        }
+
+        function addCommandHistoryEntry(text) {
+            const historyBox = document.getElementById('command-history');
+            
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span class="log-timestamp">${timestamp}</span>
+                <span>${escapeHtml(text)}</span>
+            `;
+            
+            historyBox.appendChild(entry);
+            
+            // Limit entries
+            while (historyBox.children.length > 100) {
+                historyBox.removeChild(historyBox.firstChild);
+            }
+            
+            // Auto-scroll
+            historyBox.scrollTop = historyBox.scrollHeight;
         }
 
         function escapeHtml(text) {
@@ -1144,33 +1329,66 @@
         // ========================================
         function sendGCode() {
             const input = document.getElementById('gcode-input');
-            const cmd = input.value.trim();
+            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
             
-            if (!cmd) return;
+            if (commands.length === 0) return;
             if (!state.connected || !state.printerConnected) {
                 alert('Printer not connected!');
                 return;
             }
             
-            console.log('Sending G-code:', cmd);
-            state.ws.send(`GCODE:${cmd}`);
-            
-            // Add to log
-            addLogEntry(`> ${cmd}`);
+            commands.forEach(cmd => {
+                const trimmedCmd = cmd.trim();
+                if (trimmedCmd) {
+                    console.log('Sending G-code:', trimmedCmd);
+                    state.ws.send(`GCODE:${trimmedCmd}`);
+                    
+                    // Add to command history
+                    state.commandHistory.push(trimmedCmd);
+                    if (state.commandHistory.length > 50) {
+                        state.commandHistory.shift();
+                    }
+                    state.commandHistoryIndex = state.commandHistory.length;
+                    
+                    // Add to history display
+                    addCommandHistoryEntry(`> ${trimmedCmd}`);
+                }
+            });
             
             // Clear input
             input.value = '';
         }
 
-        function sendQuickCmd(cmd) {
-            if (!state.connected || !state.printerConnected) {
-                alert('Printer not connected!');
+        function handleKeyDown(event) {
+            const input = document.getElementById('gcode-input');
+            
+            // Ctrl+Enter or Cmd+Enter to send
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                sendGCode();
                 return;
             }
             
-            console.log('Sending quick command:', cmd);
-            state.ws.send(`GCODE:${cmd}`);
-            addLogEntry(`> ${cmd}`);
+            // Up arrow - previous command
+            if (event.key === 'ArrowUp' && event.target.selectionStart === 0) {
+                event.preventDefault();
+                if (state.commandHistoryIndex > 0) {
+                    state.commandHistoryIndex--;
+                    input.value = state.commandHistory[state.commandHistoryIndex];
+                }
+            }
+            
+            // Down arrow - next command
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (state.commandHistoryIndex < state.commandHistory.length - 1) {
+                    state.commandHistoryIndex++;
+                    input.value = state.commandHistory[state.commandHistoryIndex];
+                } else {
+                    state.commandHistoryIndex = state.commandHistory.length;
+                    input.value = '';
+                }
+            }
         }
 
         // ========================================
@@ -1178,6 +1396,15 @@
         // ========================================
         window.addEventListener('DOMContentLoaded', () => {
             console.log('Prusa Monitor V3.0 - WebSocket Edition');
+            
+            // Initialize gauges
+            initGauges();
+            
+            // Initialize progress chart
+            initProgressChart();
+            
+            // Initialize dropdown
+            initDropdown();
             
             // Initialize graph
             initGraph();
@@ -1189,7 +1416,6 @@
             document.getElementById('gcode-input').focus();
         });
     </script>
-    <div class="version-label">v2.0.4-ws-remote</div>
 </body>
 
 </html>
