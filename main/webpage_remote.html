@@ -6,7 +6,7 @@
     <title>Prusa Core One Monitor</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/toorshia/justgage@1.4.0/dist/justgage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <style>
@@ -45,7 +45,7 @@
             flex-direction: column;
             border: 1px solid #4f5b66;
             padding: 10px;
-            margin: 10px 0;
+            margin: 30px 0;
             box-sizing: border-box;
             border-radius: 20px;
             box-shadow: 5px 5px 20px black;
@@ -88,6 +88,8 @@
             margin-right: 1%;
             box-sizing: border-box;
             width: 100%;
+            max-width: 150px;
+            max-height: 150px;
         }
         
         /* Bottom Section */
@@ -279,18 +281,18 @@
             <div class="connection-status">
                 <div class="status-dot" id="status-dot"></div>
                 <span id="status-text">Connecting...</span>
-                <span class="progress-inline" id="progress-inline">--</span>
+                <span class="progress-inline"><strong>Print Progress:</strong> <span id="progress-inline">--</span></span>
             </div>
         </div>
         
         <!-- Temperature Gauges -->
         <div class="stats-section">
-            <h2>Temperatures:</h2>
+            <h2>Temperatures :</h2>
             <div class="cpu-row">
                 <div class="cpu-gauge" id="gauge-nozzle"></div>
                 <div class="cpu-gauge" id="gauge-bed"></div>
-            </div>
-            <div class="cpu-row">
+            <!-- </div>
+            <div class="cpu-row"> -->
                 <div class="cpu-gauge" id="gauge-heatbreak"></div>
                 <div class="cpu-gauge" id="gauge-chamber"></div>
             </div>
@@ -298,7 +300,7 @@
         
         <!-- Power Gauges -->
         <div class="stats-section">
-            <h2>Heater Power (PWM):</h2>
+            <h2>Power :</h2>
             <div class="cpu-row">
                 <div class="cpu-gauge" id="gauge-power-nozzle"></div>
                 <div class="cpu-gauge" id="gauge-power-bed"></div>
@@ -349,6 +351,12 @@
     </div>
     
     <script>
+        // ========================================
+        // DEBUG MODE - Set to true to test with dummy data
+        // ========================================
+        // const DEBUG_MODE = true;
+        const DEBUG_MODE = false;
+        
         // Configuration
         const CONFIG = {
             WS_URL: `ws://${window.location.hostname}/ws`,
@@ -392,7 +400,7 @@
         let gauges = {};
         let tempChart = null;
         
-        // Create gauge - Pi Stats style
+        // Create gauge - Pi Stats style with custom text
         function createGauge(id, min, max, title, label, symbol, color) {
             return new JustGage({
                 id: id,
@@ -403,6 +411,8 @@
                 label: label,
                 symbol: symbol,
                 valueFontFamily: "Ubuntu",
+                titleFontFamily: "Ubuntu",
+                titleFontColor: "#FFFFFF",
                 gaugeWidthScale: 0.4,
                 gaugeColor: "#858383",
                 valueFontColor: "#FFFFFF",
@@ -413,7 +423,9 @@
                 startAnimationTime: 1000,
                 startAnimationType: "bounce",
                 refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
+                refreshAnimationTime: 1000,
+                titleMinFontSize: 12,
+                titleFontSize: 14
             });
         }
         
@@ -556,16 +568,20 @@
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Round to integers and include target
-            const nozzleText = `${Math.round(nozzle.current)}°C / ${Math.round(nozzle.target)}°C`;
-            const bedText = `${Math.round(bed.current)}°C / ${Math.round(bed.target)}°C`;
-            const heatbreakText = `${Math.round(heatbreak.current)}°C / ${Math.round(heatbreak.target)}°C`;
-            const chamberText = `${Math.round(chamber.current)}°C`;
+            // Update with targets shown in label (like Pi Stats shows "Core 1")
+            const nozzleLabel = nozzle.target > 0 ? `Nozzle\nTarget: ${Math.round(nozzle.target)}°C` : "";
+            const bedLabel = bed.target > 0 ? `Bed\nTarget: ${Math.round(bed.target)}°C` : "";
+            const heatbreakLabel = heatbreak.target > 0 ? `Heatbreak\nTarget: ${Math.round(heatbreak.target)}°C` : "";
             
             gauges.nozzle.refresh(Math.round(nozzle.current));
             gauges.bed.refresh(Math.round(bed.current));
             gauges.heatbreak.refresh(Math.round(heatbreak.current));
             gauges.chamber.refresh(Math.round(chamber.current));
+            
+            // Update labels to show targets
+            gauges.nozzle.txtLabel.attr({"text": nozzleLabel});
+            gauges.bed.txtLabel.attr({"text": bedLabel});
+            gauges.heatbreak.txtLabel.attr({"text": heatbreakLabel});
             
             // Update page title
             document.title = `${Math.round(nozzle.current)}°C - Prusa Monitor`;
@@ -798,19 +814,108 @@
             }
         }
         
+        // ========================================
+        // DEBUG MODE FUNCTIONS
+        // ========================================
+        function generateDebugData() {
+            if (!DEBUG_MODE) return;
+            
+            // Simulate temperature message
+            const tempMsg = {
+                type: 'temperature',
+                nozzle: { 
+                    current: 180 + Math.random() * 40,  // 180-220°C
+                    target: 210 
+                },
+                bed: { 
+                    current: 55 + Math.random() * 10,   // 55-65°C
+                    target: 60 
+                },
+                heatbreak: { 
+                    current: 30 + Math.random() * 10,   // 30-40°C
+                    target: 36 
+                },
+                chamber: { 
+                    current: 28 + Math.random() * 5     // 28-33°C
+                }
+            };
+            handleMessage(tempMsg);
+            
+            // Simulate power message
+            const powerMsg = {
+                type: 'power',
+                nozzle: Math.floor(Math.random() * 180 + 50),    // 50-230
+                bed: Math.floor(Math.random() * 150 + 50),       // 50-200
+                heatbreak: Math.floor(Math.random() * 180 + 50)  // 50-230
+            };
+            handleMessage(powerMsg);
+            
+            // Simulate progress
+            const progressMsg = {
+                type: 'progress',
+                percent: Math.floor(Math.random() * 100),
+                timeLeft: Math.floor(Math.random() * 180)  // 0-180 minutes
+            };
+            handleMessage(progressMsg);
+            
+            // Simulate status
+            const statusMsg = {
+                type: 'status',
+                connected: true
+            };
+            handleMessage(statusMsg);
+        }
+        
+        function startDebugMode() {
+            if (!DEBUG_MODE) return;
+            
+            console.log('🐛 DEBUG MODE ENABLED - Using dummy data');
+            state.connected = true;
+            state.printerConnected = true;
+            updateConnectionStatus(true, 'DEBUG MODE - Printer Ready');
+            
+            // Generate initial data
+            generateDebugData();
+            
+            // Update every 2 seconds
+            setInterval(generateDebugData, 2000);
+        }
+        
         // Init
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('Prusa Monitor V3.1.0');
-            initGauges();
-            initDropdown();
-            initGraph();
-            connectWebSocket();
-            document.getElementById('gcode-input').focus();
+            try {
+                console.log('Prusa Monitor V3.1.1');
+                
+                // Check if required libraries loaded
+                if (typeof Raphael === 'undefined') {
+                    console.error('Raphael library not loaded!');
+                    return;
+                }
+                if (typeof JustGage === 'undefined') {
+                    console.error('JustGage library not loaded!');
+                    return;
+                }
+                
+                initGauges();
+                initDropdown();
+                initGraph();
+                
+                if (DEBUG_MODE) {
+                    startDebugMode();
+                } else {
+                    connectWebSocket();
+                }
+                
+                document.getElementById('gcode-input').focus();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Error initializing page: ' + error.message);
+            }
         });
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.0-ws-remote</div>
+    <div class="version-tag">v3.1.2-ws-remote</div>
     
 </body>
 </html>
