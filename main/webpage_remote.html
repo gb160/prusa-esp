@@ -285,6 +285,9 @@
             </div>
         </div>
         
+
+        <div class="bottom-section">
+
         <!-- Temperature Gauges -->
         <div class="stats-section">
             <h2>Temperatures :</h2>
@@ -306,6 +309,7 @@
                 <div class="cpu-gauge" id="gauge-power-bed"></div>
                 <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
             </div>
+        </div>
         </div>
         
         <!-- Temperature Graph -->
@@ -529,7 +533,7 @@
                     state.temps.nozzle = msg.nozzle;
                     state.temps.bed = msg.bed;
                     state.temps.heatbreak = msg.heatbreak;
-                    state.temps.chamber = { current: msg.chamber.current };
+                    state.temps.chamber = msg.chamber;
                     updateTemperatureGauges();
                     addTemperatureToHistory();
                     updateGraph();
@@ -569,10 +573,11 @@
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
             // Update with targets shown in label (like Pi Stats shows "Core 1")
-            const nozzleLabel = nozzle.target > 0 ? `Nozzle\nTarget: ${Math.round(nozzle.target)}°C` : "";
-            const bedLabel = bed.target > 0 ? `Bed\nTarget: ${Math.round(bed.target)}°C` : "";
-            const heatbreakLabel = heatbreak.target > 0 ? `Heatbreak\nTarget: ${Math.round(heatbreak.target)}°C` : "";
-            
+            const nozzleLabel = nozzle.target > 0 ? `Nozzle Target: ${Math.round(nozzle.target)}°C` : "";
+            const bedLabel = bed.target > 0 ? `Bed Target: ${Math.round(bed.target)}°C` : "";
+            const heatbreakLabel = heatbreak.target > 0 ? `Heatbreak Target: ${Math.round(heatbreak.target)}°C` : "";
+            const chamberLabel = chamber.target > 0 ? `Chamber Target: ${Math.round(chamber.target)}°C` : "";
+
             gauges.nozzle.refresh(Math.round(nozzle.current));
             gauges.bed.refresh(Math.round(bed.current));
             gauges.heatbreak.refresh(Math.round(heatbreak.current));
@@ -582,6 +587,7 @@
             gauges.nozzle.txtLabel.attr({"text": nozzleLabel});
             gauges.bed.txtLabel.attr({"text": bedLabel});
             gauges.heatbreak.txtLabel.attr({"text": heatbreakLabel});
+            gauges.chamber.txtLabel.attr({"text": chamberLabel});
             
             // Update page title
             document.title = `${Math.round(nozzle.current)}°C - Prusa Monitor`;
@@ -596,6 +602,11 @@
             gauges.powerNozzle.refresh(nozzlePercent);
             gauges.powerBed.refresh(bedPercent);
             gauges.powerHeatbreak.refresh(heatbreakPercent);
+
+            gauges.powerNozzle.txtLabel.attr({"text": "Nozzle"});
+            gauges.powerBed.txtLabel.attr({"text": "Bed"});
+            gauges.powerHeatbreak.txtLabel.attr({"text": "Heatbreak"});
+
         }
         
         function updateProgressDisplay() {
@@ -836,7 +847,8 @@
                     target: 36 
                 },
                 chamber: { 
-                    current: 28 + Math.random() * 5     // 28-33°C
+                    current: 28 + Math.random() * 5,     // 28-33°C
+                    target: 50 
                 }
             };
             handleMessage(tempMsg);
@@ -915,7 +927,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.2-ws-remote</div>
+    <div class="version-tag">v3.1.3-ws-remote</div>
     
 </body>
 </html>
