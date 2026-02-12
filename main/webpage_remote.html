@@ -1,114 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prusa Core One Monitor V3</title>
+    <title>Prusa Core One Monitor</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/toorshia/justgage@1.4.0/dist/justgage.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <style>
-        /* ========================================
-           GLOBAL STYLES
-           ======================================== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Pi Stats Color Scheme */
+        body, h2, p {
+            color: #ffffff;
+            font-family: "Ubuntu", normal;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0f0f0f;
-            color: #e0e0e0;
+            background-color: #293742;
+            margin: 0;
             padding: 20px;
-            line-height: 1.6;
         }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-
-        /* ========================================
-           CONNECTION STATUS BANNER
-           ======================================== */
-        .connection-status {
-            background: #1a1a1a;
-            border-left: 4px solid #f44336;
-            border-radius: 8px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .connection-status.connected {
-            border-left-color: #4CAF50;
-        }
-
-        .connection-status.connecting {
-            border-left-color: #FFC107;
-        }
-
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #f44336;
-            animation: pulse 2s infinite;
-        }
-
-        .connection-status.connected .status-indicator {
-            background: #4CAF50;
-            animation: none;
-        }
-
-        .connection-status.connecting .status-indicator {
-            background: #FFC107;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .status-text {
-            flex: 1;
-            font-size: 0.95rem;
-        }
-
-        .status-text strong {
-            font-weight: 600;
-        }
-
-        /* ========================================
-           TEMPERATURE GAUGES
-           ======================================== */
-        /* ========================================
-           TEMPERATURE AND POWER GAUGES (Pi Stats Style)
-           ======================================== */
-        .gauge-container {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 10px;
-            margin-bottom: 20px;
-        }
-
+        
         h2 {
             margin-bottom: 0.5rem;
             font-size: 1.25rem;
             font-weight: bold;
-            color: #ffffff;
         }
-
+        
+        p {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Stats Section - Pi Stats Style */
+        .stats-section {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #4f5b66;
+            padding: 10px;
+            margin: 10px 0;
+            box-sizing: border-box;
+            border-radius: 20px;
+            box-shadow: 5px 5px 20px black;
+            background: linear-gradient(to left top, #293742, #1c262f);
+        }
+        
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f44336;
+        }
+        
+        .status-dot.connected {
+            background: #4CAF50;
+        }
+        
+        .progress-inline {
+            margin-left: auto;
+            font-size: 1rem;
+            color: #4CAF50;
+        }
+        
+        /* Gauge Rows - Exact Pi Stats Layout */
         .cpu-row {
             display: flex;
             justify-content: center;
         }
-
+        
         .cpu-gauge {
             flex: 1;
             margin-right: 1%;
@@ -116,178 +90,121 @@
             width: 100%;
         }
         
-
-        .power-gauges .gauge-item > div {
-            height: 140px !important;
-            margin: 0 auto;
-        }
-
-        /* ========================================
-           TEMPERATURE GRAPH
-           ======================================== */
-        .graph-container {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .graph-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .graph-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: #e0e0e0;
-        }
-
-        canvas {
-            width: 100% !important;
-            height: 200px !important;
-            border-radius: 8px;
-        }
-
-        /* ========================================
-           PROGRESS SECTION
-           ======================================== */
-        .progress-section {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .progress-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        .progress-percent {
-            font-size: 1.5rem;
-            font-weight: 300;
-            color: #4CAF50;
-        }
-
-        .progress-chart-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 15px;
-            min-height: 200px;
-        }
-
-        .progress-chart-container canvas {
-            max-width: 200px !important;
-            max-height: 200px !important;
-            width: 200px !important;
-            height: 200px !important;
-        }
-
-        .progress-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-        }
-
-        .progress-detail {
-            text-align: center;
-        }
-
-        .detail-label {
-            font-size: 0.85rem;
-            color: #888;
-            margin-bottom: 5px;
-        }
-
-        .detail-value {
-            font-size: 1.2rem;
-            color: #e0e0e0;
-        }
-
-        /* ========================================
-           BOTTOM SECTION - SIDE BY SIDE
-           ======================================== */
+        /* Bottom Section */
         .bottom-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin-bottom: 20px;
         }
-
+        
         .section-panel {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
             display: flex;
             flex-direction: column;
         }
-
+        
         .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
-
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 500;
+        
+        /* Log Console */
+        .log-box {
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            padding: 10px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
         }
-
-        .section-controls {
+        
+        .log-entry {
+            padding: 2px 0;
+            color: #e0e0e0;
+        }
+        
+        .log-box::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .log-box::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        .log-box::-webkit-scrollbar-thumb {
+            background: #3a3a3a;
+            border-radius: 4px;
+        }
+        
+        /* Controls */
+        .control-row {
             display: flex;
-            gap: 15px;
-            align-items: center;
+            gap: 10px;
         }
-
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        
+        textarea {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 10px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        button {
+            background: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: white;
             font-size: 0.9rem;
             cursor: pointer;
-            color: #888;
+            font-family: "Ubuntu", sans-serif;
         }
-
-        input[type="checkbox"] {
-            cursor: pointer;
+        
+        button:hover {
+            background: #45a049;
         }
-
-        /* ========================================
-           DROPDOWN
-           ======================================== */
+        
+        .clear-btn {
+            background: #f44336;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        
+        .clear-btn:hover {
+            background: #da190b;
+        }
+        
+        /* Dropdown */
         .dropdown {
             position: relative;
             display: inline-block;
         }
-
+        
         .dropdown-toggle {
             font-size: 1.5rem;
             color: #888;
             cursor: pointer;
-            user-select: none;
             padding: 0 10px;
-            transition: color 0.2s ease;
         }
-
+        
         .dropdown-toggle:hover {
             color: #ccc;
         }
-
+        
         .dropdown-menu {
             position: absolute;
             top: 100%;
@@ -301,143 +218,44 @@
             z-index: 1000;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         }
-
+        
         .dropdown-menu.show {
             display: flex;
         }
-
+        
         .dropdown-item {
             padding: 12px 16px;
             color: #ddd;
             font-size: 0.9rem;
-            border-bottom: 1px solid #222;
             cursor: pointer;
-            transition: background 0.2s ease;
         }
-
-        .dropdown-item:last-child {
-            border-bottom: none;
-        }
-
+        
         .dropdown-item:hover {
             background: #2a2a2a;
         }
-
-        /* ========================================
-           LOG CONSOLE
-           ======================================== */
-        .log-box {
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 8px;
-            padding: 15px;
-            height: 400px;
-            overflow-y: auto;
-            font-family: 'Courier New', monospace;
+        
+        /* Checkboxes */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             font-size: 0.85rem;
-            margin-bottom: 15px;
-        }
-
-        .log-entry {
-            padding: 4px 0;
-            border-bottom: 1px solid #1a1a1a;
-            display: flex;
-            gap: 10px;
-        }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-timestamp {
-            color: #666;
-            min-width: 90px;
-        }
-
-        .log-box::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .log-box::-webkit-scrollbar-track {
-            background: #1a1a1a;
-        }
-
-        .log-box::-webkit-scrollbar-thumb {
-            background: #3a3a3a;
-            border-radius: 4px;
-        }
-
-        .log-box::-webkit-scrollbar-thumb:hover {
-            background: #4a4a4a;
-        }
-
-        /* ========================================
-           CONTROLS
-           ======================================== */
-        .control-row {
-            display: flex;
-            gap: 10px;
-        }
-
-        input[type="text"],
-        textarea {
-            flex: 1;
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 12px 15px;
-            color: #e0e0e0;
-            font-size: 0.95rem;
-            font-family: 'Courier New', monospace;
-            resize: vertical;
-        }
-
-        input[type="text"]:focus,
-        textarea:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        button {
-            background: #4CAF50;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            color: white;
-            font-size: 0.95rem;
-            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s ease;
+            color: #888;
         }
-
-        button:hover {
-            background: #45a049;
-            transform: translateY(-1px);
+        
+        /* Temperature Graph */
+        .graph-container {
+            margin-bottom: 20px;
         }
-
-        button:active {
-            transform: translateY(0);
+        
+        canvas#temp-graph {
+            width: 100% !important;
+            height: 200px !important;
+            border-radius: 8px;
         }
-
-        button:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .clear-btn {
-            background: #f44336;
-            padding: 8px 16px;
-            font-size: 0.85rem;
-        }
-
-        .clear-btn:hover {
-            background: #da190b;
-        }
-
-        /* ========================================
-           VERSION TAG
-           ======================================== */
+        
+        /* Version Tag */
         .version-tag {
             text-align: center;
             padding: 20px;
@@ -445,50 +263,41 @@
             font-size: 0.85rem;
             font-family: 'Courier New', monospace;
         }
-
-        /* ========================================
-           RESPONSIVE DESIGN
-           ======================================== */
+        
         @media (max-width: 968px) {
             .bottom-section {
-                grid-template-columns: 1fr;
-            }
-
-            .gauges-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .power-gauges {
                 grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="container">
-        <!-- Connection Status Banner -->
-        <div id="connection-status" class="connection-status connecting">
-            <div class="status-indicator"></div>
-            <div class="status-text">
-                <strong id="ws-status">Connecting to printer...</strong>
-                <span id="printer-status"></span>
+        
+        <!-- Connection Status with Progress -->
+        <div class="stats-section">
+            <div class="connection-status">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Connecting...</span>
+                <span class="progress-inline" id="progress-inline">--</span>
             </div>
         </div>
-
+        
         <!-- Temperature Gauges -->
-        <div class="gauge-container">
+        <div class="stats-section">
             <h2>Temperatures:</h2>
             <div class="cpu-row">
                 <div class="cpu-gauge" id="gauge-nozzle"></div>
                 <div class="cpu-gauge" id="gauge-bed"></div>
+            </div>
+            <div class="cpu-row">
                 <div class="cpu-gauge" id="gauge-heatbreak"></div>
                 <div class="cpu-gauge" id="gauge-chamber"></div>
             </div>
         </div>
-
+        
         <!-- Power Gauges -->
-        <div class="gauge-container">
+        <div class="stats-section">
             <h2>Heater Power (PWM):</h2>
             <div class="cpu-row">
                 <div class="cpu-gauge" id="gauge-power-nozzle"></div>
@@ -496,65 +305,34 @@
                 <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
             </div>
         </div>
-
+        
         <!-- Temperature Graph -->
-        <div class="graph-container">
-            <div class="graph-header">
-                <div class="graph-title">Temperature History</div>
-            </div>
+        <div class="stats-section graph-container">
+            <h2>Temperature History:</h2>
             <canvas id="temp-graph"></canvas>
         </div>
-
-        <!-- Progress Section -->
-        <div class="progress-section">
-            <div class="progress-header">
-                <div class="progress-title">Print Progress</div>
-                <div class="progress-percent" id="progress-percent">--%</div>
-            </div>
-            <div class="progress-chart-container">
-                <canvas id="progress-chart"></canvas>
-            </div>
-            <div class="progress-details">
-                <div class="progress-detail">
-                    <div class="detail-label">Time Remaining</div>
-                    <div class="detail-value" id="time-remaining">--</div>
-                </div>
-                <div class="progress-detail">
-                    <div class="detail-label">Next Change</div>
-                    <div class="detail-value" id="next-change">--</div>
-                </div>
-                <div class="progress-detail">
-                    <div class="detail-label">Z Height</div>
-                    <div class="detail-value" id="z-height">-- mm</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom Section: Console and Commands Side-by-Side -->
+        
+        <!-- Console and Commands -->
         <div class="bottom-section">
             <!-- Serial Console -->
-            <div class="section-panel">
+            <div class="stats-section section-panel">
                 <div class="section-header">
-                    <div class="section-title">Serial Console</div>
-                    <div class="section-controls">
+                    <h2>Serial Console</h2>
+                    <div style="display:flex;gap:10px;align-items:center;">
                         <label class="checkbox-label">
                             <input type="checkbox" id="hide-temps" checked>
                             Hide Temps
-                        </label>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="autoscroll" checked>
-                            Auto-scroll
                         </label>
                         <button class="clear-btn" onclick="clearLog()">Clear</button>
                     </div>
                 </div>
                 <div class="log-box" id="log-box"></div>
             </div>
-
+            
             <!-- G-code Commands -->
-            <div class="section-panel">
+            <div class="stats-section section-panel">
                 <div class="section-header">
-                    <div class="section-title">G-code Commands</div>
+                    <h2>G-code Commands</h2>
                     <div class="dropdown">
                         <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
                         <div class="dropdown-menu" id="dropdown-menu"></div>
@@ -562,317 +340,100 @@
                 </div>
                 <div class="log-box" id="command-history"></div>
                 <div class="control-row">
-                    <textarea id="gcode-input" 
-                              placeholder="Enter G-code commands (one per line)..." 
-                              rows="3"
-                              onkeydown="handleKeyDown(event)"></textarea>
+                    <textarea id="gcode-input" placeholder="Enter G-code..." rows="3" onkeydown="handleKeyDown(event)"></textarea>
                     <button onclick="sendGCode()" id="send-btn">Send</button>
                 </div>
             </div>
         </div>
-
-        <!-- Version Tag -->
-        <div class="version-tag">
-            v3.0.10-ws-remote
-        </div>
+        
     </div>
-
-    <!-- JustGage Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
-    <!-- Chart.js for Progress Pie -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
+    
     <script>
-        // ========================================
-        // CONFIGURATION
-        // ========================================
+        // Configuration
         const CONFIG = {
             WS_URL: `ws://${window.location.hostname}/ws`,
             RECONNECT_DELAY_MS: 3000,
             MAX_LOG_ENTRIES: 500,
-            MAX_GRAPH_POINTS: 60,
-            TEMP_TOLERANCE: 0.5
+            MAX_GRAPH_POINTS: 60
         };
-
-        // G-code Command Map
+        
         const GCODE_MAP = {
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
             'Unload Filament': ['M702']
         };
-
-        // ========================================
-        // STATE MANAGEMENT
-        // ========================================
+        
+        // State
         const state = {
             ws: null,
             reconnectTimer: null,
             connected: false,
             printerConnected: false,
-            
             temps: {
                 nozzle: { current: 0, target: 0 },
                 bed: { current: 0, target: 0 },
                 heatbreak: { current: 0, target: 0 },
                 chamber: { current: 0 }
             },
-            
-            progress: {
-                percent: 0,
-                timeLeft: 0,
-                changeTime: 0
-            },
-            
-            position: {
-                x: 0, y: 0, z: 0, e: 0
-            },
-            
-            power: {
-                nozzle: 0,
-                bed: 0,
-                heatbreak: 0
-            },
-            
-            // Temperature history for graphing
+            progress: { percent: 0, timeLeft: 0, changeTime: 0 },
+            position: { x: 0, y: 0, z: 0, e: 0 },
+            power: { nozzle: 0, bed: 0, heatbreak: 0 },
             tempHistory: {
                 timestamps: [],
                 nozzle: [],
                 bed: [],
                 heatbreak: []
             },
-
-            // Command history
             commandHistory: [],
             commandHistoryIndex: -1
         };
-
-        // ========================================
-        // JUSTGAGE GAUGES
-        // ========================================
+        
         let gauges = {};
-        let progressChart = null;
-
+        let tempChart = null;
+        
+        // Create gauge - Pi Stats style
+        function createGauge(id, min, max, title, label, symbol, color) {
+            return new JustGage({
+                id: id,
+                value: 0,
+                min: min,
+                max: max,
+                title: title,
+                label: label,
+                symbol: symbol,
+                valueFontFamily: "Ubuntu",
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                counter: true,
+                formatNumber: true,
+                relativeGaugeSize: true,
+                levelColors: [color],
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000
+            });
+        }
+        
         function initGauges() {
-            // Temperature gauges
-            gauges.nozzle = new JustGage({
-                id: 'gauge-nozzle',
-                value: 0,
-                min: 0,
-                max: 300,
-                title: 'Nozzle',
-                symbol: ' °C',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#00FF00"],
-                counter: true,
-                decimals: 1,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            gauges.bed = new JustGage({
-                id: 'gauge-bed',
-                value: 0,
-                min: 0,
-                max: 120,
-                title: 'Bed',
-                symbol: ' °C',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#00D9FF"],
-                counter: true,
-                decimals: 1,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            gauges.heatbreak = new JustGage({
-                id: 'gauge-heatbreak',
-                value: 0,
-                min: 0,
-                max: 100,
-                title: 'Heatbreak',
-                symbol: ' °C',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#7C4DFF"],
-                counter: true,
-                decimals: 1,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            gauges.chamber = new JustGage({
-                id: 'gauge-chamber',
-                value: 0,
-                min: 0,
-                max: 80,
-                title: 'Chamber',
-                symbol: ' °C',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#2196F3"],
-                counter: true,
-                decimals: 1,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            // Power gauges
-            gauges.powerNozzle = new JustGage({
-                id: 'gauge-power-nozzle',
-                value: 0,
-                min: 0,
-                max: 100,
-                title: 'Nozzle',
-                symbol: ' %',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#FF5722"],
-                counter: true,
-                decimals: 0,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            gauges.powerBed = new JustGage({
-                id: 'gauge-power-bed',
-                value: 0,
-                min: 0,
-                max: 100,
-                title: 'Bed',
-                symbol: ' %',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#FFC107"],
-                counter: true,
-                decimals: 0,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-
-            gauges.powerHeatbreak = new JustGage({
-                id: 'gauge-power-heatbreak',
-                value: 0,
-                min: 0,
-                max: 100,
-                title: 'Heatbreak Fan',
-                symbol: ' %',
-                label: '',
-                gaugeWidthScale: 0.4,
-                gaugeColor: "#858383",
-                valueFontColor: "#FFFFFF",
-                levelColors: ["#00BCD4"],
-                counter: true,
-                decimals: 0,
-                humanFriendly: false,
-                relativeGaugeSize: true,
-                startAnimationTime: 1000,
-                startAnimationType: "bounce",
-                refreshAnimationType: "bounce",
-                refreshAnimationTime: 1000
-            });
-        }
-        // PROGRESS PIE CHART
-        // ========================================
-        function initProgressChart() {
-            const ctx = document.getElementById('progress-chart').getContext('2d');
+            // Temperature gauges - all same green like Pi Stats
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", "", " °C", "#00FF00");
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", "", " °C", "#00FF00");
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", "", " °C", "#00FF00");
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", "", " °C", "#00FF00");
             
-            // Create gradient like Pi Stats
-            function createGradient(ctx, startColor, endColor) {
-                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
-                gradient.addColorStop(0, startColor);
-                gradient.addColorStop(1, endColor);
-                return gradient;
-            }
-            
-            progressChart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: ['Completed', 'Remaining'],
-                    datasets: [{
-                        data: [0, 100],
-                        backgroundColor: [
-                            createGradient(ctx, 'rgba(236, 107, 86, 1)', 'rgba(236, 107, 86, 0)'),  // Red gradient for completed
-                            createGradient(ctx, 'rgba(0, 255, 0, 1)', 'rgba(0, 255, 0, 0)')         // Green gradient for remaining
-                        ],
-                        borderColor: ['rgba(0, 0, 0, 0)'],
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const label = context.label || '';
-                                    const value = context.parsed || 0;
-                                    return label + ': ' + value + '%';
-                                }
-                            }
-                        }
-                    }
-                }
-            });
+            // Power gauges - all same green
+            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", "", " %", "#00FF00");
+            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", "", " %", "#00FF00");
+            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", "", " %", "#00FF00");
         }
-
-        function updateProgressChart(percent) {
-            if (progressChart) {
-                progressChart.data.datasets[0].data = [percent, 100 - percent];
-                progressChart.update();
-            }
-        }
-
-        // ========================================
-        // DROPDOWN MENU
-        // ========================================
+        
+        // Dropdown
         function initDropdown() {
             const menu = document.getElementById('dropdown-menu');
             menu.innerHTML = '';
-            
             Object.keys(GCODE_MAP).forEach(label => {
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
@@ -884,19 +445,17 @@
                 menu.appendChild(item);
             });
         }
-
+        
         function toggleDropdown() {
-            const menu = document.getElementById('dropdown-menu');
-            menu.classList.toggle('show');
+            document.getElementById('dropdown-menu').classList.toggle('show');
         }
-
-        // Close dropdown when clicking outside
+        
         document.addEventListener('click', (e) => {
             if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown')) {
                 document.getElementById('dropdown-menu').classList.remove('show');
             }
         });
-
+        
         function executeGCodeMacro(label) {
             const commands = GCODE_MAP[label];
             commands.forEach(cmd => {
@@ -906,25 +465,19 @@
                 }
             });
         }
-
-        // ========================================
-        // WEBSOCKET CONNECTION
-        // ========================================
+        
+        // WebSocket
         function connectWebSocket() {
-            console.log('Connecting to WebSocket:', CONFIG.WS_URL);
-            updateConnectionStatus('connecting', 'Connecting to WebSocket...');
+            console.log('Connecting to WebSocket');
+            updateConnectionStatus(false, 'Connecting...');
             
             state.ws = new WebSocket(CONFIG.WS_URL);
             
             state.ws.onopen = () => {
                 console.log('WebSocket connected');
                 state.connected = true;
-                updateConnectionStatus('connected', 'WebSocket connected');
-                
-                // Send connection handshake
+                updateConnectionStatus(true, 'Connected');
                 state.ws.send('CONNECT');
-                
-                // Clear reconnect timer if set
                 if (state.reconnectTimer) {
                     clearTimeout(state.reconnectTimer);
                     state.reconnectTimer = null;
@@ -936,7 +489,7 @@
                     const msg = JSON.parse(event.data);
                     handleMessage(msg);
                 } catch (e) {
-                    console.error('Failed to parse WebSocket message:', e, event.data);
+                    console.error('Parse error:', e);
                 }
             };
             
@@ -948,141 +501,78 @@
                 console.log('WebSocket disconnected');
                 state.connected = false;
                 state.printerConnected = false;
-                updateConnectionStatus('disconnected', 'Disconnected - reconnecting...');
-                
-                // Auto-reconnect
+                updateConnectionStatus(false, 'Disconnected');
                 state.reconnectTimer = setTimeout(connectWebSocket, CONFIG.RECONNECT_DELAY_MS);
             };
         }
-
-        // ========================================
-        // MESSAGE HANDLING
-        // ========================================
+        
         function handleMessage(msg) {
             switch (msg.type) {
                 case 'status':
-                    handleStatusMessage(msg);
+                    state.printerConnected = msg.connected;
+                    updateConnectionStatus(state.connected, msg.connected ? 'Printer Ready' : 'Printer Offline');
+                    document.getElementById('send-btn').disabled = !msg.connected;
                     break;
                 case 'temperature':
-                    handleTemperatureMessage(msg);
+                    state.temps.nozzle = msg.nozzle;
+                    state.temps.bed = msg.bed;
+                    state.temps.heatbreak = msg.heatbreak;
+                    state.temps.chamber = { current: msg.chamber.current };
+                    updateTemperatureGauges();
+                    addTemperatureToHistory();
+                    updateGraph();
                     break;
                 case 'progress':
-                    handleProgressMessage(msg);
+                    state.progress.percent = msg.percent;
+                    state.progress.timeLeft = msg.timeLeft;
+                    updateProgressDisplay();
                     break;
                 case 'position':
-                    handlePositionMessage(msg);
+                    state.position = msg;
                     break;
                 case 'power':
-                    handlePowerMessage(msg);
+                    state.power = msg;
+                    updatePowerGauges();
                     break;
                 case 'log':
                     handleLogMessage(msg);
                     break;
-                default:
-                    console.warn('Unknown message type:', msg.type);
             }
         }
-
-        function handleStatusMessage(msg) {
-            state.printerConnected = msg.connected;
-            const statusText = msg.connected ? 
-                'Printer connected and ready' : 
-                'Printer disconnected';
-            updateConnectionStatus(state.connected ? 'connected' : 'disconnected', statusText);
+        
+        function updateConnectionStatus(connected, text) {
+            const dot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
             
-            // Enable/disable send button
-            document.getElementById('send-btn').disabled = !msg.connected;
-        }
-
-        function handleTemperatureMessage(msg) {
-            // Update state
-            state.temps.nozzle = msg.nozzle;
-            state.temps.bed = msg.bed;
-            state.temps.heatbreak = msg.heatbreak;
-            state.temps.chamber = { current: msg.chamber.current };
-            
-            // Update gauges
-            updateTemperatureGauges();
-            
-            // Add to graph history
-            addTemperatureToHistory();
-            updateGraph();
-        }
-
-        function handleProgressMessage(msg) {
-            state.progress.percent = msg.percent;
-            state.progress.timeLeft = msg.timeLeft;
-            state.progress.changeTime = msg.changeTime;
-            
-            updateProgressDisplay();
-        }
-
-        function handlePositionMessage(msg) {
-            state.position = msg;
-            updatePositionDisplay();
-        }
-
-        function handlePowerMessage(msg) {
-            state.power = msg;
-            updatePowerGauges();
-        }
-
-        function handleLogMessage(msg) {
-            const hideTemps = document.getElementById('hide-temps').checked;
-            const message = msg.message;
-            
-            // Check if it's a temperature line - look for the specific pattern
-            const isTempLine = message.includes('T:') && 
-                             message.includes('B:') && 
-                             message.includes('@:') &&
-                             message.includes('B@:');
-            
-            // Skip if hiding temps and this is a temp line
-            if (hideTemps && isTempLine) {
-                return;
-            }
-            
-            addLogEntry(message);
-        }
-
-        // ========================================
-        // UI UPDATE FUNCTIONS
-        // ========================================
-        function updateConnectionStatus(status, message) {
-            const banner = document.getElementById('connection-status');
-            const statusText = document.getElementById('ws-status');
-            const printerStatus = document.getElementById('printer-status');
-            
-            banner.className = `connection-status ${status}`;
-            statusText.textContent = message;
-            
-            if (state.printerConnected) {
-                printerStatus.textContent = ' • Printer online';
+            if (connected) {
+                dot.classList.add('connected');
             } else {
-                printerStatus.textContent = '';
+                dot.classList.remove('connected');
             }
+            
+            statusText.textContent = text;
         }
-
+        
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            gauges.nozzle.refresh(nozzle.current);
-            gauges.bed.refresh(bed.current);
-            gauges.heatbreak.refresh(heatbreak.current);
-            gauges.chamber.refresh(chamber.current);
+            // Round to integers and include target
+            const nozzleText = `${Math.round(nozzle.current)}°C / ${Math.round(nozzle.target)}°C`;
+            const bedText = `${Math.round(bed.current)}°C / ${Math.round(bed.target)}°C`;
+            const heatbreakText = `${Math.round(heatbreak.current)}°C / ${Math.round(heatbreak.target)}°C`;
+            const chamberText = `${Math.round(chamber.current)}°C`;
+            
+            gauges.nozzle.refresh(Math.round(nozzle.current));
+            gauges.bed.refresh(Math.round(bed.current));
+            gauges.heatbreak.refresh(Math.round(heatbreak.current));
+            gauges.chamber.refresh(Math.round(chamber.current));
             
             // Update page title
-            if (state.progress.percent > 0 && state.progress.percent < 100) {
-                document.title = `${state.progress.percent}% | ${nozzle.current.toFixed(0)}°C - Prusa Monitor`;
-            } else {
-                document.title = `${nozzle.current.toFixed(0)}°C - Prusa Core One Monitor`;
-            }
+            document.title = `${Math.round(nozzle.current)}°C - Prusa Monitor`;
         }
-
+        
         function updatePowerGauges() {
             const { nozzle, bed, heatbreak } = state.power;
-            
-            // Convert PWM (0-255) to percentage
             const nozzlePercent = Math.round((nozzle / 255) * 100);
             const bedPercent = Math.round((bed / 255) * 100);
             const heatbreakPercent = Math.round((heatbreak / 255) * 100);
@@ -1091,110 +581,67 @@
             gauges.powerBed.refresh(bedPercent);
             gauges.powerHeatbreak.refresh(heatbreakPercent);
         }
-
+        
         function updateProgressDisplay() {
-            const { percent, timeLeft, changeTime } = state.progress;
+            const { percent, timeLeft } = state.progress;
+            let text = `${percent}%`;
             
-            // Update percentage
-            document.getElementById('progress-percent').textContent = `${percent}%`;
-            
-            // Update pie chart
-            updateProgressChart(percent);
-            
-            // Update time remaining
             if (timeLeft > 0) {
                 const hours = Math.floor(timeLeft / 60);
                 const mins = timeLeft % 60;
-                document.getElementById('time-remaining').textContent = 
-                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            } else {
-                document.getElementById('time-remaining').textContent = '--';
+                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m left`;
             }
             
-            // Update change time
-            if (changeTime > 0) {
-                const hours = Math.floor(changeTime / 60);
-                const mins = changeTime % 60;
-                document.getElementById('next-change').textContent = 
-                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            } else {
-                document.getElementById('next-change').textContent = '--';
-            }
+            document.getElementById('progress-inline').textContent = text;
         }
-
-        function updatePositionDisplay() {
-            const { z } = state.position;
-            document.getElementById('z-height').textContent = `${z.toFixed(2)} mm`;
+        
+        function handleLogMessage(msg) {
+            const hideTemps = document.getElementById('hide-temps').checked;
+            const message = msg.message;
+            
+            const isTempLine = message.includes('T:') && message.includes('B:') && 
+                             message.includes('@:') && message.includes('B@:');
+            
+            if (hideTemps && isTempLine) return;
+            
+            addLogEntry(message);
         }
-
+        
         function addLogEntry(message) {
             const logBox = document.getElementById('log-box');
-            const autoscroll = document.getElementById('autoscroll').checked;
-            
-            // Check if we're at bottom before adding entry
-            const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 50;
-            
-            // Create log entry
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            
-            const timestamp = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <span class="log-timestamp">${timestamp}</span>
-                <span>${escapeHtml(message)}</span>
-            `;
-            
+            entry.textContent = message;
             logBox.appendChild(entry);
             
-            // Limit log entries
+            // Limit entries
             while (logBox.children.length > CONFIG.MAX_LOG_ENTRIES) {
                 logBox.removeChild(logBox.firstChild);
             }
             
-            // Auto-scroll if enabled and was at bottom
-            if (autoscroll && isAtBottom) {
-                logBox.scrollTop = logBox.scrollHeight;
-            }
+            // Auto-scroll
+            logBox.scrollTop = logBox.scrollHeight;
         }
-
+        
         function addCommandHistoryEntry(text) {
             const historyBox = document.getElementById('command-history');
-            
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            
-            const timestamp = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <span class="log-timestamp">${timestamp}</span>
-                <span>${escapeHtml(text)}</span>
-            `;
-            
+            entry.textContent = text;
             historyBox.appendChild(entry);
             
-            // Limit entries
             while (historyBox.children.length > 100) {
                 historyBox.removeChild(historyBox.firstChild);
             }
             
-            // Auto-scroll
             historyBox.scrollTop = historyBox.scrollHeight;
         }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-
+        
         function clearLog() {
             document.getElementById('log-box').innerHTML = '';
         }
-
-        // ========================================
-        // TEMPERATURE GRAPH
-        // ========================================
-        let tempChart = null;
-
+        
+        // Temperature Graph
         function initGraph() {
             const canvas = document.getElementById('temp-graph');
             const ctx = canvas.getContext('2d');
@@ -1209,22 +656,18 @@
             updateGraphSize();
             window.addEventListener('resize', updateGraphSize);
         }
-
+        
         function updateGraphSize() {
             const canvas = tempChart.canvas;
             const rect = canvas.getBoundingClientRect();
-            
             canvas.width = rect.width * window.devicePixelRatio;
             canvas.height = rect.height * window.devicePixelRatio;
-            
             tempChart.width = canvas.width;
             tempChart.height = canvas.height;
-            
             tempChart.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-            
             updateGraph();
         }
-
+        
         function addTemperatureToHistory() {
             const history = state.tempHistory;
             const now = Date.now();
@@ -1234,7 +677,6 @@
             history.bed.push(state.temps.bed.current);
             history.heatbreak.push(state.temps.heatbreak.current);
             
-            // Keep only last N points
             while (history.timestamps.length > CONFIG.MAX_GRAPH_POINTS) {
                 history.timestamps.shift();
                 history.nozzle.shift();
@@ -1242,7 +684,7 @@
                 history.heatbreak.shift();
             }
         }
-
+        
         function updateGraph() {
             if (!tempChart) return;
             
@@ -1251,35 +693,24 @@
             const height = tempChart.canvas.offsetHeight;
             const history = state.tempHistory;
             
-            // Clear canvas
             ctx.clearRect(0, 0, width, height);
             
             if (history.timestamps.length < 2) {
-                // Not enough data to draw
                 ctx.fillStyle = '#666';
-                ctx.font = '14px sans-serif';
+                ctx.font = '14px Ubuntu';
                 ctx.textAlign = 'center';
-                ctx.fillText('Waiting for temperature data...', width / 2, height / 2);
+                ctx.fillText('Waiting for data...', width / 2, height / 2);
                 return;
             }
             
-            // Calculate scales
-            const maxTemp = Math.max(
-                ...history.nozzle,
-                ...history.bed,
-                ...history.heatbreak,
-                100
-            );
-            
+            const maxTemp = Math.max(...history.nozzle, ...history.bed, ...history.heatbreak, 100);
             const padding = 40;
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding * 2;
             
-            // Draw grid
+            // Grid
             ctx.strokeStyle = '#2a2a2a';
             ctx.lineWidth = 1;
-            
-            // Horizontal grid lines
             for (let i = 0; i <= 4; i++) {
                 const y = padding + (graphHeight / 4) * i;
                 ctx.beginPath();
@@ -1287,15 +718,14 @@
                 ctx.lineTo(width - padding, y);
                 ctx.stroke();
                 
-                // Temperature labels
                 const temp = maxTemp - (maxTemp / 4) * i;
                 ctx.fillStyle = '#666';
-                ctx.font = '12px sans-serif';
+                ctx.font = '12px Ubuntu';
                 ctx.textAlign = 'right';
-                ctx.fillText(`${temp.toFixed(0)}°`, padding - 5, y + 4);
+                ctx.fillText(`${Math.round(temp)}°`, padding - 5, y + 4);
             }
             
-            // Draw temperature lines
+            // Lines
             drawLine(history.nozzle, '#f44336', 2);
             drawLine(history.bed, '#2196F3', 2);
             drawLine(history.heatbreak, '#4CAF50', 2);
@@ -1304,25 +734,17 @@
                 ctx.strokeStyle = color;
                 ctx.lineWidth = lineWidth;
                 ctx.beginPath();
-                
                 for (let i = 0; i < data.length; i++) {
                     const x = padding + (graphWidth / (data.length - 1)) * i;
                     const y = padding + graphHeight - (data[i] / maxTemp) * graphHeight;
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
                 }
-                
                 ctx.stroke();
             }
         }
-
-        // ========================================
-        // G-CODE SENDING
-        // ========================================
+        
+        // G-code
         function sendGCode() {
             const input = document.getElementById('gcode-input');
             const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
@@ -1336,36 +758,26 @@
             commands.forEach(cmd => {
                 const trimmedCmd = cmd.trim();
                 if (trimmedCmd) {
-                    console.log('Sending G-code:', trimmedCmd);
                     state.ws.send(`GCODE:${trimmedCmd}`);
-                    
-                    // Add to command history
                     state.commandHistory.push(trimmedCmd);
-                    if (state.commandHistory.length > 50) {
-                        state.commandHistory.shift();
-                    }
+                    if (state.commandHistory.length > 50) state.commandHistory.shift();
                     state.commandHistoryIndex = state.commandHistory.length;
-                    
-                    // Add to history display
                     addCommandHistoryEntry(`> ${trimmedCmd}`);
                 }
             });
             
-            // Clear input
             input.value = '';
         }
-
+        
         function handleKeyDown(event) {
             const input = document.getElementById('gcode-input');
             
-            // Ctrl+Enter or Cmd+Enter to send
             if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
                 event.preventDefault();
                 sendGCode();
                 return;
             }
             
-            // Up arrow - previous command
             if (event.key === 'ArrowUp' && event.target.selectionStart === 0) {
                 event.preventDefault();
                 if (state.commandHistoryIndex > 0) {
@@ -1374,7 +786,6 @@
                 }
             }
             
-            // Down arrow - next command
             if (event.key === 'ArrowDown') {
                 event.preventDefault();
                 if (state.commandHistoryIndex < state.commandHistory.length - 1) {
@@ -1386,32 +797,20 @@
                 }
             }
         }
-
-        // ========================================
-        // INITIALIZATION
-        // ========================================
+        
+        // Init
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('Prusa Monitor V3.0 - WebSocket Edition');
-            
-            // Initialize gauges
+            console.log('Prusa Monitor V3.1.0');
             initGauges();
-            
-            // Initialize progress chart
-            initProgressChart();
-            
-            // Initialize dropdown
             initDropdown();
-            
-            // Initialize graph
             initGraph();
-            
-            // Connect WebSocket
             connectWebSocket();
-            
-            // Focus G-code input
             document.getElementById('gcode-input').focus();
         });
     </script>
+    
+    <!-- Version Tag - Edit here for easy updates -->
+    <div class="version-tag">v3.1.0-ws-remote</div>
+    
 </body>
-
 </html>
