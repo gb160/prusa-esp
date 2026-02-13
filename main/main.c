@@ -65,8 +65,9 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT"
-#define WIFI_PASS                   "QF"
+#define WIFI_SSID                   "BT-WXF9FJ"
+#define WIFI_PASS                   "QFLQCPDLWF"
+
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -363,6 +364,28 @@ static void build_status_message(ws_message_t *msg, bool connected)
         connected ? "true" : "false");
 }
 
+static int ws_log_vprintf(const char *fmt, va_list args)
+{
+    // Always print to UART first
+    int ret = vprintf(fmt, args);
+    
+    char log_buffer[256];
+    int len = vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
+    
+    if (len > 0 && len < sizeof(log_buffer)) {
+        if (log_buffer[len-1] == '\n') {
+            log_buffer[len-1] = '\0';
+        }
+        
+        ws_message_t msg;
+        char prefixed_log[300];
+        snprintf(prefixed_log, sizeof(prefixed_log), "[ESP] %s", log_buffer);
+        build_log_message(&msg, prefixed_log);
+        ws_broadcast_message(&msg);
+    }
+    
+    return ret;
+}
 // ============================================================================
 // SERIAL LINE PARSER - THE HEART OF V3!
 // ============================================================================
@@ -1055,6 +1078,11 @@ void app_main(void)
     ESP_LOGI(TAG, "  - WebSocket: ws://coreone.local/ws");
     ESP_LOGI(TAG, "  - Manual HTML refresh: http://coreone.local/refresh");
     
+
+    // NOW install log handler after everything is initialized
+    esp_log_set_vprintf(ws_log_vprintf);
+    ESP_LOGI(TAG, "WebSocket logging active");
+
     // Main USB connection loop
     while (true) {
         esp_err_t err = cdc_acm_host_open(PRUSA_USB_VID, PRUSA_USB_PID, 0, 

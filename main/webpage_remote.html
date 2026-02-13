@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prusa Core One Monitor</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/raphael/2.3.0/raphael.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/justgage/1.6.1/justgage.min.js"></script>
+    <!-- Removed Raphael (v1 dependency). Using JustGage v2 UMD (zero-deps) -->
+    <script src="https://cdn.jsdelivr.net/npm/justgage@2.0.1/dist/justgage.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     
     <style>
@@ -74,7 +74,7 @@
         .progress-inline {
             margin-left: auto;
             font-size: 1rem;
-            color: #4CAF50;
+            /*color: #4CAF50;*/
         }
         
         /* Gauge Rows - Exact Pi Stats Layout */
@@ -388,7 +388,7 @@
                 nozzle: { current: 0, target: 0 },
                 bed: { current: 0, target: 0 },
                 heatbreak: { current: 0, target: 0 },
-                chamber: { current: 0 }
+                chamber: { current: 0, target: 0 }
             },
             progress: { percent: 0, timeLeft: 0, changeTime: 0 },
             position: { x: 0, y: 0, z: 0, e: 0 },
@@ -437,15 +437,15 @@
         
         function initGauges() {
             // Temperature gauges - all same green like Pi Stats
-            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", "", " °C", "#00FF00");
-            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", "", " °C", "#00FF00");
-            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", "", " °C", "#00FF00");
-            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", "", " °C", "#00FF00");
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", "#00FF00");
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", "#00FF00");
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", "#00FF00");
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", "#00FF00");
             
             // Power gauges - all same green
-            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", "", " %", "#00FF00");
-            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", "", " %", "#00FF00");
-            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", "", " %", "#00FF00");
+            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", "#00FF00");
+            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", "#00FF00");
+            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", "#00FF00");
         }
         
         // Dropdown
@@ -575,22 +575,17 @@
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Update with targets shown in label (like Pi Stats shows "Core 1")
-            const nozzleLabel = nozzle.target > 0 ? `Nozzle Target: ${Math.round(nozzle.target)}°C` : "";
-            const bedLabel = bed.target > 0 ? `Bed Target: ${Math.round(bed.target)}°C` : "";
-            const heatbreakLabel = heatbreak.target > 0 ? `Heatbreak Target: ${Math.round(heatbreak.target)}°C` : "";
-            const chamberLabel = chamber.target > 0 ? `Chamber Target: ${Math.round(chamber.target)}°C` : "";
+            // Build labels using the v2 pattern and pass as 4th parameter to refresh
+            const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "";
+            const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "";
+            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "";
+            const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
-            gauges.nozzle.refresh(Math.round(nozzle.current));
-            gauges.bed.refresh(Math.round(bed.current));
-            gauges.heatbreak.refresh(Math.round(heatbreak.current));
-            gauges.chamber.refresh(Math.round(chamber.current));
-            
-            // Update labels to show targets
-            gauges.nozzle.txtLabel.attr({"text": nozzleLabel});
-            gauges.bed.txtLabel.attr({"text": bedLabel});
-            gauges.heatbreak.txtLabel.attr({"text": heatbreakLabel});
-            gauges.chamber.txtLabel.attr({"text": chamberLabel});
+            // Use v2 signature: refresh(value, max, min, label)
+            gauges.nozzle.refresh(Math.round(nozzle.current), Math.round(nozzle.target), undefined, nozzleLabel);
+            gauges.bed.refresh(Math.round(bed.current), Math.round(bed.target), undefined, bedLabel);
+            gauges.heatbreak.refresh(Math.round(heatbreak.current), Math.round(heatbreak.target), undefined, heatbreakLabel);
+            gauges.chamber.refresh(Math.round(chamber.current), Math.round(chamber.target), undefined, chamberLabel);
             
             // Update page title
             document.title = `${Math.round(nozzle.current)}°C - Prusa Monitor`;
@@ -602,14 +597,10 @@
             const bedPercent = Math.round((bed / 255) * 100);
             const heatbreakPercent = Math.round((heatbreak / 255) * 100);
             
-            gauges.powerNozzle.refresh(nozzlePercent);
-            gauges.powerBed.refresh(bedPercent);
-            gauges.powerHeatbreak.refresh(heatbreakPercent);
-
-            gauges.powerNozzle.txtLabel.attr({"text": "Nozzle"});
-            gauges.powerBed.txtLabel.attr({"text": "Bed"});
-            gauges.powerHeatbreak.txtLabel.attr({"text": "Heatbreak"});
-
+            // Pass label as 4th parameter so gauge shows it
+            gauges.powerNozzle.refresh(nozzlePercent, undefined, undefined, undefined);
+            gauges.powerBed.refresh(bedPercent, undefined, undefined, undefined);
+            gauges.powerHeatbreak.refresh(heatbreakPercent, undefined, undefined, undefined);
         }
         
         function updateProgressDisplay() {
@@ -910,10 +901,6 @@
                 console.log('Prusa Monitor V3.1.1');
                 
                 // Check if required libraries loaded
-                if (typeof Raphael === 'undefined') {
-                    console.error('Raphael library not loaded!');
-                    return;
-                }
                 if (typeof JustGage === 'undefined') {
                     console.error('JustGage library not loaded!');
                     return;
@@ -938,7 +925,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.7-ws-remote</div>
+    <div class="version-tag">v3.1.8-ws-remote</div>
     
 </body>
 </html>
