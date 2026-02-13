@@ -71,10 +71,18 @@
             background: #4CAF50;
         }
         
-        .progress-inline {
-            margin-left: auto;
+        /* Replaced inline progress with block progress lines */
+        .progress-block {
+            display: block;
+            margin-top: 8px;
             font-size: 1rem;
-            /*color: #4CAF50;*/
+            color: #ddd;
+            line-height: 1.3;
+        }
+        
+        .progress-block .muted {
+            color: #999;
+            font-size: 0.95rem;
         }
         
         /* Gauge Rows - Exact Pi Stats Layout */
@@ -276,48 +284,54 @@
 <body>
     <div class="container">
         
-        <!-- Connection Status with Progress -->
-        <div class="stats-section">
-            <div class="connection-status">
-                <div class="status-dot" id="status-dot"></div>
-                <span id="status-text">Connecting...</span>
-                <span class="progress-inline"><strong>Print Progress:</strong> <span id="progress-inline">--</span></span>
+        <div class="bottom-section">
+            <!-- Connection Status with Progress (now block lines, not inline) -->
+            <div class="stats-section">
+                <div class="connection-status" style="flex-direction:column;align-items:flex-start;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="status-dot" id="status-dot"></div>
+                        <span id="status-text">Connecting...</span>
+                    </div>
+
+                    <!-- Replaced the single inline span with a block containing separate lines -->
+                    <div class="progress-block" id="progress-block" aria-live="polite">
+                        <div><strong>Print Progress:</strong> <span id="progress-percent">--</span></div>
+                        <div id="progress-change"  style="display:none;margin-top:4px;"></div>
+                        <div id="progress-remaining"  style="display:none;margin-top:4px;"></div>
+                    </div>
+                </div>
             </div>
-        </div>
-        
+            <!-- Temperature Graph -->
+            <div class="stats-section graph-container">
+                <h2>Temperature History:</h2>
+                <canvas id="temp-graph"></canvas>
+            </div>        
+        </div>        
 
         <div class="bottom-section">
-
-        <!-- Temperature Gauges -->
-        <div class="stats-section">
-            <h2>Temperatures :</h2>
-            <div class="cpu-row">
-                <div class="cpu-gauge" id="gauge-nozzle"></div>
-                <div class="cpu-gauge" id="gauge-bed"></div>
+            <!-- Temperature Gauges -->
+            <div class="stats-section">
+                <h2>Temperatures :</h2>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-nozzle"></div>
+                    <div class="cpu-gauge" id="gauge-bed"></div>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-heatbreak"></div>
+                    <div class="cpu-gauge" id="gauge-chamber"></div>
+                </div>
+            </div>            
+            <!-- Power Gauges -->
+            <div class="stats-section">
+                <h2>Power :</h2>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-power-nozzle"></div>
+                    <div class="cpu-gauge" id="gauge-power-bed"></div>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
+                </div>
             </div>
-            <div class="cpu-row">
-                <div class="cpu-gauge" id="gauge-heatbreak"></div>
-                <div class="cpu-gauge" id="gauge-chamber"></div>
-            </div>
-        </div>
-        
-        <!-- Power Gauges -->
-        <div class="stats-section">
-            <h2>Power :</h2>
-            <div class="cpu-row">
-                <div class="cpu-gauge" id="gauge-power-nozzle"></div>
-                <div class="cpu-gauge" id="gauge-power-bed"></div>
-            </div>
-            <div class="cpu-row">
-                <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
-            </div>
-        </div>
-        </div>
-        
-        <!-- Temperature Graph -->
-        <div class="stats-section graph-container">
-            <h2>Temperature History:</h2>
-            <canvas id="temp-graph"></canvas>
         </div>
         
         <!-- Console and Commands -->
@@ -603,24 +617,37 @@
             gauges.powerHeatbreak.refresh(heatbreakPercent, undefined, undefined, undefined);
         }
         
+        // NEW: populate separate progress fields (no longer inline)
         function updateProgressDisplay() {
             const { percent, timeLeft, changeTime } = state.progress;
-            let text = `${percent}%`;
-            
 
-            if (changeTime > 1) {
+            // percent
+            const percentEl = document.getElementById('progress-percent');
+            percentEl.textContent = (typeof percent === 'number' && !Number.isNaN(percent)) ? `${percent}%` : '--';
+
+            // changeTime -> "Xh Ym until change" (hide if zero or falsy)
+            const changeEl = document.getElementById('progress-change');
+            if (changeTime && changeTime > 0) {
                 const hours = Math.floor(changeTime / 60);
                 const mins = changeTime % 60;
-                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
+                changeEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
+                changeEl.style.display = 'block';
+            } else {
+                changeEl.textContent = '';
+                changeEl.style.display = 'none';
             }
 
-            if (timeLeft > 0) {
+            // timeLeft -> "Xh Ym remaining" (hide if zero or falsy)
+            const remainingEl = document.getElementById('progress-remaining');
+            if (timeLeft && timeLeft > 0) {
                 const hours = Math.floor(timeLeft / 60);
                 const mins = timeLeft % 60;
-                text += ` • ${hours > 0 ? hours + 'h ' : ''}${mins}m remaining`;
+                remainingEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m remaining`;
+                remainingEl.style.display = 'block';
+            } else {
+                remainingEl.textContent = '';
+                remainingEl.style.display = 'none';
             }
-            
-            document.getElementById('progress-inline').textContent = text;
         }
         
         function handleLogMessage(msg) {
@@ -925,7 +952,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.10-ws-remote</div>
+    <div class="version-tag">v3.1.11-ws-remote</div>
     
 </body>
 </html>
