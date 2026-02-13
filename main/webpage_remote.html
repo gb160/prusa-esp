@@ -582,7 +582,7 @@
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
             // Use v2 signature: refresh(value, max, min, label)
-            gauges.nozzle.refresh(Math.round(nozzle.current), Math.round(nozzle.target), undefined, nozzleLabel);
+            gauges.nozzle.refresh(Math.round(nozzle.current), undefined, undefined, nozzleLabel);
             gauges.bed.refresh(Math.round(bed.current), undefined, undefined, bedLabel);
             gauges.heatbreak.refresh(Math.round(heatbreak.current), undefined, undefined, heatbreakLabel);
             gauges.chamber.refresh(Math.round(chamber.current), undefined, undefined, chamberLabel);
@@ -925,7 +925,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.9-ws-remote</div>
+    <div class="version-tag">v3.1.10-ws-remote</div>
     
 </body>
 </html>
