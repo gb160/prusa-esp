@@ -11,6 +11,11 @@
  * - Eliminated HTTP polling (push-based updates)
  * - Better error handling and connection management
  * 
+ * V3.1 Changes:
+ * - Added comprehensive debug logging via UART1 on GPIO 8
+ * - System monitoring task for memory, queue, and connection status
+ * - Debug logging can be toggled with DEBUG_LOGGING flag
+ * 
  * Preserved Features:
  * - USB CDC communication with printer
  * - Remote HTML loading from GitHub (with embedded fallback)
@@ -51,9 +56,21 @@
 // GPIO for status LED
 #include "driver/gpio.h"
 
+// UART for debug logging
+#include "driver/uart.h"
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
+
+// Debug logging flag - set to 0 to disable verbose debug logs
+#define DEBUG_LOGGING 1
+
+#if DEBUG_LOGGING
+    #define DEBUG_LOG(tag, format, ...) ESP_LOGI(tag, format, ##__VA_ARGS__)
+#else
+    #define DEBUG_LOG(tag, format, ...) do {} while(0)
+#endif
 
 // Prusa Core One USB identifiers
 #define PRUSA_USB_VID               (0x2C99)
@@ -65,8 +82,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT-WXF9FJ"
-#define WIFI_PASS                   "QFLQCPDLWF"
+#define WIFI_SSID                   "BT"
+#define WIFI_PASS                   "QF"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -84,6 +101,11 @@
 
 // Serial parsing buffer
 #define SERIAL_LINE_BUFFER_SIZE     (512)
+
+// Debug UART configuration
+#define DEBUG_UART_NUM              UART_NUM_1
+#define DEBUG_UART_TX_PIN           8
+#define DEBUG_UART_BAUD             115200
 
 static const char *TAG = "PRUSA-WS-V3";
 
@@ -187,6 +209,22 @@ static size_t cached_html_size = 0;
 static char last_download_error[256] = "Not attempted yet";
 
 // ============================================================================
+// UART DEBUG LOGGING SETUP
+// ============================================================================
+
+static int uart_log_vprintf(const char *fmt, va_list args)
+{
+    char log_buffer[256];
+    int len = vsnprintf(log_buffer, sizeof(log_buffer), fmt, args);
+    
+    if (len > 0) {
+        uart_write_bytes(DEBUG_UART_NUM, log_buffer, len);
+    }
+    
+    return len;
+}
+
+// ============================================================================
 // STATUS LED CONTROL
 // ============================================================================
 
@@ -242,6 +280,7 @@ static int ws_client_add(int fd)
             
             xSemaphoreGive(ws_clients_mutex);
             ESP_LOGI(TAG, "WebSocket client %d connected (fd=%d)", i, fd);
+            DEBUG_LOG(TAG, "[WS] Client %d added successfully", i);
             return i;
         }
     }
@@ -262,6 +301,7 @@ static void ws_client_remove(int fd)
             xQueueReset(ws_clients[i].message_queue);
             
             ESP_LOGI(TAG, "WebSocket client %d disconnected (fd=%d)", i, fd);
+            DEBUG_LOG(TAG, "[WS] Client %d removed", i);
             break;
         }
     }
@@ -273,12 +313,22 @@ static void ws_broadcast_message(const ws_message_t *msg)
 {
     xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
     
+    int sent_count = 0;
+    int dropped_count = 0;
+    
     for (int i = 0; i < WS_MAX_CLIENTS; i++) {
         if (ws_clients[i].active) {
             if (xQueueSend(ws_clients[i].message_queue, msg, 0) != pdTRUE) {
                 ESP_LOGW(TAG, "Client %d message queue full, dropping message", i);
+                dropped_count++;
+            } else {
+                sent_count++;
             }
         }
+    }
+    
+    if (dropped_count > 0) {
+        DEBUG_LOG(TAG, "[WS] Broadcast: sent=%d, dropped=%d", sent_count, dropped_count);
     }
     
     xSemaphoreGive(ws_clients_mutex);
@@ -520,6 +570,8 @@ static void parse_and_broadcast_line(const char *line)
 
 static bool handle_rx(const uint8_t *data, size_t data_len, void *arg)
 {
+    DEBUG_LOG(TAG, "[USB] RX: %zu bytes", data_len);
+    
     // Process incoming serial data byte by byte, building complete lines
     for (size_t i = 0; i < data_len; i++) {
         char c = (char)data[i];
@@ -754,12 +806,55 @@ static void wifi_init_sta(void)
 }
 
 // ============================================================================
+// SYSTEM MONITORING TASK
+// ============================================================================
+
+static void system_monitor_task(void *arg)
+{
+    TickType_t last_wake = xTaskGetTickCount();
+    
+    while (1) {
+        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000)); // Every 2 seconds
+        
+        // Memory stats
+        size_t free_heap = esp_get_free_heap_size();
+        size_t min_free_heap = esp_get_minimum_free_heap_size();
+        DEBUG_LOG(TAG, "[MONITOR] Free heap: %zu bytes, Min: %zu bytes", free_heap, min_free_heap);
+        
+        // WebSocket client status
+        xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
+        int active_clients = 0;
+        for (int i = 0; i < WS_MAX_CLIENTS; i++) {
+            if (ws_clients[i].active) {
+                active_clients++;
+                UBaseType_t queue_depth = uxQueueMessagesWaiting(ws_clients[i].message_queue);
+                UBaseType_t queue_spaces = uxQueueSpacesAvailable(ws_clients[i].message_queue);
+                DEBUG_LOG(TAG, "[MONITOR] Client %d: fd=%d, queue=%d/%d", 
+                         i, ws_clients[i].fd, queue_depth, queue_depth + queue_spaces);
+            }
+        }
+        xSemaphoreGive(ws_clients_mutex);
+        
+        DEBUG_LOG(TAG, "[MONITOR] Active clients: %d, Printer: %s", 
+                 active_clients, printer_connected ? "connected" : "disconnected");
+        
+        // WiFi status
+        wifi_ap_record_t ap_info;
+        if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
+            DEBUG_LOG(TAG, "[MONITOR] WiFi RSSI: %d dBm", ap_info.rssi);
+        }
+    }
+}
+
+// ============================================================================
 // WEBSOCKET MESSAGE SENDER TASK
 // ============================================================================
 
 static void ws_sender_task(void *arg)
 {
     ws_message_t msg;
+    uint32_t send_count = 0;
+    uint32_t error_count = 0;
     
     while (1) {
         xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
@@ -778,7 +873,13 @@ static void ws_sender_task(void *arg)
                     esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ws_pkt);
                     if (ret != ESP_OK) {
                         ESP_LOGW(TAG, "Failed to send to client %d: %s", i, esp_err_to_name(ret));
-                        // Client might be dead, will be cleaned up on next connection check
+                        error_count++;
+                        
+                        if (error_count % 10 == 0) {
+                            DEBUG_LOG(TAG, "[WS] Sender errors: %lu total", error_count);
+                        }
+                    } else {
+                        send_count++;
                     }
                 }
             }
@@ -862,6 +963,8 @@ static esp_err_t ws_handler(httpd_req_t *req)
                     (uint8_t *)cmdline, strlen(cmdline), USB_TX_TIMEOUT_MS);
                 if (err != ESP_OK) {
                     ESP_LOGE(TAG, "Failed to send G-code: %s", esp_err_to_name(err));
+                } else {
+                    DEBUG_LOG(TAG, "[GCODE] Sent: %s", cmd);
                 }
             } else {
                 ESP_LOGW(TAG, "G-code received but printer not connected");
@@ -985,7 +1088,27 @@ static void start_webserver(void)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "=== Prusa Core One Monitor V3.0 - WebSocket Edition ===");
+    // Setup UART for debug logging on GPIO 8 BEFORE any other initialization
+    uart_config_t uart_config = {
+        .baud_rate = DEBUG_UART_BAUD,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+    
+    uart_driver_install(DEBUG_UART_NUM, 2048, 0, 0, NULL, 0);
+    uart_param_config(DEBUG_UART_NUM, &uart_config);
+    uart_set_pin(DEBUG_UART_NUM, DEBUG_UART_TX_PIN, UART_PIN_NO_CHANGE, 
+                 UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+    
+    // Redirect ESP_LOG to UART
+    esp_log_set_vprintf(uart_log_vprintf);
+    
+    ESP_LOGI(TAG, "=== Prusa Core One Monitor V3.1 - Debug Edition ===");
+    ESP_LOGI(TAG, "UART debug logging active on GPIO %d @ %d baud", 
+             DEBUG_UART_TX_PIN, DEBUG_UART_BAUD);
     ESP_LOGI(TAG, "Server-side parsing with real-time push updates");
     
     // Create synchronization primitives
@@ -1037,7 +1160,7 @@ void app_main(void)
     // Initialize mDNS
     ESP_ERROR_CHECK(mdns_init());
     mdns_hostname_set("coreone");
-    mdns_instance_name_set("Prusa Core One Monitor V3.0");
+    mdns_instance_name_set("Prusa Core One Monitor V3.1");
     ESP_LOGI(TAG, "mDNS started: http://coreone.local/");
     
     // Start web server
@@ -1049,11 +1172,15 @@ void app_main(void)
     // Start LED task
     xTaskCreate(led_task, "led_task", 2048, NULL, 3, &led_task_handle);
     
+    // Start system monitoring task
+    xTaskCreate(system_monitor_task, "sys_monitor", 4096, NULL, 2, NULL);
+    
     ESP_LOGI(TAG, "=== System Ready ===");
     ESP_LOGI(TAG, "Access web interface at:");
     ESP_LOGI(TAG, "  - http://coreone.local/");
     ESP_LOGI(TAG, "  - WebSocket: ws://coreone.local/ws");
     ESP_LOGI(TAG, "  - Manual HTML refresh: http://coreone.local/refresh");
+    ESP_LOGI(TAG, "Debug logging: GPIO %d (connect to monitoring device RX)", DEBUG_UART_TX_PIN);
     
     // Main USB connection loop
     while (true) {
