@@ -433,25 +433,27 @@
                 valueFontFamily: "Ubuntu",
                 titleFontFamily: "Ubuntu",
                 titleFontColor: "#FFFFFF",
-                gaugeWidthScale: 0.4,
+                gaugeWidthScale: 0.7,
                 gaugeColor: "#858383",
                 valueFontColor: "#FFFFFF",
                 counter: true,
                 formatNumber: true,
                 relativeGaugeSize: true,
-                levelColors: [color],
+                levelColors: color,
+                noGradient: true,
                 startAnimationTime: 1000,
                 startAnimationType: "bounce",
                 refreshAnimationType: "bounce",
                 refreshAnimationTime: 1000,
                 titleMinFontSize: 12,
-                titleFontSize: 14
+                titleFontSize: 14,
+                showInnerShadow: false
             });
         }
         
         function initGauges() {
             // Temperature gauges - all same green like Pi Stats
-            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", "#00FF00");
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", ["#a9d70b", "#f9c802", "#00FF00"]);
             gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", "#00FF00");
             gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", "#00FF00");
             gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", "#00FF00");
@@ -952,7 +954,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.11-ws-remote</div>
+    <div class="version-tag">v3.1.12-ws-remote</div>
     
 </body>
 </html>
