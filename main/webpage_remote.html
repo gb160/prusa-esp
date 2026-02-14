@@ -452,16 +452,17 @@
         }
         
         function initGauges() {
-            // Temperature gauges - all same green like Pi Stats
-            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", ["#a9d70b", "#f9c802", "#00FF00"]);
-            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", "#00FF00");
-            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", "#00FF00");
-            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", "#00FF00");
+            //green/amber/red
+            colors = ["#00FF00", "#d7ae0b", "#d70b0b"]
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", colors);
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", colors);
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", colors);
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", colors);
             
             // Power gauges - all same green
-            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", "#00FF00");
-            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", "#00FF00");
-            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", "#00FF00");
+            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", colors);
+            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", colors);
+            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", colors);
         }
         
         // Dropdown
@@ -954,7 +955,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.12-ws-remote</div>
+    <div class="version-tag">v3.1.14-ws-remote</div>
     
 </body>
 </html>

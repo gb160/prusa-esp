@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "Core_One_Monitor",
-    "project_version":    "3ec3825-dirty",
+    "project_version":    "6fbcdce-dirty",
     "project_path":       "/Users/gavin/Documents/GitHub/prusa-esp",
     "idf_path":           "/Users/gavin/esp/v5.5.1/esp-idf",
     "build_dir":          "/Users/gavin/Documents/GitHub/prusa-esp/build",
