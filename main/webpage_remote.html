@@ -319,6 +319,17 @@
             color: #4CAF50;
         }
         
+        .mesh-stats {
+            color: #ddd;
+            font-size: 0.9rem;
+        }
+        
+        .mesh-stats span {
+            margin-left: 20px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
         .mesh-modal-close {
             background: #f44336;
             border: none;
@@ -453,7 +464,10 @@
     <div class="mesh-modal" id="mesh-modal">
         <div class="mesh-modal-content">
             <div class="mesh-modal-header">
-                <h2>Bed Mesh Visualization</h2>
+                <div>
+                    <h2>Bed Mesh Visualization</h2>
+                    <div class="mesh-stats" id="mesh-stats"></div>
+                </div>
                 <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
             </div>
             <div class="mesh-modal-body">
@@ -812,6 +826,18 @@
             // Reverse rows so row 0 is at the bottom (as it appears physically on the bed)
             const reversedData = [...meshData].reverse();
             
+            // Calculate statistics
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+            
+            // Display stats
+            document.getElementById('mesh-stats').innerHTML = 
+                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+            
             // Create X, Y coordinate arrays (0-20 for both)
             const x = Array.from({length: 21}, (_, i) => i);
             const y = Array.from({length: 21}, (_, i) => i);
@@ -849,6 +875,11 @@
                 }
             }];
             
+            // Calculate appropriate Z-axis range (add 10% padding)
+            const zPadding = maxDeviation * 0.1;
+            const zMin = minValue - zPadding;
+            const zMax = maxValue + zPadding;
+            
             const layout = {
                 title: {
                     text: 'Bed Mesh Topology',
@@ -874,10 +905,17 @@
                         title: 'Height (mm)',
                         titlefont: {color: '#ffffff'},
                         tickfont: {color: '#ffffff'},
-                        gridcolor: '#444444'
+                        gridcolor: '#444444',
+                        range: [zMin, zMax]
                     },
                     camera: {
                         eye: {x: 1.5, y: 1.5, z: 1.3}
+                    },
+                    aspectmode: 'manual',
+                    aspectratio: {
+                        x: 1,
+                        y: 1,
+                        z: 0.3  // Make Z axis shorter relative to X/Y for realistic proportions
                     },
                     bgcolor: '#0a0a0a'
                 },
@@ -1211,7 +1249,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.18-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.19-ws-remote</div>
     
     <script>
         function refreshHTML() {
