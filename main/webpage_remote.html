@@ -956,8 +956,16 @@
         });
     </script>
     
-    <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.15--ws-remote</div>
+    <!-- Version Tag - Click to refresh HTML from GitHub -->
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.16-ws-remote</div>
+    
+    <script>
+        function refreshHTML() {
+            if (confirm('Refresh HTML from GitHub? This will restart the web server.')) {
+                window.location.href = '/refresh';
+            }
+        }
+    </script>
     
 </body>
 </html>
