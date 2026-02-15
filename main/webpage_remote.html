@@ -763,9 +763,9 @@
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
             // Build labels with targets as integers
-            const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "";
-            const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "";
-            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "";
+            const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "Target: Ambient";
+            const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "Ambient";
+            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
 
@@ -1394,7 +1394,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.32-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.33-ws-remote</div>
     
     <script>
         function refreshHTML() {
