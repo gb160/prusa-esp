@@ -555,7 +555,7 @@
         let tempChart = null;
         
         // Create gauge - Pi Stats style with custom text
-        function createGauge(id, min, max, title, label, symbol, color, dec) {
+        function createGauge(id, min, max, title, label, symbol, color, dec, target) {
             return new JustGage({
                 id: id,
                 value: 0,
@@ -582,8 +582,11 @@
                 refreshAnimationTime: 1000,
                 titleMinFontSize: 12,
                 titleFontSize: 12,
-                showInnerShadow: false
-            });
+                showInnerShadow: false,
+                targetLine: target,
+                targetLineColor: "#ffffff",
+                targetLineWidth: 3
+              });
         }
         
         function initGauges() {
@@ -765,11 +768,17 @@
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
+
             // Show current values with 1 decimal place
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
             gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
             gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
             gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
+
+            gauges.nozzle.update({targetLine: nozzle.target});
+            gauges.bed.update({targetLine: bed.target});
+            gauges.heatbreak.update({targetLine: heatbreak.target});
+
             
             // Update page title with 1 decimal place
             document.title = `${nozzle.current.toFixed(1)}°C - Prusa Monitor`;
@@ -1385,7 +1394,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.31-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.32-ws-remote</div>
     
     <script>
         function refreshHTML() {
