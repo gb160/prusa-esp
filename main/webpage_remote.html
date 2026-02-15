@@ -775,7 +775,9 @@
             gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
             gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
 
-            gauges.nozzle.update({targetLine: nozzle.target});
+            const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
+
+            gauges.nozzle.update({targetLine: guageTargetLine});
             gauges.bed.update({targetLine: bed.target});
             gauges.heatbreak.update({targetLine: heatbreak.target});
 
@@ -1394,7 +1396,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.33-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.34-ws-remote</div>
     
     <script>
         function refreshHTML() {
