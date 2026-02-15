@@ -555,13 +555,13 @@
         let tempChart = null;
         
         // Create gauge - Pi Stats style with custom text
-        function createGauge(id, min, max, title, label, symbol, color) {
+        function createGauge(id, min, max, title, label, symbol, color, dec) {
             return new JustGage({
                 id: id,
                 value: 0,
                 min: min,
                 max: max,
-                decimals: 1,
+                decimals: dec,
                 title: title,
                 label: label,
                 symbol: symbol,
@@ -581,7 +581,7 @@
                 refreshAnimationType: "bounce",
                 refreshAnimationTime: 1000,
                 titleMinFontSize: 12,
-                titleFontSize: 14,
+                titleFontSize: 12,
                 showInnerShadow: false
             });
         }
@@ -589,10 +589,10 @@
         function initGauges() {
             //green/amber/red
             colors = ["#00FF00", "#d7ae0b", "#d70b0b"]
-            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", colors);
-            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", colors);
-            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", colors);
-            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", colors);
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", colors, 1);
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", colors, 1);
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", colors, 1);
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", colors), 1;
             
             // Power gauges - all same green
             gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", colors);
@@ -605,13 +605,14 @@
                 value: 0,
                 min: 0,
                 max: 100,
-                title: "Print Progress\n ",
+                title: "",
+                titlePosition: "below",
                 label: "",
                 symbol: "%",
                 valueFontFamily: "Ubuntu",
                 titleFontFamily: "Ubuntu",
                 titleFontColor: "#FFFFFF",
-                gaugeWidthScale: 0.4,
+                gaugeWidthScale: 0.7,
                 gaugeColor: "#858383",
                 valueFontColor: "#FFFFFF",
                 counter: true,
