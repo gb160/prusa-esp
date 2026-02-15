@@ -60,6 +60,11 @@
 #include "driver/uart.h"
 
 // ============================================================================
+// FIRMWARE VERSION
+// ============================================================================
+#define FIRMWARE_VERSION "v3.1.0-debug"
+
+// ============================================================================
 // CONFIGURATION
 // ============================================================================
 
@@ -983,6 +988,10 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     xSemaphoreTake(html_mutex, portMAX_DELAY);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
+    // Prevent browser caching
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    httpd_resp_set_hdr(req, "Pragma", "no-cache");
+    httpd_resp_set_hdr(req, "Expires", "0");
     
 #if ENABLE_REMOTE_HTML
     if (cached_html != NULL && cached_html_size > 0) {
@@ -1004,6 +1013,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
+    ESP_LOGI(TAG, "Refresh endpoint called - downloading new HTML");
     download_html_from_github();
     
     char response[1024];
@@ -1014,9 +1024,11 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
         "padding:40px;text-align:center;}</style></head><body>"
         "<h2>HTML Refresh Complete</h2>"
         "<p>Status: %s</p>"
+        "<p>Cached HTML size: %zu bytes</p>"
         "<p>Redirecting to monitor...</p>"
         "</body></html>",
-        last_download_error);
+        last_download_error,
+        cached_html_size);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, response);
@@ -1106,7 +1118,7 @@ void app_main(void)
     // Redirect ESP_LOG to UART
     esp_log_set_vprintf(uart_log_vprintf);
     
-    ESP_LOGI(TAG, "=== Prusa Core One Monitor V3.1 - Debug Edition ===");
+    ESP_LOGI(TAG, "=== Prusa Core One Monitor %s ===", FIRMWARE_VERSION);
     ESP_LOGI(TAG, "UART debug logging active on GPIO %d @ %d baud", 
              DEBUG_UART_TX_PIN, DEBUG_UART_BAUD);
     ESP_LOGI(TAG, "Server-side parsing with real-time push updates");
@@ -1160,7 +1172,10 @@ void app_main(void)
     // Initialize mDNS
     ESP_ERROR_CHECK(mdns_init());
     mdns_hostname_set("coreone");
-    mdns_instance_name_set("Prusa Core One Monitor V3.1");
+    
+    char mdns_name[64];
+    snprintf(mdns_name, sizeof(mdns_name), "Prusa Core One Monitor %s", FIRMWARE_VERSION);
+    mdns_instance_name_set(mdns_name);
     ESP_LOGI(TAG, "mDNS started: http://coreone.local/");
     
     // Start web server

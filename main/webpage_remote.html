@@ -830,11 +830,13 @@
         function handleKeyDown(event) {
             const input = document.getElementById('gcode-input');
             
-            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+            // Enter alone = send command, Shift+Enter = new line for multiple commands
+            if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 sendGCode();
                 return;
             }
+            // Shift+Enter allows new line (default textarea behavior)
             
             if (event.key === 'ArrowUp' && event.target.selectionStart === 0) {
                 event.preventDefault();
@@ -955,7 +957,7 @@
     </script>
     
     <!-- Version Tag - Edit here for easy updates -->
-    <div class="version-tag">v3.1.14-ws-remote</div>
+    <div class="version-tag">v3.1.15-ws-remote</div>
     
 </body>
 </html>
