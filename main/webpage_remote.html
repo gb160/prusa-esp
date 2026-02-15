@@ -348,6 +348,25 @@
             background: #da190b;
         }
         
+        .mesh-modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .mesh-download-btn {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .mesh-download-btn:hover {
+            background: #45a049;
+        }
+        
         .mesh-modal-body {
             flex: 1;
             padding: 20px;
@@ -468,7 +487,10 @@
                     <h2>Bed Mesh Visualization</h2>
                     <div class="mesh-stats" id="mesh-stats"></div>
                 </div>
-                <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
+                <div class="mesh-modal-buttons">
+                    <button class="mesh-download-btn" onclick="downloadMeshImage()">Download PNG</button>
+                    <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
+                </div>
             </div>
             <div class="mesh-modal-body">
                 <div id="mesh-plot"></div>
@@ -933,7 +955,7 @@
                 responsive: true,
                 displayModeBar: true,
                 displaylogo: false,
-                modeBarButtonsToRemove: ['toImage']
+                modeBarButtonsToRemove: []  // Allow all buttons including screenshot
             };
             
             // Show modal
@@ -947,6 +969,21 @@
             document.getElementById('mesh-modal').classList.remove('show');
             // Clean up Plotly
             Plotly.purge('mesh-plot');
+        }
+        
+        function downloadMeshImage() {
+            // Generate timestamp for filename
+            const now = new Date();
+            const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `bed-mesh-${timestamp}.png`;
+            
+            // Use Plotly's downloadImage function
+            Plotly.downloadImage('mesh-plot', {
+                format: 'png',
+                width: 1920,
+                height: 1080,
+                filename: filename
+            });
         }
         
         // Close modal when clicking outside
@@ -1249,7 +1286,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.19-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.20-ws-remote</div>
     
     <script>
         function refreshHTML() {
