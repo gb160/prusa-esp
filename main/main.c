@@ -32,6 +32,7 @@
 #include "esp_system.h"
 #include "esp_log.h"
 #include "esp_err.h"
+#include "esp_timer.h"
 
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
@@ -60,6 +61,11 @@
 #include "driver/uart.h"
 
 // ============================================================================
+// FIRMWARE VERSION
+// ============================================================================
+#define FIRMWARE_VERSION "v3.1.2-debug"
+
+// ============================================================================
 // CONFIGURATION
 // ============================================================================
 
@@ -82,8 +88,13 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
+<<<<<<< HEAD
 #define WIFI_SSID                   "BT-"
 #define WIFI_PASS                   "QDLWF"
+=======
+#define WIFI_SSID                   "--"
+#define WIFI_PASS                   "--"
+>>>>>>> 944d8d9c14820411d080e67598882b9ac57cff22
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -983,6 +994,8 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     xSemaphoreTake(html_mutex, portMAX_DELAY);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    httpd_resp_set_hdr(req, "Pragma", "no-cache");
     
 #if ENABLE_REMOTE_HTML
     if (cached_html != NULL && cached_html_size > 0) {
@@ -1004,21 +1017,73 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
-    download_html_from_github();
+    // Add timestamp to URL to bust GitHub's CDN cache
+    char url_with_timestamp[512];
+    int64_t timestamp = esp_timer_get_time();
+    snprintf(url_with_timestamp, sizeof(url_with_timestamp), 
+             "%s?t=%lld", REMOTE_HTML_URL, (long long)timestamp);
+    
+    ESP_LOGI(TAG, "Downloading HTML with cache-busting: %s", url_with_timestamp);
+    
+    // Create temporary download config with cache-busting URL
+    download_buffer_t download = {.buffer = NULL, .len = 0};
+    
+    esp_http_client_config_t config = {
+        .url = url_with_timestamp,
+        .event_handler = http_event_handler,
+        .user_data = &download,
+        .timeout_ms = 10000,
+        .buffer_size = 4096,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+    };
+    
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    if (client != NULL) {
+        esp_err_t err = esp_http_client_perform(client);
+        
+        if (err == ESP_OK) {
+            int status_code = esp_http_client_get_status_code(client);
+            
+            if (status_code == 200 && download.buffer != NULL && download.len > 0) {
+                xSemaphoreTake(html_mutex, portMAX_DELAY);
+                if (cached_html != NULL) {
+                    free(cached_html);
+                }
+                cached_html = download.buffer;
+                cached_html_size = download.len;
+                xSemaphoreGive(html_mutex);
+                
+                ESP_LOGI(TAG, "HTML updated successfully (%d bytes)", download.len);
+            } else {
+                if (download.buffer != NULL) {
+                    free(download.buffer);
+                }
+                ESP_LOGE(TAG, "Download failed: HTTP %d", status_code);
+            }
+        } else {
+            ESP_LOGE(TAG, "Download error: %s", esp_err_to_name(err));
+            if (download.buffer != NULL) {
+                free(download.buffer);
+            }
+        }
+        
+        esp_http_client_cleanup(client);
+    }
     
     char response[1024];
     snprintf(response, sizeof(response),
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        "<meta http-equiv='refresh' content='2;url=/'/>"
+        "<meta http-equiv='refresh' content='1;url=/'/>"
         "<style>body{font-family:monospace;background:#0f0f0f;color:#4CAF50;"
         "padding:40px;text-align:center;}</style></head><body>"
         "<h2>HTML Refresh Complete</h2>"
-        "<p>Status: %s</p>"
-        "<p>Redirecting to monitor...</p>"
+        "<p>New size: %zu bytes</p>"
+        "<p>Redirecting...</p>"
         "</body></html>",
-        last_download_error);
+        cached_html_size);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate");
     httpd_resp_sendstr(req, response);
 #else
     const char *disabled_msg = 
@@ -1106,7 +1171,7 @@ void app_main(void)
     // Redirect ESP_LOG to UART
     esp_log_set_vprintf(uart_log_vprintf);
     
-    ESP_LOGI(TAG, "=== Prusa Core One Monitor V3.1 - Debug Edition ===");
+    ESP_LOGI(TAG, "=== Prusa Core One Monitor %s ===", FIRMWARE_VERSION);
     ESP_LOGI(TAG, "UART debug logging active on GPIO %d @ %d baud", 
              DEBUG_UART_TX_PIN, DEBUG_UART_BAUD);
     ESP_LOGI(TAG, "Server-side parsing with real-time push updates");
@@ -1160,7 +1225,10 @@ void app_main(void)
     // Initialize mDNS
     ESP_ERROR_CHECK(mdns_init());
     mdns_hostname_set("coreone");
-    mdns_instance_name_set("Prusa Core One Monitor V3.1");
+    
+    char mdns_name[64];
+    snprintf(mdns_name, sizeof(mdns_name), "Prusa Core One Monitor %s", FIRMWARE_VERSION);
+    mdns_instance_name_set(mdns_name);
     ESP_LOGI(TAG, "mDNS started: http://coreone.local/");
     
     // Start web server
