@@ -62,7 +62,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.1.0-debug"
+#define FIRMWARE_VERSION "v3.1.1-debug"
 
 // ============================================================================
 // CONFIGURATION
@@ -86,9 +86,10 @@
 #define USB_TX_TIMEOUT_MS           (1000)
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
-// WiFi credentials
+
 #define WIFI_SSID                   "BT"
 #define WIFI_PASS                   "QF"
+
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -175,6 +176,9 @@ typedef struct {
 // ============================================================================
 // GLOBAL STATE
 // ============================================================================
+
+// Forward declarations
+static void start_webserver(void);
 
 // Synchronization primitives
 static SemaphoreHandle_t device_disconnected_sem;
@@ -1013,25 +1017,36 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
-    ESP_LOGI(TAG, "Refresh endpoint called - downloading new HTML");
+    // Download new HTML FIRST
     download_html_from_github();
     
+    // Send response
     char response[1024];
     snprintf(response, sizeof(response),
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        "<meta http-equiv='refresh' content='2;url=/'/>"
+        "<meta http-equiv='refresh' content='3;url=/'/>"
         "<style>body{font-family:monospace;background:#0f0f0f;color:#4CAF50;"
         "padding:40px;text-align:center;}</style></head><body>"
         "<h2>HTML Refresh Complete</h2>"
         "<p>Status: %s</p>"
-        "<p>Cached HTML size: %zu bytes</p>"
-        "<p>Redirecting to monitor...</p>"
+        "<p>Size: %zu bytes</p>"
+        "<p>Restarting web server...</p>"
         "</body></html>",
         last_download_error,
         cached_html_size);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, response);
+    
+    // Give response time to send
+    vTaskDelay(pdMS_TO_TICKS(100));
+    
+    // Stop and restart the web server
+    ESP_LOGI(TAG, "Stopping web server to reload HTML...");
+    httpd_stop(server);
+    vTaskDelay(pdMS_TO_TICKS(500));
+    start_webserver();
+    ESP_LOGI(TAG, "Web server restarted with new HTML");
 #else
     const char *disabled_msg = 
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
