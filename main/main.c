@@ -86,10 +86,9 @@
 #define USB_TX_TIMEOUT_MS           (1000)
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
-
-#define WIFI_SSID                   "BT"
-#define WIFI_PASS                   "QF"
-
+// WiFi credentials
+#define WIFI_SSID                   "BT-"
+#define WIFI_PASS                   "QFL"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -1014,6 +1013,26 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+// Task to restart web server (needed because we can't restart from within a handler)
+static void restart_webserver_task(void *arg)
+{
+    ESP_LOGI(TAG, "Waiting before web server restart...");
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    
+    ESP_LOGI(TAG, "Stopping web server to reload HTML...");
+    httpd_stop(server);
+    
+    vTaskDelay(pdMS_TO_TICKS(500));
+    
+    ESP_LOGI(TAG, "Starting web server with new HTML...");
+    start_webserver();
+    
+    ESP_LOGI(TAG, "Web server restarted successfully");
+    
+    // Delete this task
+    vTaskDelete(NULL);
+}
+
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
@@ -1030,7 +1049,7 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
         "<h2>HTML Refresh Complete</h2>"
         "<p>Status: %s</p>"
         "<p>Size: %zu bytes</p>"
-        "<p>Restarting web server...</p>"
+        "<p>Restarting web server in 1 second...</p>"
         "</body></html>",
         last_download_error,
         cached_html_size);
@@ -1038,15 +1057,8 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, response);
     
-    // Give response time to send
-    vTaskDelay(pdMS_TO_TICKS(100));
-    
-    // Stop and restart the web server
-    ESP_LOGI(TAG, "Stopping web server to reload HTML...");
-    httpd_stop(server);
-    vTaskDelay(pdMS_TO_TICKS(500));
-    start_webserver();
-    ESP_LOGI(TAG, "Web server restarted with new HTML");
+    // Schedule web server restart in a separate task
+    xTaskCreate(restart_webserver_task, "restart_ws", 4096, NULL, 5, NULL);
 #else
     const char *disabled_msg = 
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
