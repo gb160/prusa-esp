@@ -9,6 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/justgage@2.0.1/dist/justgage.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.26.0/plotly.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <style>
         /* Pi Stats Color Scheme */
@@ -977,12 +978,25 @@
             const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
             const filename = `bed-mesh-${timestamp}.png`;
             
-            // Use Plotly's downloadImage function
-            Plotly.downloadImage('mesh-plot', {
-                format: 'png',
-                width: 1920,
-                height: 1080,
-                filename: filename
+            // Capture the entire modal content (including header with stats)
+            const modalContent = document.querySelector('.mesh-modal-content');
+            
+            html2canvas(modalContent, {
+                backgroundColor: '#1a1a1a',
+                scale: 2,  // Higher resolution
+                logging: false
+            }).then(canvas => {
+                // Convert canvas to blob and download
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
             });
         }
         
@@ -1286,7 +1300,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.20-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.21-ws-remote</div>
     
     <script>
         function refreshHTML() {
