@@ -8,6 +8,7 @@
     <!-- Removed Raphael (v1 dependency). Using JustGage v2 UMD (zero-deps) -->
     <script src="https://cdn.jsdelivr.net/npm/justgage@2.0.1/dist/justgage.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.26.0/plotly.min.js"></script>
     
     <style>
         /* Pi Stats Color Scheme */
@@ -274,6 +275,84 @@
             font-family: 'Courier New', monospace;
         }
         
+        /* Mesh Visualization Modal */
+        .mesh-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            animation: fadeIn 0.3s;
+        }
+        
+        .mesh-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mesh-modal-content {
+            background: #1a1a1a;
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1200px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        }
+        
+        .mesh-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mesh-modal-header h2 {
+            margin: 0;
+            color: #4CAF50;
+        }
+        
+        .mesh-modal-close {
+            background: #f44336;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mesh-modal-close:hover {
+            background: #da190b;
+        }
+        
+        .mesh-modal-body {
+            flex: 1;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        #mesh-plot {
+            width: 100%;
+            height: 100%;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
         @media (max-width: 968px) {
             .bottom-section {
                 grid-template-columns: 1fr;
@@ -370,6 +449,19 @@
         
     </div>
     
+    <!-- Mesh Visualization Modal -->
+    <div class="mesh-modal" id="mesh-modal">
+        <div class="mesh-modal-content">
+            <div class="mesh-modal-header">
+                <h2>Bed Mesh Visualization</h2>
+                <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
+            </div>
+            <div class="mesh-modal-body">
+                <div id="mesh-plot"></div>
+            </div>
+        </div>
+    </div>
+    
     <script>
         // ========================================
         // DEBUG MODE - Set to true to test with dummy data
@@ -386,6 +478,7 @@
         };
         
         const GCODE_MAP = {
+            'Mesh Bed Visualization': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -414,7 +507,11 @@
                 heatbreak: []
             },
             commandHistory: [],
-            commandHistoryIndex: -1
+            commandHistoryIndex: -1,
+            // Mesh bed parsing state
+            meshParsing: false,
+            meshData: [],
+            meshComplete: false
         };
         
         let gauges = {};
@@ -652,6 +749,172 @@
                 remainingEl.style.display = 'none';
             }
         }
+        
+        function handleLogMessage(msg) {
+            const hideTemps = document.getElementById('hide-temps').checked;
+            const message = msg.message;
+            
+            const isTempLine = message.includes('T:') && message.includes('B:') && 
+                             message.includes('@:') && message.includes('B@:');
+            
+            if (hideTemps && isTempLine) return;
+            
+            addLogEntry(message);
+        }
+        
+        function parseMeshBedData(line) {
+            // Start parsing when we see "Bed Topography Report:"
+            if (line.includes('Bed Topography Report:')) {
+                state.meshData = [];
+                state.meshParsing = true;
+                state.meshComplete = false;
+                console.log('Started parsing mesh data');
+                return;
+            }
+            
+            // Parse data lines while in parsing mode
+            if (state.meshParsing && line.includes('|')) {
+                // Match: "20 | -0.875 -0.802 ..." or "1 | -0.336 [-0.350] -0.365 ..."
+                const match = line.match(/^\s*(\d+)\s*\|(.*)/);
+                if (match) {
+                    const rowNum = parseInt(match[1]);
+                    const valuesStr = match[2];
+                    // Extract all numbers (positive or negative), ignore brackets
+                    const values = valuesStr.match(/[+-]?\d+\.\d+/g);
+                    if (values && values.length === 21) {
+                        state.meshData[rowNum] = values.map(v => parseFloat(v));
+                        console.log(`Parsed row ${rowNum}: ${values.length} values`);
+                    }
+                }
+                return;
+            }
+            
+            // Complete parsing when we see "Mesh is valid"
+            if (state.meshParsing && line.includes('Mesh is valid')) {
+                state.meshParsing = false;
+                
+                // Validate we got all 21 rows (0-20)
+                if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
+                    state.meshComplete = true;
+                    console.log('Mesh data complete! Showing visualization...');
+                    displayMeshVisualization(state.meshData);
+                } else {
+                    console.error('Incomplete mesh data:', state.meshData.length, 'rows');
+                }
+                return;
+            }
+        }
+        
+        function displayMeshVisualization(meshData) {
+            // Reverse rows so row 0 is at the bottom (as it appears physically on the bed)
+            const reversedData = [...meshData].reverse();
+            
+            // Create X, Y coordinate arrays (0-20 for both)
+            const x = Array.from({length: 21}, (_, i) => i);
+            const y = Array.from({length: 21}, (_, i) => i);
+            
+            // Prepare data for Plotly
+            const plotData = [{
+                type: 'surface',
+                x: x,
+                y: y,
+                z: reversedData,
+                colorscale: [
+                    [0, '#0000ff'],      // Deep blue for low points
+                    [0.25, '#00ffff'],   // Cyan
+                    [0.5, '#00ff00'],    // Green for mid-range
+                    [0.75, '#ffff00'],   // Yellow
+                    [1, '#ff0000']       // Red for high points
+                ],
+                colorbar: {
+                    title: 'Height (mm)',
+                    titleside: 'right',
+                    titlefont: {
+                        color: '#ffffff'
+                    },
+                    tickfont: {
+                        color: '#ffffff'
+                    }
+                },
+                contours: {
+                    z: {
+                        show: true,
+                        usecolormap: true,
+                        highlightcolor: "#42f462",
+                        project: {z: true}
+                    }
+                }
+            }];
+            
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Topology',
+                    font: {
+                        color: '#4CAF50',
+                        size: 24
+                    }
+                },
+                scene: {
+                    xaxis: {
+                        title: 'X Position',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444'
+                    },
+                    yaxis: {
+                        title: 'Y Position',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444'
+                    },
+                    zaxis: {
+                        title: 'Height (mm)',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444'
+                    },
+                    camera: {
+                        eye: {x: 1.5, y: 1.5, z: 1.3}
+                    },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: {
+                    l: 0,
+                    r: 0,
+                    b: 0,
+                    t: 50
+                }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['toImage']
+            };
+            
+            // Show modal
+            document.getElementById('mesh-modal').classList.add('show');
+            
+            // Create plot
+            Plotly.newPlot('mesh-plot', plotData, layout, config);
+        }
+        
+        function closeMeshModal() {
+            document.getElementById('mesh-modal').classList.remove('show');
+            // Clean up Plotly
+            Plotly.purge('mesh-plot');
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('mesh-modal');
+            if (e.target === modal) {
+                closeMeshModal();
+            }
+        });
         
         function handleLogMessage(msg) {
             const hideTemps = document.getElementById('hide-temps').checked;

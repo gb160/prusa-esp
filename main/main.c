@@ -87,8 +87,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT-"
-#define WIFI_PASS                   "QFL"
+#define WIFI_SSID                   "BT"
+#define WIFI_PASS                   "QF"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -175,9 +175,6 @@ typedef struct {
 // ============================================================================
 // GLOBAL STATE
 // ============================================================================
-
-// Forward declarations
-static void start_webserver(void);
 
 // Synchronization primitives
 static SemaphoreHandle_t device_disconnected_sem;
@@ -991,10 +988,6 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     xSemaphoreTake(html_mutex, portMAX_DELAY);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
-    // Prevent browser caching
-    httpd_resp_set_hdr(req, "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-    httpd_resp_set_hdr(req, "Pragma", "no-cache");
-    httpd_resp_set_hdr(req, "Expires", "0");
     
 #if ENABLE_REMOTE_HTML
     if (cached_html != NULL && cached_html_size > 0) {
@@ -1013,52 +1006,25 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
-// Task to restart web server (needed because we can't restart from within a handler)
-static void restart_webserver_task(void *arg)
-{
-    ESP_LOGI(TAG, "Waiting before web server restart...");
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    
-    ESP_LOGI(TAG, "Stopping web server to reload HTML...");
-    httpd_stop(server);
-    
-    vTaskDelay(pdMS_TO_TICKS(500));
-    
-    ESP_LOGI(TAG, "Starting web server with new HTML...");
-    start_webserver();
-    
-    ESP_LOGI(TAG, "Web server restarted successfully");
-    
-    // Delete this task
-    vTaskDelete(NULL);
-}
-
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
-    // Download new HTML FIRST
     download_html_from_github();
     
-    // Send response
     char response[1024];
     snprintf(response, sizeof(response),
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        "<meta http-equiv='refresh' content='3;url=/'/>"
+        "<meta http-equiv='refresh' content='2;url=/'/>"
         "<style>body{font-family:monospace;background:#0f0f0f;color:#4CAF50;"
         "padding:40px;text-align:center;}</style></head><body>"
         "<h2>HTML Refresh Complete</h2>"
         "<p>Status: %s</p>"
-        "<p>Size: %zu bytes</p>"
-        "<p>Restarting web server in 1 second...</p>"
+        "<p>Redirecting to monitor...</p>"
         "</body></html>",
-        last_download_error,
-        cached_html_size);
+        last_download_error);
     
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_sendstr(req, response);
-    
-    // Schedule web server restart in a separate task
-    xTaskCreate(restart_webserver_task, "restart_ws", 4096, NULL, 5, NULL);
 #else
     const char *disabled_msg = 
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
