@@ -395,20 +395,19 @@
     <div class="container">
         
         <div class="bottom-section">
-            <!-- Connection Status with Progress (now block lines, not inline) -->
+            <!-- Connection Status with Progress Gauge -->
             <div class="stats-section">
-                <div class="connection-status" style="flex-direction:column;align-items:flex-start;">
-                    <div style="display:flex;align-items:center;gap:10px;">
-                        <div class="status-dot" id="status-dot"></div>
-                        <span id="status-text">Connecting...</span>
-                    </div>
-
-                    <!-- Replaced the single inline span with a block containing separate lines -->
-                    <div class="progress-block" id="progress-block" aria-live="polite">
-                        <div><strong>Print Progress:</strong> <span id="progress-percent">--</span></div>
-                        <div id="progress-change"  style="display:none;margin-top:4px;"></div>
-                        <div id="progress-remaining"  style="display:none;margin-top:4px;"></div>
-                    </div>
+                <div class="connection-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Connecting...</span>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-progress"></div>
+                </div>
+                <!-- Progress text info below gauge -->
+                <div class="progress-block" id="progress-block" style="text-align:center;margin-top:10px;">
+                    <div id="progress-remaining" style="display:none;"></div>
+                    <div id="progress-change" style="display:none;margin-top:4px;"></div>
                 </div>
             </div>
             <!-- Temperature Graph -->
@@ -541,7 +540,8 @@
                 timestamps: [],
                 nozzle: [],
                 bed: [],
-                heatbreak: []
+                heatbreak: [],
+                chamber: []
             },
             commandHistory: [],
             commandHistoryIndex: -1,
@@ -597,6 +597,37 @@
             gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", colors);
             gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", colors);
             gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", colors);
+            
+            // Progress gauge - donut style
+            gauges.progress = new JustGage({
+                id: "gauge-progress",
+                value: 0,
+                min: 0,
+                max: 100,
+                title: "Print Progress",
+                label: "",
+                symbol: "%",
+                valueFontFamily: "Ubuntu",
+                titleFontFamily: "Ubuntu",
+                titleFontColor: "#FFFFFF",
+                gaugeWidthScale: 0.4,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                counter: true,
+                formatNumber: true,
+                relativeGaugeSize: true,
+                levelColors: ["#4CAF50"],
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000,
+                titleMinFontSize: 12,
+                titleFontSize: 14,
+                labelMinFontSize: 10,
+                donut: true,
+                donutStartAngle: 90,
+                hideInnerShadow: true
+            });
         }
         
         // Dropdown
@@ -726,20 +757,20 @@
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Build labels using the v2 pattern and pass as 4th parameter to refresh
-            const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "";
-            const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "";
-            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "";
-            const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
+            // Build labels with 1 decimal place
+            const nozzleLabel = nozzle.target > 0 ? `Target: ${nozzle.target.toFixed(1)}°C` : "";
+            const bedLabel = bed.target > 0 ? `Target: ${bed.target.toFixed(1)}°C` : "";
+            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${heatbreak.target.toFixed(1)}°C` : "";
+            const chamberLabel = chamber.target > 0 ? `Target: ${chamber.target.toFixed(1)}°C` : "";
 
-            // Use v2 signature: refresh(value, max, min, label)
-            gauges.nozzle.refresh(Math.round(nozzle.current), undefined, undefined, nozzleLabel);
-            gauges.bed.refresh(Math.round(bed.current), undefined, undefined, bedLabel);
-            gauges.heatbreak.refresh(Math.round(heatbreak.current), undefined, undefined, heatbreakLabel);
-            gauges.chamber.refresh(Math.round(chamber.current), undefined, undefined, chamberLabel);
+            // Show values with 1 decimal place
+            gauges.nozzle.refresh(nozzle.current, undefined, undefined, nozzleLabel);
+            gauges.bed.refresh(bed.current, undefined, undefined, bedLabel);
+            gauges.heatbreak.refresh(heatbreak.current, undefined, undefined, heatbreakLabel);
+            gauges.chamber.refresh(chamber.current, undefined, undefined, chamberLabel);
             
-            // Update page title
-            document.title = `${Math.round(nozzle.current)}°C - Prusa Monitor`;
+            // Update page title with 1 decimal place
+            document.title = `${nozzle.current.toFixed(1)}°C - Prusa Monitor`;
         }
         
         function updatePowerGauges() {
@@ -757,24 +788,12 @@
         // NEW: populate separate progress fields (no longer inline)
         function updateProgressDisplay() {
             const { percent, timeLeft, changeTime } = state.progress;
-
-            // percent
-            const percentEl = document.getElementById('progress-percent');
-            percentEl.textContent = (typeof percent === 'number' && !Number.isNaN(percent)) ? `${percent}%` : '--';
-
-            // changeTime -> "Xh Ym until change" (hide if zero or falsy)
-            const changeEl = document.getElementById('progress-change');
-            if (changeTime && changeTime > 0) {
-                const hours = Math.floor(changeTime / 60);
-                const mins = changeTime % 60;
-                changeEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
-                changeEl.style.display = 'block';
-            } else {
-                changeEl.textContent = '';
-                changeEl.style.display = 'none';
-            }
-
-            // timeLeft -> "Xh Ym remaining" (hide if zero or falsy)
+            
+            // Update gauge with just percentage
+            const validPercent = (typeof percent === 'number' && !Number.isNaN(percent)) ? percent : 0;
+            gauges.progress.refresh(validPercent);
+            
+            // Update time remaining text
             const remainingEl = document.getElementById('progress-remaining');
             if (timeLeft && timeLeft > 0) {
                 const hours = Math.floor(timeLeft / 60);
@@ -784,6 +803,18 @@
             } else {
                 remainingEl.textContent = '';
                 remainingEl.style.display = 'none';
+            }
+            
+            // Update change time text
+            const changeEl = document.getElementById('progress-change');
+            if (changeTime && changeTime > 0) {
+                const hours = Math.floor(changeTime / 60);
+                const mins = changeTime % 60;
+                changeEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
+                changeEl.style.display = 'block';
+            } else {
+                changeEl.textContent = '';
+                changeEl.style.display = 'none';
             }
         }
         
@@ -1077,12 +1108,14 @@
             history.nozzle.push(state.temps.nozzle.current);
             history.bed.push(state.temps.bed.current);
             history.heatbreak.push(state.temps.heatbreak.current);
+            history.chamber.push(state.temps.chamber.current);
             
             while (history.timestamps.length > CONFIG.MAX_GRAPH_POINTS) {
                 history.timestamps.shift();
                 history.nozzle.shift();
                 history.bed.shift();
                 history.heatbreak.shift();
+                history.chamber.shift();
             }
         }
         
@@ -1104,7 +1137,7 @@
                 return;
             }
             
-            const maxTemp = Math.max(...history.nozzle, ...history.bed, ...history.heatbreak, 100);
+            const maxTemp = Math.max(...history.nozzle, ...history.bed, ...history.heatbreak, ...history.chamber, 100);
             const padding = 40;
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding * 2;
@@ -1130,6 +1163,51 @@
             drawLine(history.nozzle, '#f44336', 2);
             drawLine(history.bed, '#2196F3', 2);
             drawLine(history.heatbreak, '#4CAF50', 2);
+            drawLine(history.chamber, '#FF9800', 2);
+            
+            // Legend - single line at bottom with equal spacing
+            const legendY = height - 15;
+            const legendItems = [
+                { label: 'Nozzle', color: '#f44336' },
+                { label: 'Bed', color: '#2196F3' },
+                { label: 'Heatbreak', color: '#4CAF50' },
+                { label: 'Chamber', color: '#FF9800' }
+            ];
+            
+            ctx.font = '12px Ubuntu';
+            
+            // Measure each item's width (line + spacing + text)
+            const lineWidth = 20;
+            const lineTextGap = 5;
+            const itemWidths = legendItems.map(item => {
+                return lineWidth + lineTextGap + ctx.measureText(item.label).width;
+            });
+            
+            // Calculate total width and spacing
+            const totalItemWidth = itemWidths.reduce((sum, w) => sum + w, 0);
+            const gapBetweenItems = 20; // Fixed gap between items
+            const totalWidth = totalItemWidth + (gapBetweenItems * (legendItems.length - 1));
+            
+            // Start position to center the legend
+            let currentX = (width - totalWidth) / 2;
+            
+            ctx.textAlign = 'left';
+            legendItems.forEach((item, i) => {
+                // Line sample
+                ctx.strokeStyle = item.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(currentX, legendY);
+                ctx.lineTo(currentX + lineWidth, legendY);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#fff';
+                ctx.fillText(item.label, currentX + lineWidth + lineTextGap, legendY + 4);
+                
+                // Move to next item position
+                currentX += itemWidths[i] + gapBetweenItems;
+            });
             
             function drawLine(data, color, lineWidth) {
                 ctx.strokeStyle = color;
@@ -1273,6 +1351,11 @@
         // Init
         window.addEventListener('DOMContentLoaded', () => {
             try {
+                console.log('=== PAGE LOAD DEBUG ===');
+                console.log('HTML Version: v3.1.21-ws-remote');
+                console.log('Load timestamp:', new Date().toISOString());
+                console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
+                
                 console.log('Prusa Monitor V3.1.1');
                 
                 // Check if required libraries loaded
@@ -1300,7 +1383,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.21-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.28-ws-remote</div>
     
     <script>
         function refreshHTML() {
