@@ -908,7 +908,8 @@
                 `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
             
             // Create X, Y coordinate arrays (0-20 for both)
-            const x = Array.from({length: 21}, (_, i) => i);
+            // Reverse X so it goes from 0 (left) to 20 (right)
+            const x = Array.from({length: 21}, (_, i) => 20 - i);
             const y = Array.from({length: 21}, (_, i) => i);
             
             // Prepare data for Plotly
@@ -1367,7 +1368,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.1.21-ws-remote');
+                console.log('HTML Version: v3.1.36-ws-remote');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1398,7 +1399,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.35-ws-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.1.36-ws-remote</div>
     
     <script>
         function refreshHTML() {
