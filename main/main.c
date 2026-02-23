@@ -88,13 +88,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-<<<<<<< HEAD
-#define WIFI_SSID                   "BT-"
-#define WIFI_PASS                   "QDLWF"
-=======
-#define WIFI_SSID                   "--"
-#define WIFI_PASS                   "--"
->>>>>>> 944d8d9c14820411d080e67598882b9ac57cff22
+#define WIFI_SSID                   ""
+#define WIFI_PASS                   ""
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -329,7 +324,12 @@ static void ws_broadcast_message(const ws_message_t *msg)
     
     for (int i = 0; i < WS_MAX_CLIENTS; i++) {
         if (ws_clients[i].active) {
-            if (xQueueSend(ws_clients[i].message_queue, msg, 0) != pdTRUE) {
+            // Fix 4: Skip clients whose queue is backing up - likely dead or very slow
+            UBaseType_t spaces = uxQueueSpacesAvailable(ws_clients[i].message_queue);
+            if (spaces < 5) {
+                ESP_LOGW(TAG, "Client %d queue near full (%d spaces left), skipping", i, (int)spaces);
+                dropped_count++;
+            } else if (xQueueSend(ws_clients[i].message_queue, msg, 0) != pdTRUE) {
                 ESP_LOGW(TAG, "Client %d message queue full, dropping message", i);
                 dropped_count++;
             } else {
@@ -854,6 +854,28 @@ static void system_monitor_task(void *arg)
         if (esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK) {
             DEBUG_LOG(TAG, "[MONITOR] WiFi RSSI: %d dBm", ap_info.rssi);
         }
+
+        // Fix 2: Ping all active clients to detect dead connections early
+        xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
+        for (int i = 0; i < WS_MAX_CLIENTS; i++) {
+            if (ws_clients[i].active) {
+                httpd_ws_frame_t ping_pkt;
+                memset(&ping_pkt, 0, sizeof(httpd_ws_frame_t));
+                ping_pkt.type = HTTPD_WS_TYPE_PING;
+                ping_pkt.payload = NULL;
+                ping_pkt.len = 0;
+                esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ping_pkt);
+                if (ret != ESP_OK) {
+                    ESP_LOGW(TAG, "Ping failed for client %d (fd=%d), evicting", i, ws_clients[i].fd);
+                    ws_clients[i].active = false;
+                    ws_clients[i].fd = -1;
+                    xQueueReset(ws_clients[i].message_queue);
+                } else {
+                    DEBUG_LOG(TAG, "[MONITOR] Ping sent to client %d", i);
+                }
+            }
+        }
+        xSemaphoreGive(ws_clients_mutex);
     }
 }
 
@@ -866,38 +888,45 @@ static void ws_sender_task(void *arg)
     ws_message_t msg;
     uint32_t send_count = 0;
     uint32_t error_count = 0;
-    
+    int consecutive_errors[WS_MAX_CLIENTS] = {0};
+
     while (1) {
         xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
-        
+
         for (int i = 0; i < WS_MAX_CLIENTS; i++) {
-            if (ws_clients[i].active) {
-                // Check if there are messages in this client's queue
-                if (xQueueReceive(ws_clients[i].message_queue, &msg, 0) == pdTRUE) {
-                    // Send WebSocket frame
-                    httpd_ws_frame_t ws_pkt;
-                    memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-                    ws_pkt.payload = (uint8_t *)msg.json_payload;
-                    ws_pkt.len = strlen(msg.json_payload);
-                    ws_pkt.type = HTTPD_WS_TYPE_TEXT;
-                    
-                    esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ws_pkt);
-                    if (ret != ESP_OK) {
-                        ESP_LOGW(TAG, "Failed to send to client %d: %s", i, esp_err_to_name(ret));
-                        error_count++;
-                        
-                        if (error_count % 10 == 0) {
-                            DEBUG_LOG(TAG, "[WS] Sender errors: %lu total", error_count);
-                        }
-                    } else {
-                        send_count++;
+            if (!ws_clients[i].active) continue;
+
+            if (xQueueReceive(ws_clients[i].message_queue, &msg, 0) == pdTRUE) {
+                httpd_ws_frame_t ws_pkt;
+                memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+                ws_pkt.payload = (uint8_t *)msg.json_payload;
+                ws_pkt.len = strlen(msg.json_payload);
+                ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+
+                esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ws_pkt);
+                if (ret != ESP_OK) {
+                    consecutive_errors[i]++;
+                    error_count++;
+                    ESP_LOGW(TAG, "Failed to send to client %d: %s (consec=%d)",
+                             i, esp_err_to_name(ret), consecutive_errors[i]);
+
+                    // Evict client after 3 consecutive failures - it's dead
+                    if (consecutive_errors[i] >= 3) {
+                        ESP_LOGW(TAG, "Evicting dead client %d (fd=%d)", i, ws_clients[i].fd);
+                        ws_clients[i].active = false;
+                        ws_clients[i].fd = -1;
+                        xQueueReset(ws_clients[i].message_queue);
+                        consecutive_errors[i] = 0;
                     }
+                } else {
+                    consecutive_errors[i] = 0;
+                    send_count++;
                 }
             }
         }
-        
+
         xSemaphoreGive(ws_clients_mutex);
-        
+
         // Small delay to prevent busy-waiting
         vTaskDelay(pdMS_TO_TICKS(10));
     }
@@ -982,8 +1011,19 @@ static esp_err_t ws_handler(httpd_req_t *req)
             }
         }
     } else if (ws_pkt.type == HTTPD_WS_TYPE_CLOSE) {
-        ESP_LOGI(TAG, "WebSocket close frame received");
+        ESP_LOGI(TAG, "WebSocket close frame received from fd=%d", fd);
         ws_client_remove(fd);
+    } else if (ws_pkt.type == HTTPD_WS_TYPE_PING) {
+        // Respond to ping with pong
+        httpd_ws_frame_t pong_pkt;
+        memset(&pong_pkt, 0, sizeof(httpd_ws_frame_t));
+        pong_pkt.type = HTTPD_WS_TYPE_PONG;
+        pong_pkt.len = 0;
+        httpd_ws_send_frame_async(server, fd, &pong_pkt);
+        DEBUG_LOG(TAG, "[WS] Ping received from fd=%d, sent pong", fd);
+    } else if (ws_pkt.type == HTTPD_WS_TYPE_PONG) {
+        // Client responded to our keepalive ping - it's alive
+        DEBUG_LOG(TAG, "[WS] Pong received from fd=%d, client alive", fd);
     }
     
     return ESP_OK;
@@ -1108,6 +1148,7 @@ static void start_webserver(void)
     config.server_port = 80;
     config.stack_size = 8192;
     config.max_open_sockets = WS_MAX_CLIENTS + 2;  // WS clients + HTTP requests
+    config.core_id = 1;  // Pin HTTP server to Core 1, keep Core 0 free for USB/printer
     
     if (httpd_start(&server, &config) == ESP_OK) {
         ESP_LOGI(TAG, "Starting HTTP/WebSocket server");
@@ -1192,7 +1233,7 @@ void app_main(void)
         .intr_flags = ESP_INTR_FLAG_LEVEL1
     };
     ESP_ERROR_CHECK(usb_host_install(&host_config));
-    xTaskCreate(usb_lib_task, "usb_lib", 4096, NULL, USB_HOST_TASK_PRIORITY, NULL);
+    xTaskCreatePinnedToCore(usb_lib_task, "usb_lib", 4096, NULL, USB_HOST_TASK_PRIORITY, NULL, 0);
     
     // Install CDC-ACM driver
     ESP_LOGI(TAG, "Installing CDC-ACM driver");
@@ -1234,14 +1275,14 @@ void app_main(void)
     // Start web server
     start_webserver();
     
-    // Start WebSocket message sender task
-    xTaskCreate(ws_sender_task, "ws_sender", 4096, NULL, 5, NULL);
+    // Start WebSocket message sender task - Core 1 (networking, isolated from USB)
+    xTaskCreatePinnedToCore(ws_sender_task, "ws_sender", 4096, NULL, 5, NULL, 1);
     
-    // Start LED task
-    xTaskCreate(led_task, "led_task", 2048, NULL, 3, &led_task_handle);
+    // Start LED task - Core 1 (non-critical)
+    xTaskCreatePinnedToCore(led_task, "led_task", 2048, NULL, 3, &led_task_handle, 1);
     
-    // Start system monitoring task
-    xTaskCreate(system_monitor_task, "sys_monitor", 4096, NULL, 2, NULL);
+    // Start system monitoring task - Core 1 (networking, isolated from USB)
+    xTaskCreatePinnedToCore(system_monitor_task, "sys_monitor", 4096, NULL, 2, NULL, 1);
     
     ESP_LOGI(TAG, "=== System Ready ===");
     ESP_LOGI(TAG, "Access web interface at:");

@@ -671,24 +671,69 @@
             });
         }
         
+        // WebSocket reconnection state
+        let reconnectAttempts = 0;
+        let countdownInterval = null;
+
+        function getReconnectDelay() {
+            // Exponential backoff: 3s, 6s, 12s, 24s, max 30s
+            const delay = Math.min(CONFIG.RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts), 30000);
+            return delay;
+        }
+
+        function scheduleReconnect() {
+            if (state.reconnectTimer) return; // already scheduled
+
+            const delay = getReconnectDelay();
+            reconnectAttempts++;
+            let secondsLeft = Math.round(delay / 1000);
+
+            console.log(`Reconnecting in ${secondsLeft}s (attempt ${reconnectAttempts})`);
+            updateConnectionStatus(false, `Reconnecting in ${secondsLeft}s...`);
+
+            // Countdown display
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    updateConnectionStatus(false, `Reconnecting in ${secondsLeft}s...`);
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+            }, 1000);
+
+            state.reconnectTimer = setTimeout(() => {
+                state.reconnectTimer = null;
+                connectWebSocket();
+            }, delay);
+        }
+
         // WebSocket
         function connectWebSocket() {
             console.log('Connecting to WebSocket');
             updateConnectionStatus(false, 'Connecting...');
-            
+
+            // Close any existing connection cleanly first
+            if (state.ws && state.ws.readyState !== WebSocket.CLOSED) {
+                state.ws.onclose = null; // prevent triggering reconnect loop
+                state.ws.close();
+            }
+
             state.ws = new WebSocket(CONFIG.WS_URL);
-            
+
             state.ws.onopen = () => {
                 console.log('WebSocket connected');
+                reconnectAttempts = 0; // reset backoff on success
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
                 state.connected = true;
                 updateConnectionStatus(true, 'Connected');
                 state.ws.send('CONNECT');
-                if (state.reconnectTimer) {
-                    clearTimeout(state.reconnectTimer);
-                    state.reconnectTimer = null;
-                }
             };
-            
+
             state.ws.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data);
@@ -697,19 +742,40 @@
                     console.error('Parse error:', e);
                 }
             };
-            
+
             state.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
+                // onclose will fire after onerror, so reconnect is handled there
             };
-            
+
             state.ws.onclose = () => {
                 console.log('WebSocket disconnected');
                 state.connected = false;
                 state.printerConnected = false;
                 updateConnectionStatus(false, 'Disconnected');
-                state.reconnectTimer = setTimeout(connectWebSocket, CONFIG.RECONNECT_DELAY_MS);
+                scheduleReconnect();
             };
         }
+
+        // Reconnect immediately when the page becomes visible again (e.g. Mac wakes from sleep)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Page visible again - checking WebSocket');
+                if (!state.ws || state.ws.readyState === WebSocket.CLOSED || state.ws.readyState === WebSocket.CLOSING) {
+                    // Cancel any pending reconnect timer and connect immediately
+                    if (state.reconnectTimer) {
+                        clearTimeout(state.reconnectTimer);
+                        state.reconnectTimer = null;
+                    }
+                    if (countdownInterval) {
+                        clearInterval(countdownInterval);
+                        countdownInterval = null;
+                    }
+                    reconnectAttempts = 0; // reset backoff for immediate reconnect
+                    connectWebSocket();
+                }
+            }
+        });
         
         function handleMessage(msg) {
             switch (msg.type) {
