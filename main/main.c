@@ -63,7 +63,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.1.2-debug"
+#define FIRMWARE_VERSION "v3.2.0"
 
 // ============================================================================
 // CONFIGURATION
@@ -137,6 +137,7 @@ typedef struct {
 typedef struct {
     int fd;                                    // WebSocket file descriptor
     bool active;                               // Is this slot active?
+    bool ping_pending;                         // Ping sent, waiting for pong
     QueueHandle_t message_queue;               // Per-client message queue
 } ws_client_t;
 
@@ -281,6 +282,7 @@ static int ws_client_add(int fd)
         if (!ws_clients[i].active) {
             ws_clients[i].fd = fd;
             ws_clients[i].active = true;
+            ws_clients[i].ping_pending = false;
             // Clear any stale messages
             xQueueReset(ws_clients[i].message_queue);
             
@@ -822,10 +824,8 @@ static void wifi_init_sta(void)
 
 static void system_monitor_task(void *arg)
 {
-    TickType_t last_wake = xTaskGetTickCount();
-    
     while (1) {
-        vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(2000)); // Every 2 seconds
+        vTaskDelay(pdMS_TO_TICKS(2000)); // Simple delay - never tries to catch up on missed ticks
         
         // Memory stats
         size_t free_heap = esp_get_free_heap_size();
@@ -855,23 +855,33 @@ static void system_monitor_task(void *arg)
             DEBUG_LOG(TAG, "[MONITOR] WiFi RSSI: %d dBm", ap_info.rssi);
         }
 
-        // Fix 2: Ping all active clients to detect dead connections early
+        // Ping all active clients - only if no ping already pending
         xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
         for (int i = 0; i < WS_MAX_CLIENTS; i++) {
             if (ws_clients[i].active) {
-                httpd_ws_frame_t ping_pkt;
-                memset(&ping_pkt, 0, sizeof(httpd_ws_frame_t));
-                ping_pkt.type = HTTPD_WS_TYPE_PING;
-                ping_pkt.payload = NULL;
-                ping_pkt.len = 0;
-                esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ping_pkt);
-                if (ret != ESP_OK) {
-                    ESP_LOGW(TAG, "Ping failed for client %d (fd=%d), evicting", i, ws_clients[i].fd);
+                if (ws_clients[i].ping_pending) {
+                    // Previous ping never got a pong - client is dead
+                    ESP_LOGW(TAG, "No pong from client %d (fd=%d), evicting", i, ws_clients[i].fd);
                     ws_clients[i].active = false;
                     ws_clients[i].fd = -1;
+                    ws_clients[i].ping_pending = false;
                     xQueueReset(ws_clients[i].message_queue);
                 } else {
-                    DEBUG_LOG(TAG, "[MONITOR] Ping sent to client %d", i);
+                    httpd_ws_frame_t ping_pkt;
+                    memset(&ping_pkt, 0, sizeof(httpd_ws_frame_t));
+                    ping_pkt.type = HTTPD_WS_TYPE_PING;
+                    ping_pkt.payload = NULL;
+                    ping_pkt.len = 0;
+                    esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ping_pkt);
+                    if (ret != ESP_OK) {
+                        ESP_LOGW(TAG, "Ping failed for client %d (fd=%d), evicting", i, ws_clients[i].fd);
+                        ws_clients[i].active = false;
+                        ws_clients[i].fd = -1;
+                        xQueueReset(ws_clients[i].message_queue);
+                    } else {
+                        ws_clients[i].ping_pending = true;
+                        DEBUG_LOG(TAG, "[MONITOR] Ping sent to client %d", i);
+                    }
                 }
             }
         }
@@ -891,41 +901,58 @@ static void ws_sender_task(void *arg)
     int consecutive_errors[WS_MAX_CLIENTS] = {0};
 
     while (1) {
-        xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
-
+        // Process one message per client per loop iteration
         for (int i = 0; i < WS_MAX_CLIENTS; i++) {
-            if (!ws_clients[i].active) continue;
 
-            if (xQueueReceive(ws_clients[i].message_queue, &msg, 0) == pdTRUE) {
-                httpd_ws_frame_t ws_pkt;
-                memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-                ws_pkt.payload = (uint8_t *)msg.json_payload;
-                ws_pkt.len = strlen(msg.json_payload);
-                ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+            // Step 1: Take mutex only long enough to dequeue a message and read the fd
+            xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
 
-                esp_err_t ret = httpd_ws_send_frame_async(server, ws_clients[i].fd, &ws_pkt);
-                if (ret != ESP_OK) {
-                    consecutive_errors[i]++;
-                    error_count++;
-                    ESP_LOGW(TAG, "Failed to send to client %d: %s (consec=%d)",
-                             i, esp_err_to_name(ret), consecutive_errors[i]);
-
-                    // Evict client after 3 consecutive failures - it's dead
-                    if (consecutive_errors[i] >= 3) {
-                        ESP_LOGW(TAG, "Evicting dead client %d (fd=%d)", i, ws_clients[i].fd);
-                        ws_clients[i].active = false;
-                        ws_clients[i].fd = -1;
-                        xQueueReset(ws_clients[i].message_queue);
-                        consecutive_errors[i] = 0;
-                    }
-                } else {
-                    consecutive_errors[i] = 0;
-                    send_count++;
-                }
+            if (!ws_clients[i].active) {
+                xSemaphoreGive(ws_clients_mutex);
+                continue;
             }
-        }
 
-        xSemaphoreGive(ws_clients_mutex);
+            bool got_msg = (xQueueReceive(ws_clients[i].message_queue, &msg, 0) == pdTRUE);
+            int fd = ws_clients[i].fd;
+
+            // Release mutex BEFORE any network send - this is the critical change
+            xSemaphoreGive(ws_clients_mutex);
+
+            if (!got_msg) continue;
+
+            // Step 2: Send without holding the mutex - may block on TCP but won't block USB RX
+            httpd_ws_frame_t ws_pkt;
+            memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
+            ws_pkt.payload = (uint8_t *)msg.json_payload;
+            ws_pkt.len = strlen(msg.json_payload);
+            ws_pkt.type = HTTPD_WS_TYPE_TEXT;
+
+            esp_err_t ret = httpd_ws_send_frame_async(server, fd, &ws_pkt);
+
+            // Step 3: Take mutex again only to update error state
+            xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
+
+            if (ret != ESP_OK) {
+                consecutive_errors[i]++;
+                error_count++;
+                ESP_LOGW(TAG, "Failed to send to client %d: %s (consec=%d)",
+                         i, esp_err_to_name(ret), consecutive_errors[i]);
+
+                if (consecutive_errors[i] >= 3) {
+                    ESP_LOGW(TAG, "Evicting dead client %d (fd=%d)", i, ws_clients[i].fd);
+                    ws_clients[i].active = false;
+                    ws_clients[i].fd = -1;
+                    ws_clients[i].ping_pending = false;
+                    xQueueReset(ws_clients[i].message_queue);
+                    consecutive_errors[i] = 0;
+                }
+            } else {
+                consecutive_errors[i] = 0;
+                send_count++;
+            }
+
+            xSemaphoreGive(ws_clients_mutex);
+        }
 
         // Small delay to prevent busy-waiting
         vTaskDelay(pdMS_TO_TICKS(10));
@@ -1022,7 +1049,15 @@ static esp_err_t ws_handler(httpd_req_t *req)
         httpd_ws_send_frame_async(server, fd, &pong_pkt);
         DEBUG_LOG(TAG, "[WS] Ping received from fd=%d, sent pong", fd);
     } else if (ws_pkt.type == HTTPD_WS_TYPE_PONG) {
-        // Client responded to our keepalive ping - it's alive
+        // Client responded to our keepalive ping - clear the pending flag
+        xSemaphoreTake(ws_clients_mutex, portMAX_DELAY);
+        for (int i = 0; i < WS_MAX_CLIENTS; i++) {
+            if (ws_clients[i].active && ws_clients[i].fd == fd) {
+                ws_clients[i].ping_pending = false;
+                break;
+            }
+        }
+        xSemaphoreGive(ws_clients_mutex);
         DEBUG_LOG(TAG, "[WS] Pong received from fd=%d, client alive", fd);
     }
     
