@@ -674,6 +674,7 @@
         // WebSocket reconnection state
         let reconnectAttempts = 0;
         let countdownInterval = null;
+        let heartbeatTimeout = null;
 
         function getReconnectDelay() {
             // Exponential backoff: 3s, 6s, 12s, 24s, max 30s
@@ -709,6 +710,21 @@
             }, delay);
         }
 
+        function resetHeartbeat() {
+            if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+            heartbeatTimeout = setTimeout(() => {
+                console.warn('No response from ESP - connection lost');
+                updateConnectionStatus(false, 'Connection lost - ESP not responding');
+                state.connected = false;
+                state.printerConnected = false;
+                if (state.ws) {
+                    state.ws.onclose = null; // prevent triggering reconnect loop
+                    state.ws.close();
+                }
+                scheduleReconnect();
+            }, 5000); // 5 second timeout
+        }
+
         // WebSocket
         function connectWebSocket() {
             console.log('Connecting to WebSocket');
@@ -731,11 +747,13 @@
                 }
                 state.connected = true;
                 updateConnectionStatus(true, 'Connected');
+                resetHeartbeat(); // Start heartbeat timer
                 state.ws.send('CONNECT');
             };
 
             state.ws.onmessage = (event) => {
                 try {
+                    resetHeartbeat(); // Reset timer on any message from ESP
                     const msg = JSON.parse(event.data);
                     handleMessage(msg);
                 } catch (e) {
@@ -750,6 +768,7 @@
 
             state.ws.onclose = () => {
                 console.log('WebSocket disconnected');
+                if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
                 state.connected = false;
                 state.printerConnected = false;
                 updateConnectionStatus(false, 'Disconnected');
@@ -1446,11 +1465,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.0');
+                console.log('HTML Version: v3.2.1');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.1.1');
+                console.log('Prusa Monitor V3.2.1');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1477,7 +1496,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.0</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.1</div>
     
     <script>
         function refreshHTML() {
