@@ -22,7 +22,7 @@
         body {
             background-color: #293742;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
         }
         
         h2 {
@@ -47,7 +47,7 @@
             flex-direction: column;
             border: 1px solid #4f5b66;
             padding: 10px;
-            margin: 20px 0;
+            margin: 15px 0;
             box-sizing: border-box;
             border-radius: 20px;
             box-shadow: 5px 5px 20px black;
@@ -127,7 +127,7 @@
             border: 1px solid #2a2a2a;
             border-radius: 8px;
             padding: 10px;
-            height: 300px;
+            height: 270px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 0.85rem;
@@ -258,12 +258,12 @@
         
         /* Temperature Graph */
         .graph-container {
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         
         canvas#temp-graph {
             width: 100% !important;
-            height: 200px !important;
+            height: 180px !important;
             border-radius: 8px;
         }
         
@@ -450,6 +450,10 @@
                 <div class="section-header">
                     <h2>Serial Console</h2>
                     <div style="display:flex;gap:10px;align-items:center;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoscroll-toggle" checked>
+                            Auto Scroll
+                        </label>
                         <label class="checkbox-label">
                             <input type="checkbox" id="hide-temps" checked>
                             Hide Temps
@@ -1164,8 +1168,11 @@
                 logBox.removeChild(logBox.firstChild);
             }
             
-            // Auto-scroll
-            logBox.scrollTop = logBox.scrollHeight;
+            // Auto-scroll only if toggle is checked
+            const autoscrollToggle = document.getElementById('autoscroll-toggle');
+            if (autoscrollToggle && autoscrollToggle.checked) {
+                logBox.scrollTop = logBox.scrollHeight;
+            }
         }
         
         function addCommandHistoryEntry(text) {
@@ -1465,11 +1472,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.1');
+                console.log('HTML Version: v3.2.2');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.2.1');
+                console.log('Prusa Monitor V3.2.2');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1496,7 +1503,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.1</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.2</div>
     
     <script>
         function refreshHTML() {
