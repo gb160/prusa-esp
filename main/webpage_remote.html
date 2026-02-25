@@ -884,10 +884,21 @@
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
-            // Show current values with 1 decimal place
+            // Dynamically set gauge colors based on temperature difference
+            const nozzleColor = getTemperatureColor(nozzle.current, nozzle.target);
+            const bedColor = getTemperatureColor(bed.current, bed.target);
+            const heatbreakColor = getTemperatureColor(heatbreak.current, heatbreak.target);
+            
+            // Update color and value for each gauge
+            gauges.nozzle.setOptions({levelColors: [nozzleColor]});
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
+            
+            gauges.bed.setOptions({levelColors: [bedColor]});
             gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
+            
+            gauges.heatbreak.setOptions({levelColors: [heatbreakColor]});
             gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
+            
             gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
 
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
@@ -897,15 +908,6 @@
             gauges.nozzle.update({targetLine: guageTargetLine});
             gauges.bed.update({targetLine: bedTargetLine});
             gauges.heatbreak.update({targetLine: heatbreakTargetLine});
-
-            // Dynamically set gauge colors based on temperature difference
-            const nozzleColor = getTemperatureColor(nozzle.current, nozzle.target);
-            const bedColor = getTemperatureColor(bed.current, bed.target);
-            const heatbreakColor = getTemperatureColor(heatbreak.current, heatbreak.target);
-            
-            gauges.nozzle.update({levelColors: [nozzleColor]});
-            gauges.bed.update({levelColors: [bedColor]});
-            gauges.heatbreak.update({levelColors: [heatbreakColor]});
 
             
             // Update page title with 1 decimal place
