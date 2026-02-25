@@ -596,17 +596,17 @@
         }
         
         function initGauges() {
-            //green/amber/red
-            colors = ["#00FF00", "#d7ae0b", "#d70b0b"]
-            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", colors, 1);
-            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", colors, 1);
-            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", colors, 1);
-            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", colors), 1;
+            // Temperature gauges - colors will be set dynamically in updateTemperatureGauges()
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", ["#4CAF50"], 1);
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", ["#4CAF50"], 1);
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", ["#4CAF50"], 1);
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", ["#4CAF50"], 1);
             
             // Power gauges - all same green
-            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", colors);
-            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", colors);
-            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", colors);
+            const powerColors = ["#4CAF50"];
+            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", powerColors);
+            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", powerColors);
+            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", powerColors);
             
             // Progress gauge - donut style
             gauges.progress = new JustGage({
@@ -862,29 +862,55 @@
             statusText.textContent = text;
         }
         
+
+        function getTargetColor(current, target) {
+            if (target <= 0) return "#4CAF50"; // Green when ambient
+            
+            const diff = current - target;
+            
+            if (Math.abs(diff) <= 3) {
+                return "#4CAF50";  // Green: within ±3° of target
+            } else if (diff < 0) {
+                return "#2196F3";  // Blue: more than 3° below target
+            } else {
+                return "#f44336";  // Red: more than 3° above target
+            }
+        }
+
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Build labels with targets as integers
+            // Build labels with targets as integers - consistent "Target: Ambient" format
             const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "Target: Ambient";
             const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "Target: Ambient";
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
-
-            // Show current values with 1 decimal place
+            // Get colors based on target vs current
+            const nozzleColor = getTargetColor(nozzle.current, nozzle.target);
+            const bedColor = getTargetColor(bed.current, bed.target);
+            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target);
+            
+            // Update nozzle
+            gauges.nozzle.config.levelColors = [nozzleColor];
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
-            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
-            gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
-            gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
-
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
-            const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
-            const heatbreakTargetLine = heatbreak.target > 0 ? Math.round(heatbreak.target) : null;
-
             gauges.nozzle.update({targetLine: guageTargetLine});
+            
+            // Update bed
+            gauges.bed.config.levelColors = [bedColor];
+            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
+            const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
             gauges.bed.update({targetLine: bedTargetLine});
+            
+            // Update heatbreak
+            gauges.heatbreak.config.levelColors = [heatbreakColor];
+            gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
+            const heatbreakTargetLine = heatbreak.target > 0 ? Math.round(heatbreak.target) : null;
             gauges.heatbreak.update({targetLine: heatbreakTargetLine});
+            
+            // Update chamber (no color change)
+            gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
 
             
             // Update page title with 1 decimal place
@@ -1474,11 +1500,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.4');
+                console.log('HTML Version: v3.2.5');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.2.4');
+                console.log('Prusa Monitor V3.2.5');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1514,7 +1540,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.4</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.5</div>
     
     <script>
         function refreshHTML() {
