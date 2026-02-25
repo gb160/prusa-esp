@@ -889,25 +889,23 @@
             const bedColor = getTemperatureColor(bed.current, bed.target);
             const heatbreakColor = getTemperatureColor(heatbreak.current, heatbreak.target);
             
-            // Update color and value for each gauge
-            gauges.nozzle.setOptions({levelColors: [nozzleColor]});
+            // Recreate gauges with new colors
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", [nozzleColor], 1);
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
+            const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
+            gauges.nozzle.update({targetLine: guageTargetLine});
             
-            gauges.bed.setOptions({levelColors: [bedColor]});
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", [bedColor], 1);
             gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
+            const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
+            gauges.bed.update({targetLine: bedTargetLine});
             
-            gauges.heatbreak.setOptions({levelColors: [heatbreakColor]});
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", [heatbreakColor], 1);
             gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
+            const heatbreakTargetLine = heatbreak.target > 0 ? Math.round(heatbreak.target) : null;
+            gauges.heatbreak.update({targetLine: heatbreakTargetLine});
             
             gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
-
-            const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
-            const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
-            const heatbreakTargetLine = heatbreak.target > 0 ? Math.round(heatbreak.target) : null;
-
-            gauges.nozzle.update({targetLine: guageTargetLine});
-            gauges.bed.update({targetLine: bedTargetLine});
-            gauges.heatbreak.update({targetLine: heatbreakTargetLine});
 
             
             // Update page title with 1 decimal place
@@ -1497,11 +1495,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.5');
+                console.log('HTML Version: v3.2.8');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.2.5');
+                console.log('Prusa Monitor V3.2.8');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1537,7 +1535,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.5</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.8</div>
     
     <script>
         function refreshHTML() {
