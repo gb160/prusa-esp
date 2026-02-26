@@ -1181,11 +1181,11 @@ static esp_err_t reboot_get_handler(httpd_req_t *req)
 {
     const char *reboot_msg =
         "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
-        "<meta http-equiv='refresh' content='5;url=/'/>"
+        "<meta http-equiv='refresh' content='10;url=/'/>"
         "<style>body{font-family:monospace;background:#0f0f0f;color:#4CAF50;"
         "padding:40px;text-align:center;}</style></head><body>"
         "<h2>Rebooting...</h2>"
-        "<p>The device is restarting. Redirecting in 5 seconds...</p>"
+        "<p>The device is restarting. Redirecting in 10 seconds...</p>"
         "</body></html>";
 
     httpd_resp_set_type(req, "text/html; charset=utf-8");
