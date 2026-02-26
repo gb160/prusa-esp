@@ -1177,6 +1177,27 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t reboot_get_handler(httpd_req_t *req)
+{
+    const char *reboot_msg =
+        "<!DOCTYPE html><html><head><meta charset='UTF-8'>"
+        "<meta http-equiv='refresh' content='5;url=/'/>"
+        "<style>body{font-family:monospace;background:#0f0f0f;color:#4CAF50;"
+        "padding:40px;text-align:center;}</style></head><body>"
+        "<h2>Rebooting...</h2>"
+        "<p>The device is restarting. Redirecting in 5 seconds...</p>"
+        "</body></html>";
+
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_sendstr(req, reboot_msg);
+
+    ESP_LOGI(TAG, "Reboot requested via /reboot endpoint");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+
+    return ESP_OK;
+}
+
 static void start_webserver(void)
 {
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
@@ -1206,6 +1227,15 @@ static void start_webserver(void)
         };
         httpd_register_uri_handler(server, &refresh_uri);
         
+        // Reboot handler
+        httpd_uri_t reboot_uri = {
+            .uri = "/reboot",
+            .method = HTTP_GET,
+            .handler = reboot_get_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &reboot_uri);
+
         // WebSocket handler
         httpd_uri_t ws_uri = {
             .uri = "/ws",
@@ -1324,6 +1354,7 @@ void app_main(void)
     ESP_LOGI(TAG, "  - http://coreone.local/");
     ESP_LOGI(TAG, "  - WebSocket: ws://coreone.local/ws");
     ESP_LOGI(TAG, "  - Manual HTML refresh: http://coreone.local/refresh");
+    ESP_LOGI(TAG, "  - Reboot: http://coreone.local/reboot");
     ESP_LOGI(TAG, "Debug logging: GPIO %d (connect to monitoring device RX)", DEBUG_UART_TX_PIN);
     
     // Main USB connection loop
