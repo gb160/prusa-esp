@@ -1,912 +1,1227 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prusa Core One Monitor V3</title>
+    <title>Prusa Core One Monitor</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu&display=swap">
+    <!-- Removed Raphael (v1 dependency). Using JustGage v2 UMD (zero-deps) -->
+    <script src="https://cdn.jsdelivr.net/npm/justgage@2.0.1/dist/justgage.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.26.0/plotly.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <style>
-        /* ========================================
-           GLOBAL STYLES
-           ======================================== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Pi Stats Color Scheme */
+        body, h2, p {
+            color: #ffffff;
+            font-family: "Ubuntu", normal;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
         }
-
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0f0f0f;
-            color: #e0e0e0;
-            padding: 20px;
-            line-height: 1.6;
+            background-color: #293742;
+            margin: 0;
+            padding: 15px;
         }
-
+        
+        h2 {
+            margin-bottom: 0.5rem;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        
+        p {
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
         .container {
             max-width: 1400px;
             margin: 0 auto;
         }
-
-        /* ========================================
-           CONNECTION STATUS BANNER
-           ======================================== */
-        .connection-status {
-            background: #1a1a1a;
-            border-left: 4px solid #f44336;
-            border-radius: 8px;
-            padding: 15px 20px;
-            margin-bottom: 20px;
+        
+        /* Stats Section - Pi Stats Style */
+        .stats-section {
             display: flex;
-            align-items: center;
-            gap: 12px;
-            transition: all 0.3s ease;
-        }
-
-        .connection-status.connected {
-            border-left-color: #4CAF50;
-        }
-
-        .connection-status.connecting {
-            border-left-color: #FFC107;
-        }
-
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: #f44336;
-            animation: pulse 2s infinite;
-        }
-
-        .connection-status.connected .status-indicator {
-            background: #4CAF50;
-            animation: none;
-        }
-
-        .connection-status.connecting .status-indicator {
-            background: #FFC107;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        .status-text {
-            flex: 1;
-            font-size: 0.95rem;
-        }
-
-        .status-text strong {
-            font-weight: 600;
-        }
-
-        /* ========================================
-           TEMPERATURE CARDS
-           ======================================== */
-        .temp-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .temp-card {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .temp-card:hover {
-            border-color: #3a3a3a;
-            transform: translateY(-2px);
-        }
-
-        .temp-label {
-            font-size: 0.85rem;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
-
-        .temp-value {
-            font-size: 2rem;
-            font-weight: 300;
-            margin-bottom: 5px;
-        }
-
-        .temp-target {
-            font-size: 0.9rem;
-            color: #666;
-            transition: color 0.3s ease;
-        }
-
-        .temp-target.heating {
-            color: #f44336;
-        }
-
-        .temp-target.at-temp {
-            color: #4CAF50;
-        }
-
-        .temp-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 8px;
-        }
-
-        /* ========================================
-           TEMPERATURE GRAPH
-           ======================================== */
-        .graph-container {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .graph-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .graph-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: #e0e0e0;
-        }
-
-        .graph-legend {
-            display: flex;
-            gap: 20px;
-            font-size: 0.85rem;
-        }
-
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 2px;
-        }
-
-        canvas {
-            width: 100% !important;
-            height: 200px !important;
-            border-radius: 8px;
-        }
-
-        /* ========================================
-           PROGRESS SECTION
-           ======================================== */
-        .progress-section {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .progress-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        .progress-percent {
-            font-size: 1.5rem;
-            font-weight: 300;
-            color: #4CAF50;
-        }
-
-        .progress-bar-container {
-            background: #2a2a2a;
-            border-radius: 8px;
-            height: 12px;
-            margin-bottom: 15px;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            background: linear-gradient(90deg, #4CAF50, #66BB6A);
-            height: 100%;
-            width: 0%;
-            transition: width 0.5s ease;
-            border-radius: 8px;
-        }
-
-        .progress-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-        }
-
-        .progress-detail {
-            text-align: center;
-        }
-
-        .detail-label {
-            font-size: 0.85rem;
-            color: #888;
-            margin-bottom: 5px;
-        }
-
-        .detail-value {
-            font-size: 1.2rem;
-            color: #e0e0e0;
-        }
-
-        /* ========================================
-           CONTROLS
-           ======================================== */
-        .controls {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .controls-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-            margin-bottom: 15px;
-        }
-
-        .control-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        input[type="text"] {
-            flex: 1;
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 12px 15px;
-            color: #e0e0e0;
-            font-size: 0.95rem;
-            font-family: 'Courier New', monospace;
-        }
-
-        input[type="text"]:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-
-        button {
-            background: #4CAF50;
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            color: white;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        button:hover {
-            background: #45a049;
-            transform: translateY(-1px);
-        }
-
-        button:active {
-            transform: translateY(0);
-        }
-
-        button:disabled {
-            background: #555;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .quick-commands {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 10px;
-        }
-
-        .quick-cmd-btn {
-            background: #2a2a2a;
-            border: 1px solid #3a3a3a;
+            flex-direction: column;
+            border: 1px solid #4f5b66;
             padding: 10px;
-            font-size: 0.85rem;
+            margin: 15px 0;
+            box-sizing: border-box;
+            border-radius: 20px;
+            box-shadow: 5px 5px 20px black;
+            background: linear-gradient(to left top, #293742, #1c262f);
         }
-
-        .quick-cmd-btn:hover {
-            background: #3a3a3a;
-            border-color: #4a4a4a;
+        
+        /* Connection Status */
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
         }
-
-        /* ========================================
-           LOG CONSOLE
-           ======================================== */
-        .log-section {
-            background: #1a1a1a;
-            border: 1px solid #2a2a2a;
-            border-radius: 12px;
-            padding: 20px;
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f44336;
         }
-
-        .log-header {
+        
+        .status-dot.connected {
+            background: #4CAF50;
+        }
+        
+        /* Replaced inline progress with block progress lines */
+        .progress-block {
+            display: block;
+            margin-top: 8px;
+            font-size: 1rem;
+            color: #ddd;
+            line-height: 1.3;
+        }
+        
+        .progress-block .muted {
+            color: #999;
+            font-size: 0.95rem;
+        }
+        
+        /* Gauge Rows - Exact Pi Stats Layout */
+        .cpu-row {
+            display: flex;
+            justify-content: center;
+        }
+        
+        .cpu-gauge {
+            flex: 1;
+            margin-right: 1%;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 200px;
+            max-height: 200px;
+        }
+        
+        /* Bottom Section */
+        .bottom-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .section-panel {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .section-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
-
-        .log-title {
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
-
-        .log-controls {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-
-        input[type="checkbox"] {
-            cursor: pointer;
-        }
-
-        .clear-log-btn {
-            background: #f44336;
-            padding: 8px 16px;
-            font-size: 0.85rem;
-        }
-
-        .clear-log-btn:hover {
-            background: #da190b;
-        }
-
+        
+        /* Log Console */
         .log-box {
             background: #0a0a0a;
             border: 1px solid #2a2a2a;
             border-radius: 8px;
-            padding: 15px;
-            height: 400px;
+            padding: 10px;
+            height: 270px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
             font-size: 0.85rem;
+            margin-bottom: 10px;
         }
-
+        
         .log-entry {
-            padding: 4px 0;
-            border-bottom: 1px solid #1a1a1a;
-            display: flex;
-            gap: 10px;
+            padding: 2px 0;
+            color: #e0e0e0;
         }
-
-        .log-entry:last-child {
-            border-bottom: none;
-        }
-
-        .log-timestamp {
-            color: #666;
-            min-width: 90px;
-        }
-
+        
         .log-box::-webkit-scrollbar {
             width: 8px;
         }
-
+        
         .log-box::-webkit-scrollbar-track {
             background: #1a1a1a;
         }
-
+        
         .log-box::-webkit-scrollbar-thumb {
             background: #3a3a3a;
             border-radius: 4px;
         }
-
-        .log-box::-webkit-scrollbar-thumb:hover {
-            background: #4a4a4a;
+        
+        /* Controls */
+        .control-row {
+            display: flex;
+            gap: 10px;
         }
-
-        /* ========================================
-           RESPONSIVE DESIGN
-           ======================================== */
-        @media (max-width: 768px) {
-            body {
-                padding: 10px;
-            }
-
-            .temp-cards {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .quick-commands {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .control-row {
-                flex-direction: column;
+        
+        textarea {
+            flex: 1;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 10px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        button {
+            background: #4CAF50;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: white;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-family: "Ubuntu", sans-serif;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        .clear-btn {
+            background: #f44336;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        
+        .clear-btn:hover {
+            background: #da190b;
+        }
+        
+        /* Dropdown */
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .dropdown-toggle {
+            font-size: 1.5rem;
+            color: #888;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+        
+        .dropdown-toggle:hover {
+            color: #ccc;
+        }
+        
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            min-width: 180px;
+            display: none;
+            flex-direction: column;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+        
+        .dropdown-menu.show {
+            display: flex;
+        }
+        
+        .dropdown-item {
+            padding: 12px 16px;
+            color: #ddd;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .dropdown-item:hover {
+            background: #2a2a2a;
+        }
+        
+        /* Checkboxes */
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            color: #888;
+        }
+        
+        /* Temperature Graph */
+        .graph-container {
+            margin-bottom: 15px;
+        }
+        
+        canvas#temp-graph {
+            width: 100% !important;
+            height: 180px !important;
+            border-radius: 8px;
+        }
+        
+        /* Version Tag */
+        .version-tag {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 0.85rem;
+            font-family: 'Courier New', monospace;
+        }
+        
+        /* Mesh Visualization Modal */
+        .mesh-modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.8);
+            animation: fadeIn 0.3s;
+        }
+        
+        .mesh-modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mesh-modal-content {
+            background: #1a1a1a;
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 1200px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        }
+        
+        .mesh-modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #2a2a2a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .mesh-modal-header h2 {
+            margin: 0;
+            color: #4CAF50;
+        }
+        
+        .mesh-stats {
+            color: #ddd;
+            font-size: 0.9rem;
+        }
+        
+        .mesh-stats span {
+            margin-left: 20px;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .mesh-modal-close {
+            background: #f44336;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mesh-modal-close:hover {
+            background: #da190b;
+        }
+        
+        .mesh-modal-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .mesh-download-btn {
+            background: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+        
+        .mesh-download-btn:hover {
+            background: #45a049;
+        }
+        
+        .mesh-modal-body {
+            flex: 1;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        #mesh-plot {
+            width: 100%;
+            height: 100%;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @media (max-width: 968px) {
+            .bottom-section {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
-
 <body>
     <div class="container">
-        <!-- Connection Status Banner -->
-        <div id="connection-status" class="connection-status connecting">
-            <div class="status-indicator"></div>
-            <div class="status-text">
-                <strong id="ws-status">Connecting to printer...</strong>
-                <span id="printer-status"></span>
+        
+        <div class="bottom-section">
+            <!-- Connection Status with Progress Gauge -->
+            <div class="stats-section">
+                <div class="connection-status">
+                    <div class="status-dot" id="status-dot"></div>
+                    <span id="status-text">Connecting...</span>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-progress"></div>
+                </div>
+                <!-- Progress text info below gauge -->
+                <div class="progress-block" id="progress-block" style="text-align:center;margin-top:10px;">
+                    <div id="progress-remaining" style="display:none;"></div>
+                    <div id="progress-change" style="display:none;margin-top:4px;"></div>
+                </div>
+            </div>
+            <!-- Temperature Graph -->
+            <div class="stats-section graph-container">
+                <h2>Temperature History:</h2>
+                <canvas id="temp-graph"></canvas>
+            </div>        
+        </div>        
+
+        <div class="bottom-section">
+            <!-- Temperature Gauges -->
+            <div class="stats-section">
+                <h2>Temperatures :</h2>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-nozzle"></div>
+                    <div class="cpu-gauge" id="gauge-bed"></div>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-heatbreak"></div>
+                    <div class="cpu-gauge" id="gauge-chamber"></div>
+                </div>
+            </div>            
+            <!-- Power Gauges -->
+            <div class="stats-section">
+                <h2>Power :</h2>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-power-nozzle"></div>
+                    <div class="cpu-gauge" id="gauge-power-bed"></div>
+                </div>
+                <div class="cpu-row">
+                    <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
+                </div>
             </div>
         </div>
-
-        <!-- Temperature Cards -->
-        <div class="temp-cards">
-            <div class="temp-card">
-                <div class="temp-label">Nozzle</div>
-                <div class="temp-value" id="temp-nozzle">--°C</div>
-                <div class="temp-target" id="target-nozzle">Target: --°C</div>
-            </div>
-
-            <div class="temp-card">
-                <div class="temp-label">Bed</div>
-                <div class="temp-value" id="temp-bed">--°C</div>
-                <div class="temp-target" id="target-bed">Target: --°C</div>
-            </div>
-
-            <div class="temp-card">
-                <div class="temp-label">Heatbreak</div>
-                <div class="temp-value" id="temp-heatbreak">--°C</div>
-                <div class="temp-target" id="target-heatbreak">Target: --°C</div>
-            </div>
-
-            <div class="temp-card">
-                <div class="temp-label">Chamber</div>
-                <div class="temp-value" id="temp-chamber">--°C</div>
-                <div class="temp-target">Ambient</div>
-            </div>
-        </div>
-
-        <!-- Temperature Graph -->
-        <div class="graph-container">
-            <div class="graph-header">
-                <div class="graph-title">Temperature History</div>
-                <div class="graph-legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #f44336;"></div>
-                        <span>Nozzle</span>
+        
+        <!-- Console and Commands -->
+        <div class="bottom-section">
+            <!-- Serial Console -->
+            <div class="stats-section section-panel">
+                <div class="section-header">
+                    <h2>Serial Console</h2>
+                    <div style="display:flex;gap:10px;align-items:center;">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="autoscroll-toggle" checked>
+                            Auto Scroll
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="hide-temps" checked>
+                            Hide Temps
+                        </label>
+                        <button class="clear-btn" onclick="clearLog()">Clear</button>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #2196F3;"></div>
-                        <span>Bed</span>
+                </div>
+                <div class="log-box" id="log-box"></div>
+            </div>
+            
+            <!-- G-code Commands -->
+            <div class="stats-section section-panel">
+                <div class="section-header">
+                    <h2>G-code Commands</h2>
+                    <div class="dropdown">
+                        <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
+                        <div class="dropdown-menu" id="dropdown-menu"></div>
                     </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: #4CAF50;"></div>
-                        <span>Heatbreak</span>
-                    </div>
                 </div>
-            </div>
-            <canvas id="temp-graph"></canvas>
-        </div>
-
-        <!-- Progress Section -->
-        <div class="progress-section">
-            <div class="progress-header">
-                <div class="progress-title">Print Progress</div>
-                <div class="progress-percent" id="progress-percent">--%</div>
-            </div>
-            <div class="progress-bar-container">
-                <div class="progress-bar" id="progress-bar"></div>
-            </div>
-            <div class="progress-details">
-                <div class="progress-detail">
-                    <div class="detail-label">Time Remaining</div>
-                    <div class="detail-value" id="time-remaining">--</div>
-                </div>
-                <div class="progress-detail">
-                    <div class="detail-label">Next Change</div>
-                    <div class="detail-value" id="next-change">--</div>
-                </div>
-                <div class="progress-detail">
-                    <div class="detail-label">Z Height</div>
-                    <div class="detail-value" id="z-height">-- mm</div>
+                <div class="log-box" id="command-history"></div>
+                <div class="control-row">
+                    <textarea id="gcode-input" placeholder="Enter G-code..." rows="3" onkeydown="handleKeyDown(event)"></textarea>
+                    <button onclick="sendGCode()" id="send-btn">Send</button>
                 </div>
             </div>
         </div>
-
-        <!-- Controls -->
-        <div class="controls">
-            <div class="controls-title">G-Code Commands</div>
-            <div class="control-row">
-                <input type="text" id="gcode-input" placeholder="Enter G-code command (e.g., M105)" 
-                       onkeypress="if(event.key==='Enter') sendGCode()">
-                <button onclick="sendGCode()" id="send-btn">Send</button>
-            </div>
-            <div class="quick-commands">
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M105')">Get Temp (M105)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M114')">Get Position (M114)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M27')">Get SD Status (M27)</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M117 Hello!')">Display Message</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('M300 S1000 P200')">Beep</button>
-                <button class="quick-cmd-btn" onclick="sendQuickCmd('G28')">Home All (G28)</button>
-            </div>
-        </div>
-
-        <!-- Log Console -->
-        <div class="log-section">
-            <div class="log-header">
-                <div class="log-title">Serial Console</div>
-                <div class="log-controls">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="hide-temps" checked>
-                        Hide Temperature Reports
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="autoscroll" checked>
-                        Auto-scroll
-                    </label>
-                    <button class="clear-log-btn" onclick="clearLog()">Clear</button>
+        
+    </div>
+    
+    <!-- Mesh Visualization Modal -->
+    <div class="mesh-modal" id="mesh-modal">
+        <div class="mesh-modal-content">
+            <div class="mesh-modal-header">
+                <div>
+                    <h2>Bed Mesh Visualization</h2>
+                    <div class="mesh-stats" id="mesh-stats"></div>
+                </div>
+                <div class="mesh-modal-buttons">
+                    <button class="mesh-download-btn" onclick="downloadMeshImage()">Download PNG</button>
+                    <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
                 </div>
             </div>
-            <div class="log-box" id="log-box"></div>
+            <div class="mesh-modal-body">
+                <div id="mesh-plot"></div>
+            </div>
         </div>
     </div>
-
+    
     <script>
         // ========================================
-        // CONFIGURATION
+        // DEBUG MODE - Set to true to test with dummy data
         // ========================================
+        // const DEBUG_MODE = true;
+        const DEBUG_MODE = false;
+        
+        // Configuration
         const CONFIG = {
             WS_URL: `ws://${window.location.hostname}/ws`,
             RECONNECT_DELAY_MS: 3000,
             MAX_LOG_ENTRIES: 500,
-            MAX_GRAPH_POINTS: 60,
-            TEMP_TOLERANCE: 0.5
+            MAX_GRAPH_POINTS: 60
         };
-
-        // ========================================
-        // STATE MANAGEMENT
-        // ========================================
+        
+        const GCODE_MAP = {
+            'Mesh Bed Visualization': ['M420 V'],
+            'Preheat PLA': ['M104 S170', 'M140 S60'],
+            'Preheat PETG': ['M104 S170', 'M140 S85'],
+            'Cooldown': ['M104 S0', 'M140 S0'],
+            'Unload Filament': ['M702'],
+            'Home All': ['G28'],
+            'Calibrate Z Axis': ['G162 Z']
+        };
+        
+        // State
         const state = {
             ws: null,
             reconnectTimer: null,
             connected: false,
             printerConnected: false,
-            
             temps: {
                 nozzle: { current: 0, target: 0 },
                 bed: { current: 0, target: 0 },
                 heatbreak: { current: 0, target: 0 },
-                chamber: { current: 0 }
+                chamber: { current: 0, target: 0 }
             },
-            
-            progress: {
-                percent: 0,
-                timeLeft: 0,
-                changeTime: 0
-            },
-            
-            position: {
-                x: 0, y: 0, z: 0, e: 0
-            },
-            
-            power: {
-                nozzle: 0,
-                bed: 0,
-                heatbreak: 0
-            },
-            
-            // Temperature history for graphing
+            progress: { percent: 0, timeLeft: 0, changeTime: 0 },
+            position: { x: 0, y: 0, z: 0, e: 0 },
+            power: { nozzle: 0, bed: 0, heatbreak: 0 },
             tempHistory: {
                 timestamps: [],
                 nozzle: [],
                 bed: [],
-                heatbreak: []
-            }
+                heatbreak: [],
+                chamber: []
+            },
+            commandHistory: [],
+            commandHistoryIndex: -1,
+            // Mesh bed parsing state
+            meshParsing: false,
+            meshData: [],
+            meshComplete: false
         };
+        
+        let gauges = {};
+        let tempChart = null;
+        
+        // Create gauge - Pi Stats style with custom text
+        function createGauge(id, min, max, title, label, symbol, color, dec, target) {
+            return new JustGage({
+                id: id,
+                value: 0,
+                min: min,
+                max: max,
+                decimals: dec,
+                title: title,
+                label: label,
+                symbol: symbol,
+                valueFontFamily: "Ubuntu",
+                titleFontFamily: "Ubuntu",
+                titleFontColor: "#FFFFFF",
+                gaugeWidthScale: 0.7,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                counter: true,
+                formatNumber: true,
+                relativeGaugeSize: true,
+                levelColors: color,
+                noGradient: true,
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000,
+                titleMinFontSize: 12,
+                titleFontSize: 12,
+                showInnerShadow: false,
+                targetLine: target,
+                targetLineColor: "#ffffff",
+                targetLineWidth: 3
+              });
+        }
+        
+        function initGauges() {
+            // Temperature gauges - colors will be set dynamically in updateTemperatureGauges()
+            gauges.nozzle = createGauge("gauge-nozzle", 0, 300, "Nozzle", " ", " °C", ["#4CAF50"], 1);
+            gauges.bed = createGauge("gauge-bed", 0, 120, "Bed", " ", " °C", ["#4CAF50"], 1);
+            gauges.heatbreak = createGauge("gauge-heatbreak", 0, 100, "Heatbreak", " ", " °C", ["#4CAF50"], 1);
+            gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", ["#4CAF50"], 1);
+            
+            // Power gauges - all same green
+            const powerColors = ["#4CAF50"];
+            gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", powerColors);
+            gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", powerColors);
+            gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", powerColors);
+            
+            // Progress gauge - donut style
+            gauges.progress = new JustGage({
+                id: "gauge-progress",
+                value: 0,
+                min: 0,
+                max: 100,
+                title: "",
+                titlePosition: "below",
+                label: "",
+                symbol: "%",
+                valueFontFamily: "Ubuntu",
+                titleFontFamily: "Ubuntu",
+                titleFontColor: "#FFFFFF",
+                gaugeWidthScale: 0.7,
+                gaugeColor: "#858383",
+                valueFontColor: "#FFFFFF",
+                counter: true,
+                formatNumber: true,
+                relativeGaugeSize: true,
+                levelColors: ["#4CAF50"],
+                startAnimationTime: 1000,
+                startAnimationType: "bounce",
+                refreshAnimationType: "bounce",
+                refreshAnimationTime: 1000,
+                titleMinFontSize: 12,
+                titleFontSize: 14,
+                labelMinFontSize: 10,
+                donut: true,
+                donutStartAngle: 90,
+                hideInnerShadow: true
+            });
+        }
+        
+        // Dropdown
+        function initDropdown() {
+            const menu = document.getElementById('dropdown-menu');
+            menu.innerHTML = '';
+            Object.keys(GCODE_MAP).forEach(label => {
+                const item = document.createElement('div');
+                item.className = 'dropdown-item';
+                item.textContent = label;
+                item.onclick = () => {
+                    executeGCodeMacro(label);
+                    toggleDropdown();
+                };
+                menu.appendChild(item);
+            });
+        }
+        
+        function toggleDropdown() {
+            document.getElementById('dropdown-menu').classList.toggle('show');
+        }
+        
+        document.addEventListener('click', (e) => {
+            if (!e.target.matches('.dropdown-toggle') && !e.target.closest('.dropdown')) {
+                document.getElementById('dropdown-menu').classList.remove('show');
+            }
+        });
+        
+        function executeGCodeMacro(label) {
+            const commands = GCODE_MAP[label];
+            commands.forEach(cmd => {
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send(`GCODE:${cmd}`);
+                    addCommandHistoryEntry(`> ${cmd} (${label})`);
+                }
+            });
+        }
+        
+        // WebSocket reconnection state
+        let reconnectAttempts = 0;
+        let countdownInterval = null;
+        let heartbeatTimeout = null;
 
-        // ========================================
-        // WEBSOCKET CONNECTION
-        // ========================================
+        function getReconnectDelay() {
+            // Exponential backoff: 3s, 6s, 12s, 24s, max 30s
+            const delay = Math.min(CONFIG.RECONNECT_DELAY_MS * Math.pow(2, reconnectAttempts), 30000);
+            return delay;
+        }
+
+        function scheduleReconnect() {
+            if (state.reconnectTimer) return; // already scheduled
+
+            const delay = getReconnectDelay();
+            reconnectAttempts++;
+            let secondsLeft = Math.round(delay / 1000);
+
+            console.log(`Reconnecting in ${secondsLeft}s (attempt ${reconnectAttempts})`);
+            updateConnectionStatus(false, `Reconnecting in ${secondsLeft}s...`);
+
+            // Countdown display
+            if (countdownInterval) clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (secondsLeft > 0) {
+                    updateConnectionStatus(false, `Reconnecting in ${secondsLeft}s...`);
+                } else {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+            }, 1000);
+
+            state.reconnectTimer = setTimeout(() => {
+                state.reconnectTimer = null;
+                connectWebSocket();
+            }, delay);
+        }
+
+        function resetHeartbeat() {
+            if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
+            heartbeatTimeout = setTimeout(() => {
+                console.warn('No response from ESP - connection lost');
+                updateConnectionStatus(false, 'Connection lost - ESP not responding');
+                state.connected = false;
+                state.printerConnected = false;
+                if (state.ws) {
+                    state.ws.onclose = null; // prevent triggering reconnect loop
+                    state.ws.close();
+                }
+                scheduleReconnect();
+            }, 5000); // 5 second timeout
+        }
+
+        // WebSocket
         function connectWebSocket() {
-            console.log('Connecting to WebSocket:', CONFIG.WS_URL);
-            updateConnectionStatus('connecting', 'Connecting to WebSocket...');
-            
+            console.log('Connecting to WebSocket');
+            updateConnectionStatus(false, 'Connecting...');
+
+            // Close any existing connection cleanly first
+            if (state.ws && state.ws.readyState !== WebSocket.CLOSED) {
+                state.ws.onclose = null; // prevent triggering reconnect loop
+                state.ws.close();
+            }
+
             state.ws = new WebSocket(CONFIG.WS_URL);
-            
+
             state.ws.onopen = () => {
                 console.log('WebSocket connected');
-                state.connected = true;
-                updateConnectionStatus('connected', 'WebSocket connected');
-                
-                // Send connection handshake
-                state.ws.send('CONNECT');
-                
-                // Clear reconnect timer if set
-                if (state.reconnectTimer) {
-                    clearTimeout(state.reconnectTimer);
-                    state.reconnectTimer = null;
+                reconnectAttempts = 0; // reset backoff on success
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
                 }
+                state.connected = true;
+                updateConnectionStatus(true, 'Connected');
+                resetHeartbeat(); // Start heartbeat timer
+                state.ws.send('CONNECT');
             };
-            
+
             state.ws.onmessage = (event) => {
                 try {
+                    resetHeartbeat(); // Reset timer on any message from ESP
                     const msg = JSON.parse(event.data);
                     handleMessage(msg);
                 } catch (e) {
-                    console.error('Failed to parse WebSocket message:', e, event.data);
+                    console.error('Parse error:', e);
                 }
             };
-            
+
             state.ws.onerror = (error) => {
                 console.error('WebSocket error:', error);
+                // onclose will fire after onerror, so reconnect is handled there
             };
-            
+
             state.ws.onclose = () => {
                 console.log('WebSocket disconnected');
+                if (heartbeatTimeout) clearTimeout(heartbeatTimeout);
                 state.connected = false;
                 state.printerConnected = false;
-                updateConnectionStatus('disconnected', 'Disconnected - reconnecting...');
-                
-                // Auto-reconnect
-                state.reconnectTimer = setTimeout(connectWebSocket, CONFIG.RECONNECT_DELAY_MS);
+                updateConnectionStatus(false, 'Disconnected');
+                scheduleReconnect();
             };
         }
 
-        // ========================================
-        // MESSAGE HANDLING
-        // ========================================
+        // Reconnect immediately when the page becomes visible again (e.g. Mac wakes from sleep)
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('Page visible again - checking WebSocket');
+                if (!state.ws || state.ws.readyState === WebSocket.CLOSED || state.ws.readyState === WebSocket.CLOSING) {
+                    // Cancel any pending reconnect timer and connect immediately
+                    if (state.reconnectTimer) {
+                        clearTimeout(state.reconnectTimer);
+                        state.reconnectTimer = null;
+                    }
+                    if (countdownInterval) {
+                        clearInterval(countdownInterval);
+                        countdownInterval = null;
+                    }
+                    reconnectAttempts = 0; // reset backoff for immediate reconnect
+                    connectWebSocket();
+                }
+            }
+        });
+
+        // Fallback heartbeat for macOS where visibilitychange is unreliable after sleep.
+        // Checks every 5 seconds - if the socket is dead, reconnects immediately.
+        setInterval(() => {
+            if (!state.ws || state.ws.readyState === WebSocket.CLOSED || state.ws.readyState === WebSocket.CLOSING) {
+                if (!state.reconnectTimer) {
+                    console.log('Heartbeat detected dead socket - reconnecting immediately');
+                    reconnectAttempts = 0;
+                    connectWebSocket();
+                }
+            }
+        }, 5000);
+        
         function handleMessage(msg) {
             switch (msg.type) {
                 case 'status':
-                    handleStatusMessage(msg);
+                    state.printerConnected = msg.connected;
+                    updateConnectionStatus(state.connected, msg.connected ? 'Printer Ready' : 'Printer Offline');
+                    document.getElementById('send-btn').disabled = !msg.connected;
                     break;
                 case 'temperature':
-                    handleTemperatureMessage(msg);
+                    state.temps.nozzle = msg.nozzle;
+                    state.temps.bed = msg.bed;
+                    state.temps.heatbreak = msg.heatbreak;
+                    state.temps.chamber = msg.chamber;
+                    updateTemperatureGauges();
+                    addTemperatureToHistory();
+                    updateGraph();
                     break;
                 case 'progress':
-                    handleProgressMessage(msg);
+                    state.progress.percent = msg.percent;
+                    state.progress.timeLeft = msg.timeLeft;
+                    state.progress.changeTime = msg.changeTime;
+                    updateProgressDisplay();
                     break;
                 case 'position':
-                    handlePositionMessage(msg);
+                    state.position = msg;
                     break;
                 case 'power':
-                    handlePowerMessage(msg);
+                    state.power = msg;
+                    updatePowerGauges();
                     break;
                 case 'log':
                     handleLogMessage(msg);
                     break;
-                default:
-                    console.warn('Unknown message type:', msg.type);
+            }
+        }
+        
+        function updateConnectionStatus(connected, text) {
+            const dot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            
+            if (connected) {
+                dot.classList.add('connected');
+            } else {
+                dot.classList.remove('connected');
+            }
+            
+            statusText.textContent = text;
+        }
+        
+
+        function getTargetColor(current, target) {
+            if (target <= 0) return "#4CAF50"; // Green when ambient
+            
+            const diff = current - target;
+            
+            if (Math.abs(diff) <= 3) {
+                return "#4CAF50";  // Green: within ±3° of target
+            } else if (diff < 0) {
+                return "#2196F3";  // Blue: more than 3° below target
+            } else {
+                return "#f44336";  // Red: more than 3° above target
             }
         }
 
-        function handleStatusMessage(msg) {
-            state.printerConnected = msg.connected;
-            const statusText = msg.connected ? 
-                'Printer connected and ready' : 
-                'Printer disconnected';
-            updateConnectionStatus(state.connected ? 'connected' : 'disconnected', statusText);
+        function updateTemperatureGauges() {
+            const { nozzle, bed, heatbreak, chamber } = state.temps;
             
-            // Enable/disable send button
-            document.getElementById('send-btn').disabled = !msg.connected;
-        }
+            // Build labels with targets as integers - consistent "Target: Ambient" format
+            const nozzleLabel = nozzle.target > 0 ? `Target: ${Math.round(nozzle.target)}°C` : "Target: Ambient";
+            const bedLabel = bed.target > 0 ? `Target: ${Math.round(bed.target)}°C` : "Target: Ambient";
+            const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
+            const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
-        function handleTemperatureMessage(msg) {
-            // Update state
-            state.temps.nozzle = msg.nozzle;
-            state.temps.bed = msg.bed;
-            state.temps.heatbreak = msg.heatbreak;
-            state.temps.chamber = { current: msg.chamber.current };
+            // Get colors based on target vs current
+            const nozzleColor = getTargetColor(nozzle.current, nozzle.target);
+            const bedColor = getTargetColor(bed.current, bed.target);
+            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target);
             
-            // Update UI
-            updateTemperatureDisplay();
+            // Update nozzle
+            gauges.nozzle.config.levelColors = [nozzleColor];
+            gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
+            const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
+            gauges.nozzle.update({targetLine: guageTargetLine});
             
-            // Add to graph history
-            addTemperatureToHistory();
-            updateGraph();
-        }
-
-        function handleProgressMessage(msg) {
-            state.progress.percent = msg.percent;
-            state.progress.timeLeft = msg.timeLeft;
-            state.progress.changeTime = msg.changeTime;
+            // Update bed
+            gauges.bed.config.levelColors = [bedColor];
+            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
+            const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
+            gauges.bed.update({targetLine: bedTargetLine});
             
-            updateProgressDisplay();
-        }
+            // Update heatbreak
+            gauges.heatbreak.config.levelColors = [heatbreakColor];
+            gauges.heatbreak.refresh(parseFloat(heatbreak.current.toFixed(1)), undefined, undefined, heatbreakLabel);
+            const heatbreakTargetLine = heatbreak.target > 0 ? Math.round(heatbreak.target) : null;
+            gauges.heatbreak.update({targetLine: heatbreakTargetLine});
+            
+            // Update chamber (no color change)
+            gauges.chamber.refresh(parseFloat(chamber.current.toFixed(1)), undefined, undefined, chamberLabel);
 
-        function handlePositionMessage(msg) {
-            state.position = msg;
-            updatePositionDisplay();
+            
+            // Update page title with 1 decimal place
+            document.title = `${nozzle.current.toFixed(1)}°C - Prusa Monitor`;
         }
-
-        function handlePowerMessage(msg) {
-            state.power = msg;
-            // Power info is used for temperature status indicators
-            updateTemperatureDisplay();
+        
+        function updatePowerGauges() {
+            const { nozzle, bed, heatbreak } = state.power;
+            const nozzlePercent = Math.round((nozzle / 255) * 100);
+            const bedPercent = Math.round((bed / 255) * 100);
+            const heatbreakPercent = Math.round((heatbreak / 255) * 100);
+            
+            // Pass label as 4th parameter so gauge shows it
+            gauges.powerNozzle.refresh(nozzlePercent, undefined, undefined, undefined);
+            gauges.powerBed.refresh(bedPercent, undefined, undefined, undefined);
+            gauges.powerHeatbreak.refresh(heatbreakPercent, undefined, undefined, undefined);
         }
-
+        
+        // NEW: populate separate progress fields (no longer inline)
+        function updateProgressDisplay() {
+            const { percent, timeLeft, changeTime } = state.progress;
+            
+            // Update gauge with just percentage
+            const validPercent = (typeof percent === 'number' && !Number.isNaN(percent)) ? percent : 0;
+            gauges.progress.refresh(validPercent);
+            
+            // Update time remaining text
+            const remainingEl = document.getElementById('progress-remaining');
+            if (timeLeft && timeLeft > 0) {
+                const hours = Math.floor(timeLeft / 60);
+                const mins = timeLeft % 60;
+                remainingEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m remaining`;
+                remainingEl.style.display = 'block';
+            } else {
+                remainingEl.textContent = '';
+                remainingEl.style.display = 'none';
+            }
+            
+            // Update change time text
+            const changeEl = document.getElementById('progress-change');
+            if (changeTime && changeTime > 0) {
+                const hours = Math.floor(changeTime / 60);
+                const mins = changeTime % 60;
+                changeEl.textContent = `${hours > 0 ? hours + 'h ' : ''}${mins}m until change`;
+                changeEl.style.display = 'block';
+            } else {
+                changeEl.textContent = '';
+                changeEl.style.display = 'none';
+            }
+        }
+        
         function handleLogMessage(msg) {
             const hideTemps = document.getElementById('hide-temps').checked;
             const message = msg.message;
             
-            // Check if it's a temperature line
-            const isTempLine = message.startsWith('T:') && 
-                             message.includes(' B:') && 
-                             message.includes(' @:');
+            const isTempLine = message.includes('T:') && message.includes('B:') && 
+                             message.includes('@:') && message.includes('B@:');
             
-            // Skip if hiding temps and this is a temp line
-            if (hideTemps && isTempLine) {
-                return;
-            }
+            if (hideTemps && isTempLine) return;
+            
+            // Parse mesh bed data
+            parseMeshBedData(message);
             
             addLogEntry(message);
         }
-
-        // ========================================
-        // UI UPDATE FUNCTIONS
-        // ========================================
-        function updateConnectionStatus(status, message) {
-            const banner = document.getElementById('connection-status');
-            const statusText = document.getElementById('ws-status');
-            const printerStatus = document.getElementById('printer-status');
-            
-            banner.className = `connection-status ${status}`;
-            statusText.textContent = message;
-            
-            if (state.printerConnected) {
-                printerStatus.textContent = ' • Printer online';
-            } else {
-                printerStatus.textContent = '';
-            }
-        }
-
-        function updateTemperatureDisplay() {
-            const { nozzle, bed, heatbreak, chamber } = state.temps;
-            
-            // Update values
-            document.getElementById('temp-nozzle').textContent = `${nozzle.current.toFixed(1)}°C`;
-            document.getElementById('temp-bed').textContent = `${bed.current.toFixed(1)}°C`;
-            document.getElementById('temp-heatbreak').textContent = `${heatbreak.current.toFixed(1)}°C`;
-            document.getElementById('temp-chamber').textContent = `${chamber.current.toFixed(1)}°C`;
-            
-            // Update targets
-            document.getElementById('target-nozzle').textContent = `Target: ${nozzle.target.toFixed(1)}°C`;
-            document.getElementById('target-bed').textContent = `Target: ${bed.target.toFixed(1)}°C`;
-            document.getElementById('target-heatbreak').textContent = `Target: ${heatbreak.target.toFixed(1)}°C`;
-            
-            // Update target status (heating/at-temp)
-            updateTargetStatus('target-nozzle', nozzle.current, nozzle.target);
-            updateTargetStatus('target-bed', bed.current, bed.target);
-            updateTargetStatus('target-heatbreak', heatbreak.current, heatbreak.target);
-            
-            // Update page title with nozzle temp
-            if (state.progress.percent > 0 && state.progress.percent < 100) {
-                document.title = `${state.progress.percent}% | ${nozzle.current.toFixed(0)}°C - Prusa Monitor`;
-            } else {
-                document.title = `${nozzle.current.toFixed(0)}°C - Prusa Core One Monitor`;
-            }
-        }
-
-        function updateTargetStatus(elementId, current, target) {
-            const elem = document.getElementById(elementId);
-            
-            if (target === 0) {
-                elem.className = 'temp-target';
-            } else if (Math.abs(current - target) <= CONFIG.TEMP_TOLERANCE) {
-                elem.className = 'temp-target at-temp';
-            } else {
-                elem.className = 'temp-target heating';
-            }
-        }
-
-        function updateProgressDisplay() {
-            const { percent, timeLeft, changeTime } = state.progress;
-            
-            // Update percentage
-            document.getElementById('progress-percent').textContent = `${percent}%`;
-            document.getElementById('progress-bar').style.width = `${percent}%`;
-            
-            // Update time remaining
-            if (timeLeft > 0) {
-                const hours = Math.floor(timeLeft / 60);
-                const mins = timeLeft % 60;
-                document.getElementById('time-remaining').textContent = 
-                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            } else {
-                document.getElementById('time-remaining').textContent = '--';
+        
+        function parseMeshBedData(line) {
+            // Start parsing when we see "Bed Topography Report:"
+            if (line.includes('Bed Topography Report:')) {
+                state.meshData = [];
+                state.meshParsing = true;
+                state.meshComplete = false;
+                console.log('Started parsing mesh data');
+                return;
             }
             
-            // Update change time
-            if (changeTime > 0) {
-                const hours = Math.floor(changeTime / 60);
-                const mins = changeTime % 60;
-                document.getElementById('next-change').textContent = 
-                    hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-            } else {
-                document.getElementById('next-change').textContent = '--';
+            // Parse data lines while in parsing mode
+            if (state.meshParsing && line.includes('|')) {
+                // Match: "20 | -0.875 -0.802 ..." or "1 | -0.336 [-0.350] -0.365 ..."
+                const match = line.match(/^\s*(\d+)\s*\|(.*)/);
+                if (match) {
+                    const rowNum = parseInt(match[1]);
+                    const valuesStr = match[2];
+                    // Extract all numbers (positive or negative), ignore brackets
+                    const values = valuesStr.match(/[+-]?\d+\.\d+/g);
+                    if (values && values.length === 21) {
+                        state.meshData[rowNum] = values.map(v => parseFloat(v));
+                        console.log(`Parsed row ${rowNum}: ${values.length} values`);
+                    }
+                }
+                return;
+            }
+            
+            // Complete parsing when we see "Mesh is valid"
+            if (state.meshParsing && line.includes('Mesh is valid')) {
+                state.meshParsing = false;
+                
+                // Validate we got all 21 rows (0-20)
+                if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
+                    state.meshComplete = true;
+                    console.log('Mesh data complete! Showing visualization...');
+                    displayMeshVisualization(state.meshData);
+                } else {
+                    console.error('Incomplete mesh data:', state.meshData.length, 'rows');
+                }
+                return;
             }
         }
-
-        function updatePositionDisplay() {
-            const { z } = state.position;
-            document.getElementById('z-height').textContent = `${z.toFixed(2)} mm`;
+        
+        function displayMeshVisualization(meshData) {
+            // Reverse rows so row 0 is at the bottom (as it appears physically on the bed)
+            const reversedData = [...meshData].reverse();
+            
+            // Calculate statistics
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+            
+            // Display stats
+            document.getElementById('mesh-stats').innerHTML = 
+                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+            
+            // Create X, Y coordinate arrays (0-20 for both)
+            // Reverse X so it goes from 0 (left) to 20 (right)
+            const x = Array.from({length: 21}, (_, i) => 20 - i);
+            const y = Array.from({length: 21}, (_, i) => i);
+            
+            // Prepare data for Plotly
+            const plotData = [{
+                type: 'surface',
+                x: x,
+                y: y,
+                z: reversedData,
+                colorscale: [
+                    [0, '#0000ff'],      // Deep blue for low points
+                    [0.25, '#00ffff'],   // Cyan
+                    [0.5, '#00ff00'],    // Green for mid-range
+                    [0.75, '#ffff00'],   // Yellow
+                    [1, '#ff0000']       // Red for high points
+                ],
+                colorbar: {
+                    title: 'Height (mm)',
+                    titleside: 'right',
+                    titlefont: {
+                        color: '#ffffff'
+                    },
+                    tickfont: {
+                        color: '#ffffff'
+                    }
+                },
+                contours: {
+                    z: {
+                        show: true,
+                        usecolormap: true,
+                        highlightcolor: "#42f462",
+                        project: {z: true}
+                    }
+                }
+            }];
+            
+            // Calculate appropriate Z-axis range (add 10% padding)
+            const zPadding = maxDeviation * 0.1;
+            const zMin = minValue - zPadding;
+            const zMax = maxValue + zPadding;
+            
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Topology',
+                    font: {
+                        color: '#4CAF50',
+                        size: 24
+                    }
+                },
+                scene: {
+                    xaxis: {
+                        title: 'X Position',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444'
+                    },
+                    yaxis: {
+                        title: 'Y Position',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444'
+                    },
+                    zaxis: {
+                        title: 'Height (mm)',
+                        titlefont: {color: '#ffffff'},
+                        tickfont: {color: '#ffffff'},
+                        gridcolor: '#444444',
+                        range: [zMin, zMax]
+                    },
+                    camera: {
+                        eye: {x: 1.5, y: 1.5, z: 1.3}
+                    },
+                    aspectmode: 'manual',
+                    aspectratio: {
+                        x: 1,
+                        y: 1,
+                        z: 0.3  // Make Z axis shorter relative to X/Y for realistic proportions
+                    },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: {
+                    l: 0,
+                    r: 0,
+                    b: 0,
+                    t: 50
+                }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: []  // Allow all buttons including screenshot
+            };
+            
+            // Show modal
+            document.getElementById('mesh-modal').classList.add('show');
+            
+            // Create plot
+            Plotly.newPlot('mesh-plot', plotData, layout, config);
         }
-
+        
+        function closeMeshModal() {
+            document.getElementById('mesh-modal').classList.remove('show');
+            // Clean up Plotly
+            Plotly.purge('mesh-plot');
+        }
+        
+        function downloadMeshImage() {
+            // Generate timestamp for filename
+            const now = new Date();
+            const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `bed-mesh-${timestamp}.png`;
+            
+            // Capture the entire modal content (including header with stats)
+            const modalContent = document.querySelector('.mesh-modal-content');
+            
+            html2canvas(modalContent, {
+                backgroundColor: '#1a1a1a',
+                scale: 2,  // Higher resolution
+                logging: false
+            }).then(canvas => {
+                // Convert canvas to blob and download
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                });
+            });
+        }
+        
+        // Close modal when clicking outside
+        document.addEventListener('click', (e) => {
+            const modal = document.getElementById('mesh-modal');
+            if (e.target === modal) {
+                closeMeshModal();
+            }
+        });
+        
         function addLogEntry(message) {
             const logBox = document.getElementById('log-box');
-            const autoscroll = document.getElementById('autoscroll').checked;
-            
-            // Check if we're at bottom before adding entry
-            const isAtBottom = logBox.scrollHeight - logBox.scrollTop <= logBox.clientHeight + 50;
-            
-            // Create log entry
             const entry = document.createElement('div');
             entry.className = 'log-entry';
-            
-            const timestamp = new Date().toLocaleTimeString();
-            entry.innerHTML = `
-                <span class="log-timestamp">${timestamp}</span>
-                <span>${escapeHtml(message)}</span>
-            `;
-            
+            entry.textContent = message;
             logBox.appendChild(entry);
             
-            // Limit log entries
+            // Limit entries
             while (logBox.children.length > CONFIG.MAX_LOG_ENTRIES) {
                 logBox.removeChild(logBox.firstChild);
             }
             
-            // Auto-scroll if enabled and was at bottom
-            if (autoscroll && isAtBottom) {
+            // Auto-scroll only if toggle is checked
+            const autoscrollToggle = document.getElementById('autoscroll-toggle');
+            if (autoscrollToggle && autoscrollToggle.checked) {
                 logBox.scrollTop = logBox.scrollHeight;
             }
         }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
+        
+        function addCommandHistoryEntry(text) {
+            const historyBox = document.getElementById('command-history');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = text;
+            historyBox.appendChild(entry);
+            
+            while (historyBox.children.length > 100) {
+                historyBox.removeChild(historyBox.firstChild);
+            }
+            
+            historyBox.scrollTop = historyBox.scrollHeight;
         }
-
+        
         function clearLog() {
             document.getElementById('log-box').innerHTML = '';
         }
-
-        // ========================================
-        // TEMPERATURE GRAPH
-        // ========================================
-        let tempChart = null;
-
+        
+        // Temperature Graph
         function initGraph() {
             const canvas = document.getElementById('temp-graph');
             const ctx = canvas.getContext('2d');
@@ -921,22 +1236,18 @@
             updateGraphSize();
             window.addEventListener('resize', updateGraphSize);
         }
-
+        
         function updateGraphSize() {
             const canvas = tempChart.canvas;
             const rect = canvas.getBoundingClientRect();
-            
             canvas.width = rect.width * window.devicePixelRatio;
             canvas.height = rect.height * window.devicePixelRatio;
-            
             tempChart.width = canvas.width;
             tempChart.height = canvas.height;
-            
             tempChart.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-            
             updateGraph();
         }
-
+        
         function addTemperatureToHistory() {
             const history = state.tempHistory;
             const now = Date.now();
@@ -945,16 +1256,17 @@
             history.nozzle.push(state.temps.nozzle.current);
             history.bed.push(state.temps.bed.current);
             history.heatbreak.push(state.temps.heatbreak.current);
+            history.chamber.push(state.temps.chamber.current);
             
-            // Keep only last N points
             while (history.timestamps.length > CONFIG.MAX_GRAPH_POINTS) {
                 history.timestamps.shift();
                 history.nozzle.shift();
                 history.bed.shift();
                 history.heatbreak.shift();
+                history.chamber.shift();
             }
         }
-
+        
         function updateGraph() {
             if (!tempChart) return;
             
@@ -963,35 +1275,24 @@
             const height = tempChart.canvas.offsetHeight;
             const history = state.tempHistory;
             
-            // Clear canvas
             ctx.clearRect(0, 0, width, height);
             
             if (history.timestamps.length < 2) {
-                // Not enough data to draw
                 ctx.fillStyle = '#666';
-                ctx.font = '14px sans-serif';
+                ctx.font = '14px Ubuntu';
                 ctx.textAlign = 'center';
-                ctx.fillText('Waiting for temperature data...', width / 2, height / 2);
+                ctx.fillText('Waiting for data...', width / 2, height / 2);
                 return;
             }
             
-            // Calculate scales
-            const maxTemp = Math.max(
-                ...history.nozzle,
-                ...history.bed,
-                ...history.heatbreak,
-                100
-            );
-            
+            const maxTemp = Math.max(...history.nozzle, ...history.bed, ...history.heatbreak, ...history.chamber, 100);
             const padding = 40;
             const graphWidth = width - padding * 2;
             const graphHeight = height - padding * 2;
             
-            // Draw grid
+            // Grid
             ctx.strokeStyle = '#2a2a2a';
             ctx.lineWidth = 1;
-            
-            // Horizontal grid lines
             for (let i = 0; i <= 4; i++) {
                 const y = padding + (graphHeight / 4) * i;
                 ctx.beginPath();
@@ -999,90 +1300,255 @@
                 ctx.lineTo(width - padding, y);
                 ctx.stroke();
                 
-                // Temperature labels
                 const temp = maxTemp - (maxTemp / 4) * i;
                 ctx.fillStyle = '#666';
-                ctx.font = '12px sans-serif';
+                ctx.font = '12px Ubuntu';
                 ctx.textAlign = 'right';
-                ctx.fillText(`${temp.toFixed(0)}°`, padding - 5, y + 4);
+                ctx.fillText(`${Math.round(temp)}°`, padding - 5, y + 4);
             }
             
-            // Draw temperature lines
+            // Lines
             drawLine(history.nozzle, '#f44336', 2);
             drawLine(history.bed, '#2196F3', 2);
             drawLine(history.heatbreak, '#4CAF50', 2);
+            drawLine(history.chamber, '#FF9800', 2);
+            
+            // Legend - single line at bottom with equal spacing
+            const legendY = height - 15;
+            const legendItems = [
+                { label: 'Nozzle', color: '#f44336' },
+                { label: 'Bed', color: '#2196F3' },
+                { label: 'Heatbreak', color: '#4CAF50' },
+                { label: 'Chamber', color: '#FF9800' }
+            ];
+            
+            ctx.font = '12px Ubuntu';
+            
+            // Measure each item's width (line + spacing + text)
+            const lineWidth = 20;
+            const lineTextGap = 5;
+            const itemWidths = legendItems.map(item => {
+                return lineWidth + lineTextGap + ctx.measureText(item.label).width;
+            });
+            
+            // Calculate total width and spacing
+            const totalItemWidth = itemWidths.reduce((sum, w) => sum + w, 0);
+            const gapBetweenItems = 20; // Fixed gap between items
+            const totalWidth = totalItemWidth + (gapBetweenItems * (legendItems.length - 1));
+            
+            // Start position to center the legend
+            let currentX = (width - totalWidth) / 2;
+            
+            ctx.textAlign = 'left';
+            legendItems.forEach((item, i) => {
+                // Line sample
+                ctx.strokeStyle = item.color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(currentX, legendY);
+                ctx.lineTo(currentX + lineWidth, legendY);
+                ctx.stroke();
+                
+                // Label
+                ctx.fillStyle = '#fff';
+                ctx.fillText(item.label, currentX + lineWidth + lineTextGap, legendY + 4);
+                
+                // Move to next item position
+                currentX += itemWidths[i] + gapBetweenItems;
+            });
             
             function drawLine(data, color, lineWidth) {
                 ctx.strokeStyle = color;
                 ctx.lineWidth = lineWidth;
                 ctx.beginPath();
-                
                 for (let i = 0; i < data.length; i++) {
                     const x = padding + (graphWidth / (data.length - 1)) * i;
                     const y = padding + graphHeight - (data[i] / maxTemp) * graphHeight;
-                    
-                    if (i === 0) {
-                        ctx.moveTo(x, y);
-                    } else {
-                        ctx.lineTo(x, y);
-                    }
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
                 }
-                
                 ctx.stroke();
             }
         }
-
-        // ========================================
-        // G-CODE SENDING
-        // ========================================
+        
+        // G-code
         function sendGCode() {
             const input = document.getElementById('gcode-input');
-            const cmd = input.value.trim();
+            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
             
-            if (!cmd) return;
+            if (commands.length === 0) return;
             if (!state.connected || !state.printerConnected) {
                 alert('Printer not connected!');
                 return;
             }
             
-            console.log('Sending G-code:', cmd);
-            state.ws.send(`GCODE:${cmd}`);
+            commands.forEach(cmd => {
+                const trimmedCmd = cmd.trim();
+                if (trimmedCmd) {
+                    state.ws.send(`GCODE:${trimmedCmd}`);
+                    state.commandHistory.push(trimmedCmd);
+                    if (state.commandHistory.length > 50) state.commandHistory.shift();
+                    state.commandHistoryIndex = state.commandHistory.length;
+                    addCommandHistoryEntry(`> ${trimmedCmd}`);
+                }
+            });
             
-            // Add to log
-            addLogEntry(`> ${cmd}`);
-            
-            // Clear input
             input.value = '';
         }
-
-        function sendQuickCmd(cmd) {
-            if (!state.connected || !state.printerConnected) {
-                alert('Printer not connected!');
+        
+        function handleKeyDown(event) {
+            const input = document.getElementById('gcode-input');
+            
+            // Enter alone = send command, Shift+Enter = new line for multiple commands
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendGCode();
                 return;
             }
+            // Shift+Enter allows new line (default textarea behavior)
             
-            console.log('Sending quick command:', cmd);
-            state.ws.send(`GCODE:${cmd}`);
-            addLogEntry(`> ${cmd}`);
+            if (event.key === 'ArrowUp' && event.target.selectionStart === 0) {
+                event.preventDefault();
+                if (state.commandHistoryIndex > 0) {
+                    state.commandHistoryIndex--;
+                    input.value = state.commandHistory[state.commandHistoryIndex];
+                }
+            }
+            
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                if (state.commandHistoryIndex < state.commandHistory.length - 1) {
+                    state.commandHistoryIndex++;
+                    input.value = state.commandHistory[state.commandHistoryIndex];
+                } else {
+                    state.commandHistoryIndex = state.commandHistory.length;
+                    input.value = '';
+                }
+            }
         }
-
+        
         // ========================================
-        // INITIALIZATION
+        // DEBUG MODE FUNCTIONS
         // ========================================
+        function generateDebugData() {
+            if (!DEBUG_MODE) return;
+            
+            // Simulate temperature message with 1 decimal place
+            const tempMsg = {
+                type: 'temperature',
+                nozzle: { 
+                    current: parseFloat((180 + Math.random() * 40).toFixed(1)),  // 180.0-220.0°C
+                    target: 210 
+                },
+                bed: { 
+                    current: parseFloat((55 + Math.random() * 10).toFixed(1)),   // 55.0-65.0°C
+                    target: 60 
+                },
+                heatbreak: { 
+                    current: parseFloat((30 + Math.random() * 10).toFixed(1)),   // 30.0-40.0°C
+                    target: 36 
+                },
+                chamber: { 
+                    current: parseFloat((28 + Math.random() * 5).toFixed(1)),     // 28.0-33.0°C
+                    target: 50 
+                }
+            };
+            handleMessage(tempMsg);
+            
+            // Simulate power message
+            const powerMsg = {
+                type: 'power',
+                nozzle: Math.floor(Math.random() * 180 + 50),    // 50-230
+                bed: Math.floor(Math.random() * 150 + 50),       // 50-200
+                heatbreak: Math.floor(Math.random() * 180 + 50)  // 50-230
+            };
+            handleMessage(powerMsg);
+            
+            // Simulate progress
+            const progressMsg = {
+                type: 'progress',
+                percent: Math.floor(Math.random() * 100),
+                timeLeft: Math.floor(Math.random() * 180),  // 0-180 minutes
+                changeTime: Math.floor(Math.random() * 180)  // 0-180 minutes
+            };
+            handleMessage(progressMsg);
+            
+            // Simulate status
+            const statusMsg = {
+                type: 'status',
+                connected: true
+            };
+            handleMessage(statusMsg);
+        }
+        
+        function startDebugMode() {
+            if (!DEBUG_MODE) return;
+            
+            console.log('🐛 DEBUG MODE ENABLED - Using dummy data');
+            state.connected = true;
+            state.printerConnected = true;
+            updateConnectionStatus(true, 'DEBUG MODE - Printer Ready');
+            
+            // Generate initial data
+            generateDebugData();
+            
+            // Update every 2 seconds
+            setInterval(generateDebugData, 2000);
+        }
+        
+        // Init
         window.addEventListener('DOMContentLoaded', () => {
-            console.log('Prusa Monitor V3.0 - WebSocket Edition');
-            
-            // Initialize graph
-            initGraph();
-            
-            // Connect WebSocket
-            connectWebSocket();
-            
-            // Focus G-code input
-            document.getElementById('gcode-input').focus();
+            try {
+                console.log('=== PAGE LOAD DEBUG ===');
+                console.log('HTML Version: v3.2.5');
+                console.log('Load timestamp:', new Date().toISOString());
+                console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
+                
+                console.log('Prusa Monitor V3.2.5');
+                
+                // Check if required libraries loaded
+                if (typeof JustGage === 'undefined') {
+                    console.error('JustGage library not loaded!');
+                    return;
+                }
+                
+                initGauges();
+                initDropdown();
+                initGraph();
+                
+                // Autoscroll toggle listener
+                document.getElementById('autoscroll-toggle').addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        // When toggled on, jump to bottom
+                        const logBox = document.getElementById('log-box');
+                        logBox.scrollTop = logBox.scrollHeight;
+                    }
+                });
+                
+                if (DEBUG_MODE) {
+                    startDebugMode();
+                } else {
+                    connectWebSocket();
+                }
+                
+                document.getElementById('gcode-input').focus();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                alert('Error initializing page: ' + error.message);
+            }
         });
     </script>
-    <div class="version-label">v2.0.1-ws-remote</div>
+    
+    <!-- Version Tag - Click to refresh HTML from GitHub -->
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.5-embedded</div>
+    
+    <script>
+        function refreshHTML() {
+            if (confirm('Refresh HTML from GitHub? This will restart the web server.')) {
+                window.location.href = '/refresh';
+            }
+        }
+    </script>
+    
 </body>
-
 </html>
