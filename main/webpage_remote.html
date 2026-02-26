@@ -1551,10 +1551,10 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="reboot()" style="cursor: pointer;" title="Click to reboot"></div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot"></div>
     
     <script>
-        function refreshHTML() {
+        function rebootESP() {
             if (confirm('This will reboot the ESP')) {
                 window.location.href = '/reboot';
             }
