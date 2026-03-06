@@ -519,6 +519,7 @@
         
         const GCODE_MAP = {
             'Mesh Bed Visualization': ['M420 V'],
+            'Mesh Bed Visualisation Dots': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -554,7 +555,8 @@
             // Mesh bed parsing state
             meshParsing: false,
             meshData: [],
-            meshComplete: false
+            meshComplete: false,
+            meshDisplayMode: 'surface'  // 'surface' or 'dots'
         };
         
         let gauges = {};
@@ -669,6 +671,12 @@
         
         function executeGCodeMacro(label) {
             const commands = GCODE_MAP[label];
+            // Set display mode before sending so parser knows what to render
+            if (label === 'Mesh Bed Visualisation Dots') {
+                state.meshDisplayMode = 'dots';
+            } else if (label === 'Mesh Bed Visualization') {
+                state.meshDisplayMode = 'surface';
+            }
             commands.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
@@ -1017,7 +1025,11 @@
                 if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
                     state.meshComplete = true;
                     console.log('Mesh data complete! Showing visualization...');
-                    displayMeshVisualization(state.meshData);
+                    if (state.meshDisplayMode === 'dots') {
+                        displayMeshDots(state.meshData);
+                    } else {
+                        displayMeshVisualization(state.meshData);
+                    }
                 } else {
                     console.error('Incomplete mesh data:', state.meshData.length, 'rows');
                 }
@@ -1042,8 +1054,7 @@
                 `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
             
             // Create X, Y coordinate arrays (0-20 for both)
-            // Reverse X so it goes from 0 (left) to 20 (right)
-            const x = Array.from({length: 21}, (_, i) => 20 - i);
+            const x = Array.from({length: 21}, (_, i) => i);
             const y = Array.from({length: 21}, (_, i) => i);
             
             // Prepare data for Plotly
@@ -1144,6 +1155,95 @@
             document.getElementById('mesh-modal').classList.add('show');
             
             // Create plot
+            Plotly.newPlot('mesh-plot', plotData, layout, config);
+        }
+        
+        function displayMeshDots(meshData) {
+            // Reverse rows so row 0 is at the bottom
+            const reversedData = [...meshData].reverse();
+            
+            // Calculate statistics
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+            
+            // Display stats
+            document.getElementById('mesh-stats').innerHTML = 
+                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+            
+            // Build flat arrays of x, y, z and hover text for all 441 points
+            const xArr = [], yArr = [], zArr = [], textArr = [];
+            for (let row = 0; row < 21; row++) {
+                for (let col = 0; col < 21; col++) {
+                    xArr.push(col);
+                    yArr.push(row);
+                    zArr.push(reversedData[row][col]);
+                    textArr.push(`X:${col} Y:${20 - row}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                }
+            }
+            
+            const zPadding = maxDeviation * 0.1;
+            const zMin = minValue - zPadding;
+            const zMax = maxValue + zPadding;
+            
+            const plotData = [{
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xArr,
+                y: yArr,
+                z: zArr,
+                text: textArr,
+                hoverinfo: 'text',
+                marker: {
+                    size: 5,
+                    color: zArr,
+                    colorscale: [
+                        [0,    '#0000ff'],
+                        [0.25, '#00ffff'],
+                        [0.5,  '#00ff00'],
+                        [0.75, '#ffff00'],
+                        [1,    '#ff0000']
+                    ],
+                    colorbar: {
+                        title: 'Height (mm)',
+                        titleside: 'right',
+                        titlefont: { color: '#ffffff' },
+                        tickfont:  { color: '#ffffff' }
+                    },
+                    cmin: minValue,
+                    cmax: maxValue
+                }
+            }];
+            
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Points (21×21)',
+                    font: { color: '#4CAF50', size: 24 }
+                },
+                scene: {
+                    xaxis: { title: 'X', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
+                    yaxis: { title: 'Y', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', range: [zMin, zMax] },
+                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    aspectmode: 'manual',
+                    aspectratio: { x:1, y:1, z:0.3 },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: { l:0, r:0, b:0, t:50 }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+            
+            document.getElementById('mesh-modal').classList.add('show');
             Plotly.newPlot('mesh-plot', plotData, layout, config);
         }
         
@@ -1507,7 +1607,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.15');
+                console.log('HTML Version: v3.2.16');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1547,7 +1647,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.15</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.16</div>
     
     <script>
         function refreshHTML() {
