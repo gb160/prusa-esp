@@ -520,6 +520,7 @@
         const GCODE_MAP = {
             'Mesh Bed Visualization': ['M420 V'],
             'Mesh Bed Visualisation Dots': ['M420 V'],
+            'Mesh Bed Visualisation 7x7': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -674,6 +675,8 @@
             // Set display mode before sending so parser knows what to render
             if (label === 'Mesh Bed Visualisation Dots') {
                 state.meshDisplayMode = 'dots';
+            } else if (label === 'Mesh Bed Visualisation 7x7') {
+                state.meshDisplayMode = '7x7';
             } else if (label === 'Mesh Bed Visualization') {
                 state.meshDisplayMode = 'surface';
             }
@@ -1027,6 +1030,8 @@
                     console.log('Mesh data complete! Showing visualization...');
                     if (state.meshDisplayMode === 'dots') {
                         displayMeshDots(state.meshData);
+                    } else if (state.meshDisplayMode === '7x7') {
+                        displayMesh7x7(state.meshData);
                     } else {
                         displayMeshVisualization(state.meshData);
                     }
@@ -1248,6 +1253,95 @@
             Plotly.newPlot('mesh-plot', plotData, layout, config);
         }
         
+        function displayMesh7x7(meshData) {
+            // The 21x21 grid is a 3x upsampling of the real 7x7 probe points.
+            // Real probe indices (0-based) are every 3rd point: 0, 3, 6, 9, 12, 15, 20
+            // (last interval is 5 instead of 3 to reach index 20 — Prusa's grid spacing)
+            const probeIndices = [0, 3, 6, 9, 12, 15, 20];
+
+            // Extract the 7x7 subset (no row reversal needed yet)
+            const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
+
+            // Reverse rows so row 0 is at the bottom
+            const reversedData = [...sparse].reverse();
+
+            // Stats across the 49 real points
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+
+            document.getElementById('mesh-stats').innerHTML =
+                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+
+            // Build scatter3d arrays — label 1-7 for display
+            const xArr = [], yArr = [], zArr = [], textArr = [];
+            for (let row = 0; row < 7; row++) {
+                for (let col = 0; col < 7; col++) {
+                    xArr.push(7 - col);        // reversed X, 1-7
+                    yArr.push(row + 1);         // 1-7
+                    zArr.push(reversedData[row][col]);
+                    textArr.push(`Probe X:${7 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                }
+            }
+
+            const zPadding = maxDeviation * 0.1;
+
+            const plotData = [{
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xArr,
+                y: yArr,
+                z: zArr,
+                text: textArr,
+                hoverinfo: 'text',
+                marker: {
+                    size: 6,
+                    color: zArr,
+                    colorscale: [
+                        [0,    '#0000ff'],
+                        [0.25, '#00ffff'],
+                        [0.5,  '#00ff00'],
+                        [0.75, '#ffff00'],
+                        [1,    '#ff0000']
+                    ],
+                    colorbar: {
+                        title: 'Height (mm)',
+                        titleside: 'right',
+                        titlefont: { color: '#ffffff' },
+                        tickfont:  { color: '#ffffff' }
+                    },
+                    cmin: minValue,
+                    cmax: maxValue
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Real Probe Points (7×7)',
+                    font: { color: '#4CAF50', size: 24 }
+                },
+                scene: {
+                    xaxis: { title: 'X Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1 },
+                    yaxis: { title: 'Y Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1 },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444',
+                             range: [minValue - zPadding, maxValue + zPadding] },
+                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    aspectmode: 'manual',
+                    aspectratio: { x:1, y:1, z:0.3 },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: { l:0, r:0, b:0, t:50 }
+            };
+
+            document.getElementById('mesh-modal').classList.add('show');
+            Plotly.newPlot('mesh-plot', plotData, layout, { responsive: true, displayModeBar: true, displaylogo: false });
+        }
+
         function closeMeshModal() {
             document.getElementById('mesh-modal').classList.remove('show');
             // Clean up Plotly
@@ -1608,7 +1702,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.17');
+                console.log('HTML Version: v3.2.18');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1648,7 +1742,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.17</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.18</div>
     
     <script>
         function refreshHTML() {
