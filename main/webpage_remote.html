@@ -863,8 +863,14 @@
         }
         
 
-        function getTargetColor(current, target) {
-            if (target <= 0) return "#4CAF50"; // Green when ambient
+        function getTargetColor(current, target, gaugeType) {
+            if (target <= 0) {
+                // Ambient (cooling) mode - show red until safe temperature
+                if (gaugeType === 'nozzle' && current >= 50) return "#4CAF50";
+                if (gaugeType === 'bed'    && current >= 35) return "#4CAF50";
+                if (gaugeType === 'nozzle' || gaugeType === 'bed') return "#f44336";
+                return "#4CAF50"; // Other gauges: always green at ambient
+            }
             
             const diff = current - target;
             
@@ -887,9 +893,9 @@
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
             // Get colors based on target vs current
-            const nozzleColor = getTargetColor(nozzle.current, nozzle.target);
-            const bedColor = getTargetColor(bed.current, bed.target);
-            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target);
+            const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
+            const bedColor = getTargetColor(bed.current, bed.target, 'bed');
+            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target, 'heatbreak');
             
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
@@ -1199,7 +1205,9 @@
             // Auto-scroll only if toggle is checked
             const autoscrollToggle = document.getElementById('autoscroll-toggle');
             if (autoscrollToggle && autoscrollToggle.checked) {
-                logBox.scrollTop = logBox.scrollHeight;
+                requestAnimationFrame(() => {
+                    logBox.scrollTop = logBox.scrollHeight;
+                });
             }
         }
         
@@ -1500,11 +1508,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.5');
+                console.log('HTML Version: v3.2.13');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.2.5');
+                console.log('Prusa Monitor V3.2.13');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1540,7 +1548,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.12</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.13</div>
     
     <script>
         function refreshHTML() {
