@@ -865,11 +865,10 @@
 
         function getTargetColor(current, target, gaugeType) {
             if (target <= 0) {
-                // Ambient (cooling) mode - show red until safe temperature
-                if (gaugeType === 'nozzle' && current >= 50) return "#4CAF50";
-                if (gaugeType === 'bed'    && current >= 35) return "#4CAF50";
-                if (gaugeType === 'nozzle' || gaugeType === 'bed') return "#f44336";
-                return "#4CAF50"; // Other gauges: always green at ambient
+                // Ambient (cooling) mode - show red until cooled to safe temperature
+                if (gaugeType === 'nozzle' && current > 50) return "#f44336";
+                if (gaugeType === 'bed'    && current > 35) return "#f44336";
+                return "#4CAF50"; // Safe / other gauges
             }
             
             const diff = current - target;
@@ -1508,7 +1507,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.14');
+                console.log('HTML Version: v3.2.15');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1548,7 +1547,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.14</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.15</div>
     
     <script>
         function refreshHTML() {
