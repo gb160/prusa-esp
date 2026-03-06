@@ -1053,9 +1053,9 @@
                 `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
                 `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
             
-            // Create X, Y coordinate arrays (0-20 for both)
-            const x = Array.from({length: 21}, (_, i) => i);
-            const y = Array.from({length: 21}, (_, i) => i);
+            // X reversed to match physical bed orientation, numbered 1-21
+            const x = Array.from({length: 21}, (_, i) => 21 - i);
+            const y = Array.from({length: 21}, (_, i) => i + 1);
             
             // Prepare data for Plotly
             const plotData = [{
@@ -1175,13 +1175,14 @@
                 `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
             
             // Build flat arrays of x, y, z and hover text for all 441 points
+            // X reversed to match physical bed orientation, numbered 1-21
             const xArr = [], yArr = [], zArr = [], textArr = [];
             for (let row = 0; row < 21; row++) {
                 for (let col = 0; col < 21; col++) {
-                    xArr.push(col);
-                    yArr.push(row);
+                    xArr.push(21 - col);
+                    yArr.push(row + 1);
                     zArr.push(reversedData[row][col]);
-                    textArr.push(`X:${col} Y:${20 - row}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                    textArr.push(`X:${21 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
                 }
             }
             
@@ -1198,7 +1199,7 @@
                 text: textArr,
                 hoverinfo: 'text',
                 marker: {
-                    size: 5,
+                    size: 3,
                     color: zArr,
                     colorscale: [
                         [0,    '#0000ff'],
@@ -1607,7 +1608,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.16');
+                console.log('HTML Version: v3.2.17');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1647,7 +1648,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.16</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.17</div>
     
     <script>
         function refreshHTML() {
