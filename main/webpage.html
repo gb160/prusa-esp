@@ -245,6 +245,28 @@
         .dropdown-item:hover {
             background: #2a2a2a;
         }
+
+        .dropdown-item-submenu {
+            position: relative;
+        }
+
+        .dropdown-submenu {
+            display: none;
+            position: absolute;
+            top: 0;
+            right: 100%;
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            border-radius: 8px;
+            min-width: 160px;
+            flex-direction: column;
+            z-index: 1001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .dropdown-submenu.show {
+            display: flex;
+        }
         
         /* Checkboxes */
         .checkbox-label {
@@ -519,6 +541,9 @@
         
         const GCODE_MAP = {
             'Mesh Bed Visualization': ['M420 V'],
+            'Mesh Bed Visualisation Dots': ['M420 V'],
+            'Mesh Bed Visualisation 7x7': ['M420 V'],
+            'Mesh Bed Visualisation 3x3': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -554,7 +579,8 @@
             // Mesh bed parsing state
             meshParsing: false,
             meshData: [],
-            meshComplete: false
+            meshComplete: false,
+            meshDisplayMode: 'surface'  // 'surface', 'dots', '7x7', or '3x3'
         };
         
         let gauges = {};
@@ -642,10 +668,57 @@
         }
         
         // Dropdown
+        const MESH_LABELS = [
+            'Mesh Bed Visualization',
+            'Mesh Bed Visualisation Dots',
+            'Mesh Bed Visualisation 7x7',
+            'Mesh Bed Visualisation 3x3'
+        ];
+
         function initDropdown() {
             const menu = document.getElementById('dropdown-menu');
             menu.innerHTML = '';
+
+            // Mesh Visualisation submenu entry
+            const meshItem = document.createElement('div');
+            meshItem.className = 'dropdown-item dropdown-item-submenu';
+            meshItem.innerHTML = 'Mesh Visualisation <span style="float:right;opacity:0.6;">&#9658;</span>';
+
+            const submenu = document.createElement('div');
+            submenu.className = 'dropdown-submenu';
+
+            MESH_LABELS.forEach(label => {
+                const subItem = document.createElement('div');
+                subItem.className = 'dropdown-item';
+                // Friendly short names for the submenu
+                const shortNames = {
+                    'Mesh Bed Visualization': 'Surface 21\u00d721',
+                    'Mesh Bed Visualisation Dots': 'Dots 21\u00d721',
+                    'Mesh Bed Visualisation 7x7': 'Dots 7\u00d77',
+                    'Mesh Bed Visualisation 3x3': 'Dots 3\u00d73'
+                };
+                subItem.textContent = shortNames[label] || label;
+                subItem.onclick = (e) => {
+                    e.stopPropagation();
+                    executeGCodeMacro(label);
+                    menu.classList.remove('show');
+                };
+                submenu.appendChild(subItem);
+            });
+
+            meshItem.appendChild(submenu);
+
+            // Show/hide submenu on hover or click
+            meshItem.addEventListener('mouseenter', () => submenu.classList.add('show'));
+            meshItem.addEventListener('mouseleave', () => submenu.classList.remove('show'));
+            meshItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+                submenu.classList.toggle('show');
+            });
+
+            // All non-mesh items first
             Object.keys(GCODE_MAP).forEach(label => {
+                if (MESH_LABELS.includes(label)) return;
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
                 item.textContent = label;
@@ -655,6 +728,14 @@
                 };
                 menu.appendChild(item);
             });
+
+            // Divider
+            const divider = document.createElement('div');
+            divider.style.cssText = 'border-top:1px solid #2a2a2a;margin:4px 0;';
+            menu.appendChild(divider);
+
+            // Mesh Visualisation submenu at the bottom
+            menu.appendChild(meshItem);
         }
         
         function toggleDropdown() {
@@ -669,6 +750,16 @@
         
         function executeGCodeMacro(label) {
             const commands = GCODE_MAP[label];
+            // Set display mode before sending so parser knows what to render
+            if (label === 'Mesh Bed Visualisation Dots') {
+                state.meshDisplayMode = 'dots';
+            } else if (label === 'Mesh Bed Visualisation 7x7') {
+                state.meshDisplayMode = '7x7';
+            } else if (label === 'Mesh Bed Visualisation 3x3') {
+                state.meshDisplayMode = '3x3';
+            } else if (label === 'Mesh Bed Visualization') {
+                state.meshDisplayMode = 'surface';
+            }
             commands.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
@@ -863,8 +954,13 @@
         }
         
 
-        function getTargetColor(current, target) {
-            if (target <= 0) return "#4CAF50"; // Green when ambient
+        function getTargetColor(current, target, gaugeType) {
+            if (target <= 0) {
+                // Ambient (cooling) mode - show red until cooled to safe temperature
+                if (gaugeType === 'nozzle' && current > 50) return "#f44336";
+                if (gaugeType === 'bed'    && current > 35) return "#f44336";
+                return "#4CAF50"; // Safe / other gauges
+            }
             
             const diff = current - target;
             
@@ -887,9 +983,9 @@
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
             // Get colors based on target vs current
-            const nozzleColor = getTargetColor(nozzle.current, nozzle.target);
-            const bedColor = getTargetColor(bed.current, bed.target);
-            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target);
+            const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
+            const bedColor = getTargetColor(bed.current, bed.target, 'bed');
+            const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target, 'heatbreak');
             
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
@@ -1012,7 +1108,15 @@
                 if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
                     state.meshComplete = true;
                     console.log('Mesh data complete! Showing visualization...');
-                    displayMeshVisualization(state.meshData);
+                    if (state.meshDisplayMode === 'dots') {
+                        displayMeshDots(state.meshData);
+                    } else if (state.meshDisplayMode === '7x7') {
+                        displayMesh7x7(state.meshData);
+                    } else if (state.meshDisplayMode === '3x3') {
+                        displayMesh3x3(state.meshData);
+                    } else {
+                        displayMeshVisualization(state.meshData);
+                    }
                 } else {
                     console.error('Incomplete mesh data:', state.meshData.length, 'rows');
                 }
@@ -1032,14 +1136,13 @@
             
             // Display stats
             document.getElementById('mesh-stats').innerHTML = 
-                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
             
-            // Create X, Y coordinate arrays (0-20 for both)
-            // Reverse X so it goes from 0 (left) to 20 (right)
-            const x = Array.from({length: 21}, (_, i) => 20 - i);
-            const y = Array.from({length: 21}, (_, i) => i);
+            // X reversed to match physical bed orientation, numbered 1-21
+            const x = Array.from({length: 21}, (_, i) => 21 - i);
+            const y = Array.from({length: 21}, (_, i) => i + 1);
             
             // Prepare data for Plotly
             const plotData = [{
@@ -1142,6 +1245,274 @@
             Plotly.newPlot('mesh-plot', plotData, layout, config);
         }
         
+        function displayMeshDots(meshData) {
+            // Reverse rows so row 0 is at the bottom
+            const reversedData = [...meshData].reverse();
+            
+            // Calculate statistics
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+            
+            // Display stats
+            document.getElementById('mesh-stats').innerHTML = 
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
+            
+            // Build flat arrays of x, y, z and hover text for all 441 points
+            // X reversed to match physical bed orientation, numbered 1-21
+            const xArr = [], yArr = [], zArr = [], textArr = [];
+            for (let row = 0; row < 21; row++) {
+                for (let col = 0; col < 21; col++) {
+                    xArr.push(21 - col);
+                    yArr.push(row + 1);
+                    zArr.push(reversedData[row][col]);
+                    textArr.push(`X:${21 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
+                }
+            }
+            
+            const zPadding = maxDeviation * 0.1;
+            const zMin = minValue - zPadding;
+            const zMax = maxValue + zPadding;
+            
+            const plotData = [{
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xArr,
+                y: yArr,
+                z: zArr,
+                text: textArr,
+                hoverinfo: 'text',
+                marker: {
+                    size: 3,
+                    color: zArr,
+                    colorscale: [
+                        [0,    '#0000ff'],
+                        [0.25, '#00ffff'],
+                        [0.5,  '#00ff00'],
+                        [0.75, '#ffff00'],
+                        [1,    '#ff0000']
+                    ],
+                    colorbar: {
+                        title: 'Height (mm)',
+                        titleside: 'right',
+                        titlefont: { color: '#ffffff' },
+                        tickfont:  { color: '#ffffff' }
+                    },
+                    cmin: minValue,
+                    cmax: maxValue
+                }
+            }];
+            
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Points (21×21)',
+                    font: { color: '#4CAF50', size: 24 }
+                },
+                scene: {
+                    xaxis: { title: 'X', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
+                    yaxis: { title: 'Y', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', range: [zMin, zMax] },
+                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    aspectmode: 'manual',
+                    aspectratio: { x:1, y:1, z:0.3 },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: { l:0, r:0, b:0, t:50 }
+            };
+            
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false
+            };
+            
+            document.getElementById('mesh-modal').classList.add('show');
+            Plotly.newPlot('mesh-plot', plotData, layout, config);
+        }
+        
+        function displayMesh7x7(meshData) {
+            // The 21x21 grid is a 3x upsampling of the real 7x7 probe points.
+            // Real probe indices (0-based) are every 3rd point: 0, 3, 6, 9, 12, 15, 20
+            // (last interval is 5 instead of 3 to reach index 20 — Prusa's grid spacing)
+            const probeIndices = [0, 3, 6, 9, 12, 15, 20];
+
+            // Extract the 7x7 subset (no row reversal needed yet)
+            const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
+
+            // Reverse rows so row 0 is at the bottom
+            const reversedData = [...sparse].reverse();
+
+            // Stats across the 49 real points
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+
+            document.getElementById('mesh-stats').innerHTML =
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
+
+            // Build scatter3d arrays — label 1-7 for display
+            const xArr = [], yArr = [], zArr = [], textArr = [];
+            for (let row = 0; row < 7; row++) {
+                for (let col = 0; col < 7; col++) {
+                    xArr.push(7 - col);        // reversed X, 1-7
+                    yArr.push(row + 1);         // 1-7
+                    zArr.push(reversedData[row][col]);
+                    textArr.push(`Probe X:${7 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
+                }
+            }
+
+            const zPadding = maxDeviation * 0.1;
+
+            const plotData = [{
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xArr,
+                y: yArr,
+                z: zArr,
+                text: textArr,
+                hoverinfo: 'text',
+                marker: {
+                    size: 6,
+                    color: zArr,
+                    colorscale: [
+                        [0,    '#0000ff'],
+                        [0.25, '#00ffff'],
+                        [0.5,  '#00ff00'],
+                        [0.75, '#ffff00'],
+                        [1,    '#ff0000']
+                    ],
+                    colorbar: {
+                        title: 'Height (mm)',
+                        titleside: 'right',
+                        titlefont: { color: '#ffffff' },
+                        tickfont:  { color: '#ffffff' }
+                    },
+                    cmin: minValue,
+                    cmax: maxValue
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Real Probe Points (7×7)',
+                    font: { color: '#4CAF50', size: 24 }
+                },
+                scene: {
+                    xaxis: { title: 'X Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1 },
+                    yaxis: { title: 'Y Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1 },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444',
+                             range: [minValue - zPadding, maxValue + zPadding] },
+                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    aspectmode: 'manual',
+                    aspectratio: { x:1, y:1, z:0.3 },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: { l:0, r:0, b:0, t:50 }
+            };
+
+            document.getElementById('mesh-modal').classList.add('show');
+            Plotly.newPlot('mesh-plot', plotData, layout, { responsive: true, displayModeBar: true, displaylogo: false });
+        }
+
+        function displayMesh3x3(meshData) {
+            // Sample 9 points from the 21x21 grid: corners, edge midpoints, and centre.
+            // Using the same real probe indices as displayMesh7x7: [0,3,6,9,12,15,20]
+            // We pick indices 0 (first), 9 (middle), 20 (last) from the 21x21 array.
+            const probeIndices = [0, 9, 20];
+
+            // Extract 3x3 subset
+            const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
+
+            // Reverse rows so row 0 is at the bottom
+            const reversedData = [...sparse].reverse();
+
+            // Stats across the 9 points
+            const allValues = reversedData.flat();
+            const minValue = Math.min(...allValues);
+            const maxValue = Math.max(...allValues);
+            const maxDeviation = maxValue - minValue;
+
+            document.getElementById('mesh-stats').innerHTML =
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
+
+            // Build scatter3d arrays
+            const xArr = [], yArr = [], zArr = [], textArr = [];
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 3; col++) {
+                    xArr.push(3 - col);
+                    yArr.push(row + 1);
+                    zArr.push(reversedData[row][col]);
+                    textArr.push(`Probe X:${3 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
+                }
+            }
+
+            const zPadding = Math.max(maxDeviation * 0.1, 0.01);
+
+            const plotData = [{
+                type: 'scatter3d',
+                mode: 'markers',
+                x: xArr,
+                y: yArr,
+                z: zArr,
+                text: textArr,
+                hoverinfo: 'text',
+                marker: {
+                    size: 10,
+                    color: zArr,
+                    colorscale: [
+                        [0,    '#0000ff'],
+                        [0.25, '#00ffff'],
+                        [0.5,  '#00ff00'],
+                        [0.75, '#ffff00'],
+                        [1,    '#ff0000']
+                    ],
+                    colorbar: {
+                        title: 'Height (mm)',
+                        titleside: 'right',
+                        titlefont: { color: '#ffffff' },
+                        tickfont:  { color: '#ffffff' }
+                    },
+                    cmin: minValue,
+                    cmax: maxValue
+                }
+            }];
+
+            const layout = {
+                title: {
+                    text: 'Bed Mesh Corner & Edge Points (3\u00d73)',
+                    font: { color: '#4CAF50', size: 24 }
+                },
+                scene: {
+                    xaxis: { title: 'X Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
+                    yaxis: { title: 'Y Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444',
+                             range: [minValue - zPadding, maxValue + zPadding] },
+                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    aspectmode: 'manual',
+                    aspectratio: { x:1, y:1, z:0.3 },
+                    bgcolor: '#0a0a0a'
+                },
+                paper_bgcolor: '#1a1a1a',
+                plot_bgcolor: '#0a0a0a',
+                margin: { l:0, r:0, b:0, t:50 }
+            };
+
+            document.getElementById('mesh-modal').classList.add('show');
+            Plotly.newPlot('mesh-plot', plotData, layout, { responsive: true, displayModeBar: true, displaylogo: false });
+        }
+
         function closeMeshModal() {
             document.getElementById('mesh-modal').classList.remove('show');
             // Clean up Plotly
@@ -1199,7 +1570,9 @@
             // Auto-scroll only if toggle is checked
             const autoscrollToggle = document.getElementById('autoscroll-toggle');
             if (autoscrollToggle && autoscrollToggle.checked) {
-                logBox.scrollTop = logBox.scrollHeight;
+                requestAnimationFrame(() => {
+                    logBox.scrollTop = logBox.scrollHeight;
+                });
             }
         }
         
@@ -1500,11 +1873,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.5');
+                console.log('HTML Version: v3.2.18');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
-                console.log('Prusa Monitor V3.2.5');
+                console.log('Prusa Monitor V3.2.13');
                 
                 // Check if required libraries loaded
                 if (typeof JustGage === 'undefined') {
@@ -1540,7 +1913,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.5-embedded</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.20-embedded</div>
     
     <script>
         function refreshHTML() {
@@ -1550,5 +1923,17 @@
         }
     </script>
     
+    <!-- Version Tag - Click to reboot ESP -->
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot">Reboot ESP</div>
+    
+    <script>
+        function rebootESP() {
+            if (confirm('This will reboot the ESP')) {
+                window.location.href = '/reboot';
+            }
+        }
+    </script>
+
+
 </body>
 </html>
