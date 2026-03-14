@@ -1136,9 +1136,9 @@
             
             // Display stats
             document.getElementById('mesh-stats').innerHTML = 
-                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
             
             // X reversed to match physical bed orientation, numbered 1-21
             const x = Array.from({length: 21}, (_, i) => 21 - i);
@@ -1257,9 +1257,9 @@
             
             // Display stats
             document.getElementById('mesh-stats').innerHTML = 
-                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
             
             // Build flat arrays of x, y, z and hover text for all 441 points
             // X reversed to match physical bed orientation, numbered 1-21
@@ -1269,7 +1269,7 @@
                     xArr.push(21 - col);
                     yArr.push(row + 1);
                     zArr.push(reversedData[row][col]);
-                    textArr.push(`X:${21 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                    textArr.push(`X:${21 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
                 }
             }
             
@@ -1354,9 +1354,9 @@
             const maxDeviation = maxValue - minValue;
 
             document.getElementById('mesh-stats').innerHTML =
-                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
 
             // Build scatter3d arrays — label 1-7 for display
             const xArr = [], yArr = [], zArr = [], textArr = [];
@@ -1365,7 +1365,7 @@
                     xArr.push(7 - col);        // reversed X, 1-7
                     yArr.push(row + 1);         // 1-7
                     zArr.push(reversedData[row][col]);
-                    textArr.push(`Probe X:${7 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                    textArr.push(`Probe X:${7 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
                 }
             }
 
@@ -1443,9 +1443,9 @@
             const maxDeviation = maxValue - minValue;
 
             document.getElementById('mesh-stats').innerHTML =
-                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(3)}mm</span>`;
+                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
+                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
 
             // Build scatter3d arrays
             const xArr = [], yArr = [], zArr = [], textArr = [];
@@ -1454,7 +1454,7 @@
                     xArr.push(3 - col);
                     yArr.push(row + 1);
                     zArr.push(reversedData[row][col]);
-                    textArr.push(`Probe X:${3 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(3)}mm`);
+                    textArr.push(`Probe X:${3 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
                 }
             }
 
@@ -1913,7 +1913,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.19</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.20-remote</div>
     
     <script>
         function refreshHTML() {
