@@ -1357,7 +1357,7 @@
             // The 21x21 grid is a 3x upsampling of the real 7x7 probe points.
             // Real probe indices (0-based) are every 3rd point: 0, 3, 6, 9, 12, 15, 20
             // (last interval is 5 instead of 3 to reach index 20 — Prusa's grid spacing)
-            const probeIndices = [0, 3, 6, 9, 12, 15, 20];
+            const probeIndices = [1, 4, 7, 10, 13, 16, 19];
 
             // Extract the 7x7 subset (no row reversal needed yet)
             const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
@@ -1446,7 +1446,7 @@
             // Sample 9 points from the 21x21 grid: corners, edge midpoints, and centre.
             // Using the same real probe indices as displayMesh7x7: [0,3,6,9,12,15,20]
             // We pick indices 0 (first), 9 (middle), 20 (last) from the 21x21 array.
-            const probeIndices = [0, 9, 20];
+            const probeIndices = [1, 10, 19];
 
             // Extract 3x3 subset
             const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
@@ -1891,7 +1891,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.18');
+                console.log('HTML Version: v3.2.22');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1931,11 +1931,11 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.21-remote</div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.22-remote</div>
     
     <script>
         function refreshHTML() {
-            if (confirm('Refresh HTML from GitHub? This will restart the web server.')) {
+            if (confirm('This will reboot the ESP')) {
                 window.location.href = '/refresh';
             }
         }
