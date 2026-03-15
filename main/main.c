@@ -63,7 +63,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.2.0"
+#define FIRMWARE_VERSION "v3.2.2"
 
 // ============================================================================
 // CONFIGURATION
@@ -667,38 +667,47 @@ static void usb_lib_task(void *arg)
 typedef struct {
     char *buffer;
     int len;
+    int capacity;
+    bool failed;
 } download_buffer_t;
 
 esp_err_t http_event_handler(esp_http_client_event_t *evt)
 {
     download_buffer_t *output = (download_buffer_t *)evt->user_data;
-    
+
     switch (evt->event_id) {
         case HTTP_EVENT_ON_DATA:
-            if (!esp_http_client_is_chunked_response(evt->client)) {
-                if (output->buffer == NULL) {
-                    int content_length = esp_http_client_get_content_length(evt->client);
-                    ESP_LOGI(TAG, "Downloading HTML, size: %d bytes", content_length);
-                    
-                    if (content_length <= 0 || content_length > 500000) {
-                        ESP_LOGE(TAG, "Invalid content length: %d", content_length);
-                        return ESP_FAIL;
-                    }
-                    
-                    output->buffer = (char *)malloc(content_length + 1);
-                    if (output->buffer == NULL) {
-                        ESP_LOGE(TAG, "Failed to allocate memory");
-                        return ESP_FAIL;
-                    }
-                    output->len = 0;
-                }
-                
-                memcpy(output->buffer + output->len, evt->data, evt->data_len);
-                output->len += evt->data_len;
-                output->buffer[output->len] = '\0';
+            if (output->failed) return ESP_OK;
+
+            if (output->buffer == NULL) {
+                // Buffer should have been pre-allocated before the connection opened.
+                // If it wasn't (e.g. called from refresh handler without pre-alloc),
+                // fail clearly rather than silently.
+                ESP_LOGE(TAG, "No pre-allocated buffer - aborting download");
+                output->failed = true;
+                return ESP_FAIL;
+            }
+
+            if (output->len + (int)evt->data_len + 1 > output->capacity) {
+                ESP_LOGE(TAG, "Pre-allocated buffer too small: need %d, have %d",
+                         output->len + (int)evt->data_len + 1, output->capacity);
+                output->failed = true;
+                return ESP_FAIL;
+            }
+
+            memcpy(output->buffer + output->len, evt->data, evt->data_len);
+            output->len += evt->data_len;
+            output->buffer[output->len] = '\0';
+            break;
+
+        case HTTP_EVENT_DISCONNECTED:
+        case HTTP_EVENT_ERROR:
+            if (!output->failed && output->len > 0) {
+                ESP_LOGW(TAG, "HTTP event %d during download at offset %d",
+                         evt->event_id, output->len);
             }
             break;
-            
+
         default:
             break;
     }
@@ -709,9 +718,29 @@ void download_html_from_github(void)
 {
     ESP_LOGI(TAG, "Downloading HTML from GitHub...");
     snprintf(last_download_error, sizeof(last_download_error), "Starting download...");
-    
-    download_buffer_t download = {.buffer = NULL, .len = 0};
-    
+
+    // Pre-allocate the buffer BEFORE opening the TLS connection.
+    // TLS consumes ~50KB of internal RAM while the connection is open, so we
+    // must reserve the download buffer first or there won't be enough room.
+    #define HTML_PREALLOC_SIZE (96 * 1024)  // 96KB - headroom above current 73KB file
+    char *prealloc = malloc(HTML_PREALLOC_SIZE);
+    if (prealloc == NULL) {
+        ESP_LOGE(TAG, "Failed to pre-allocate %d bytes (free heap: %d)",
+                 HTML_PREALLOC_SIZE, (int)esp_get_free_heap_size());
+        snprintf(last_download_error, sizeof(last_download_error),
+                 "Pre-alloc failed, free heap: %d", (int)esp_get_free_heap_size());
+        return;
+    }
+    ESP_LOGI(TAG, "Pre-allocated %d bytes for download (free heap now: %d)",
+             HTML_PREALLOC_SIZE, (int)esp_get_free_heap_size());
+
+    download_buffer_t download = {
+        .buffer   = prealloc,
+        .len      = 0,
+        .capacity = HTML_PREALLOC_SIZE,
+        .failed   = false
+    };
+
     esp_http_client_config_t config = {
         .url = REMOTE_HTML_URL,
         .event_handler = http_event_handler,
@@ -1099,9 +1128,22 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
              "%s?t=%lld", REMOTE_HTML_URL, (long long)timestamp);
     
     ESP_LOGI(TAG, "Downloading HTML with cache-busting: %s", url_with_timestamp);
-    
+
+    // Pre-allocate before opening TLS connection (same reason as download_html_from_github)
+    char *prealloc = malloc(HTML_PREALLOC_SIZE);
+    if (prealloc == NULL) {
+        ESP_LOGE(TAG, "Refresh: pre-alloc failed (free heap: %d)", (int)esp_get_free_heap_size());
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Not enough memory");
+        return ESP_FAIL;
+    }
+
     // Create temporary download config with cache-busting URL
-    download_buffer_t download = {.buffer = NULL, .len = 0};
+    download_buffer_t download = {
+        .buffer   = prealloc,
+        .len      = 0,
+        .capacity = HTML_PREALLOC_SIZE,
+        .failed   = false
+    };
     
     esp_http_client_config_t config = {
         .url = url_with_timestamp,
@@ -1323,6 +1365,9 @@ void app_main(void)
     vTaskDelay(pdMS_TO_TICKS(5000));
     
     // Download HTML from GitHub
+    ESP_LOGI(TAG, "Free heap before download: %d bytes, free PSRAM: %d bytes",
+             (int)esp_get_free_heap_size(),
+             (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     download_html_from_github();
 #else
     ESP_LOGI(TAG, "Remote HTML fetching disabled - using embedded HTML only");
