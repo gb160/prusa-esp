@@ -63,7 +63,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.2.2"
+#define FIRMWARE_VERSION "v3.2.3"
 
 // ============================================================================
 // CONFIGURATION
@@ -763,6 +763,14 @@ void download_html_from_github(void)
         int status_code = esp_http_client_get_status_code(client);
         
         if (status_code == 200 && download.buffer != NULL && download.len > 0) {
+            // Shrink the pre-alloc down to actual size - returns unused headroom
+            // to the heap before USB/printer tries to allocate endpoint buffers
+            char *trimmed = realloc(download.buffer, download.len + 1);
+            if (trimmed != NULL) {
+                download.buffer = trimmed;
+                ESP_LOGI(TAG, "Buffer trimmed: freed %d bytes back to heap",
+                         HTML_PREALLOC_SIZE - (download.len + 1));
+            }
             xSemaphoreTake(html_mutex, portMAX_DELAY);
             if (cached_html != NULL) {
                 free(cached_html);
@@ -770,10 +778,11 @@ void download_html_from_github(void)
             cached_html = download.buffer;
             cached_html_size = download.len;
             xSemaphoreGive(html_mutex);
-            
-            snprintf(last_download_error, sizeof(last_download_error), 
+
+            snprintf(last_download_error, sizeof(last_download_error),
                      "Success! Downloaded %d bytes", download.len);
-            ESP_LOGI(TAG, "HTML cached successfully (%d bytes)", download.len);
+            ESP_LOGI(TAG, "HTML cached successfully (%d bytes), free heap: %d",
+                     download.len, (int)esp_get_free_heap_size());
         } else {
             snprintf(last_download_error, sizeof(last_download_error), 
                      "HTTP %d, len=%d", status_code, download.len);
@@ -1162,6 +1171,13 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
             int status_code = esp_http_client_get_status_code(client);
             
             if (status_code == 200 && download.buffer != NULL && download.len > 0) {
+                // Shrink pre-alloc to actual size before caching
+                char *trimmed = realloc(download.buffer, download.len + 1);
+                if (trimmed != NULL) {
+                    download.buffer = trimmed;
+                    ESP_LOGI(TAG, "Buffer trimmed: freed %d bytes back to heap",
+                             HTML_PREALLOC_SIZE - (download.len + 1));
+                }
                 xSemaphoreTake(html_mutex, portMAX_DELAY);
                 if (cached_html != NULL) {
                     free(cached_html);
@@ -1169,8 +1185,9 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
                 cached_html = download.buffer;
                 cached_html_size = download.len;
                 xSemaphoreGive(html_mutex);
-                
-                ESP_LOGI(TAG, "HTML updated successfully (%d bytes)", download.len);
+
+                ESP_LOGI(TAG, "HTML updated successfully (%d bytes), free heap: %d",
+                         download.len, (int)esp_get_free_heap_size());
             } else {
                 if (download.buffer != NULL) {
                     free(download.buffer);
