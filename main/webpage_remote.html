@@ -549,7 +549,25 @@
             'Cooldown': ['M104 S0', 'M140 S0'],
             'Unload Filament': ['M702'],
             'Home All': ['G28'],
-            'Calibrate Z Axis': ['G162 Z']
+            'Calibrate Z Axis': ['G162 Z'],
+            'Probe Bed': [
+                'G162 Z',
+                'G0 X242 Y-9 F4800',
+                'G0 Z40 F1000',
+                'M140 S60',
+                'M109 R170',
+                'G28',
+                'M190 S60',
+                'M400',
+                'G29',
+                'G29 T',
+                'G0 X242 Y-9 Z30 F4800',
+                'M400',
+                'M104 S0',
+                'M140 S0',
+                'M107',
+                'M400'
+            ]
         };
         
         // State
@@ -1913,7 +1931,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.20-remote</div>
+    <div class="version-tag" onclick="refreshHTML()" style="cursor: pointer;" title="Click to refresh HTML from GitHub">v3.2.21-remote</div>
     
     <script>
         function refreshHTML() {
