@@ -1374,10 +1374,19 @@
             const xArr = [], yArr = [], zArr = [], textArr = [];
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
+                    const z = reversedData[row][col];
+                    const dfh = maxValue - z;
+                    const shims = Math.ceil(dfh / 0.1);
+                    let label;
+                    if (shims === 0) {
+                        label = `Z: ${z.toFixed(2)}mm<br>★ Highest point<br>Shims required: 0`;
+                    } else {
+                        label = `Z: ${z.toFixed(2)}mm<br>DFH: -${dfh.toFixed(2)}mm<br>Shims required: ${shims} × 0.1mm`;
+                    }
                     xArr.push(3 - col);
                     yArr.push(row + 1);
-                    zArr.push(reversedData[row][col]);
-                    textArr.push(`Probe X:${3 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
+                    zArr.push(z);
+                    textArr.push(label);
                 }
             }
 
@@ -1385,12 +1394,14 @@
 
             const plotData = [{
                 type: 'scatter3d',
-                mode: 'markers',
+                mode: 'markers+text',
                 x: xArr,
                 y: yArr,
                 z: zArr,
                 text: textArr,
                 hoverinfo: 'text',
+                textposition: 'top center',
+                textfont: { color: '#ffffff', size: 10 },
                 marker: {
                     size: 10,
                     color: zArr,
@@ -1796,7 +1807,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.23');
+                console.log('HTML Version: v3.2.24');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1836,7 +1847,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.23-remote</div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.24-remote</div>
     
     <script>
         function refreshHTML() {
