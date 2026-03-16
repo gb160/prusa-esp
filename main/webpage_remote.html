@@ -1376,7 +1376,7 @@
                 for (let col = 0; col < 3; col++) {
                     const z = reversedData[row][col];
                     const dfh = maxValue - z;
-                    const shims = Math.ceil(dfh / 0.1);
+                    const shims = Math.round(dfh / 0.1);
                     let label;
                     if (shims === 0) {
                         label = `Z: ${z.toFixed(2)}mm<br>★ Highest point<br>Shims required: 0`;
@@ -1807,7 +1807,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.24');
+                console.log('HTML Version: v3.2.25');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1847,7 +1847,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.24-remote</div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.25-remote</div>
     
     <script>
         function refreshHTML() {
