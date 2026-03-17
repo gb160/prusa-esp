@@ -490,9 +490,15 @@
             <div class="stats-section section-panel">
                 <div class="section-header">
                     <h2>G-code Commands</h2>
-                    <div class="dropdown">
-                        <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
-                        <div class="dropdown-menu" id="dropdown-menu"></div>
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div id="mesh-indicator" style="display:none;align-items:center;gap:6px;font-size:0.8rem;color:#888;">
+                            <div id="mesh-indicator-dot" style="width:10px;height:10px;border-radius:50%;background:#4CAF50;"></div>
+                            <span id="mesh-indicator-text">Mesh ready</span>
+                        </div>
+                        <div class="dropdown">
+                            <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
+                            <div class="dropdown-menu" id="dropdown-menu"></div>
+                        </div>
                     </div>
                 </div>
                 <div class="log-box" id="command-history"></div>
@@ -563,11 +569,11 @@
                 'G0 Z40 F1000',
                 'M140 S60',
                 'M109 R170',
-                // 'G28',
                 'M190 S60',
                 'M400',
                 'G29',
                 'G29 T',
+                'M420 V',
                 // Commands above are sent immediately.
                 // Commands below are sent only after 'Mesh is valid' is received.
                 'WAIT_FOR_MESH',
@@ -1118,6 +1124,15 @@
                 state.meshData = [];
                 state.meshParsing = true;
                 state.meshComplete = false;
+                // Reset mesh indicator to probing state
+                const indicator = document.getElementById('mesh-indicator');
+                const dot = document.getElementById('mesh-indicator-dot');
+                const text = document.getElementById('mesh-indicator-text');
+                if (indicator) {
+                    indicator.style.display = 'flex';
+                    dot.style.background = '#FFA500';
+                    text.textContent = 'Probing...';
+                }
                 console.log('Started parsing mesh data');
                 return;
             }
@@ -1147,6 +1162,15 @@
                 if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
                     state.meshComplete = true;
                     console.log('Mesh data complete! Showing visualization...');
+
+                    // Update mesh indicator to complete
+                    const indicator = document.getElementById('mesh-indicator');
+                    const dot = document.getElementById('mesh-indicator-dot');
+                    const text = document.getElementById('mesh-indicator-text');
+                    if (indicator) {
+                        dot.style.background = '#4CAF50';
+                        text.textContent = 'Mesh ready';
+                    }
                     if (state.meshDisplayMode === 'dots') {
                         displayMeshDots(state.meshData);
                     } else if (state.meshDisplayMode === '3x3') {
@@ -1868,7 +1892,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.28');
+                console.log('HTML Version: v3.2.30');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1908,7 +1932,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.28--remote</div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.30--remote</div>
     
     <script>
         function refreshHTML() {
