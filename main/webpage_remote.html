@@ -514,6 +514,12 @@
                     <div class="mesh-stats" id="mesh-stats"></div>
                 </div>
                 <div class="mesh-modal-buttons">
+                    <select id="mesh-view-switcher" onchange="switchMeshView(this.value)" style="background:#2a2a2a;color:#ddd;border:1px solid #3a3a3a;border-radius:8px;padding:8px 12px;font-size:0.9rem;cursor:pointer;">
+                        <option value="surface">Surface 21×21</option>
+                        <option value="dots">Dots 21×21</option>
+                        <option value="3x3">Dots 3×3</option>
+                        <option value="3x3shims">Shims 3×3</option>
+                    </select>
                     <button class="mesh-download-btn" onclick="downloadMeshImage()">Download PNG</button>
                     <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
                 </div>
@@ -542,8 +548,8 @@
         const GCODE_MAP = {
             'Mesh Bed Visualization': ['M420 V'],
             'Mesh Bed Visualisation Dots': ['M420 V'],
-
             'Mesh Bed Visualisation 3x3': ['M420 V'],
+            'Mesh Bed Visualisation 3x3 Shims': ['M420 V'],
             'Preheat PLA': ['M104 S170', 'M140 S60'],
             'Preheat PETG': ['M104 S170', 'M140 S85'],
             'Cooldown': ['M104 S0', 'M140 S0'],
@@ -551,6 +557,7 @@
             'Home All': ['G28'],
             'Calibrate Z Axis': ['G162 Z'],
             'Probe Bed': [
+                'G28',
                 'G162 Z',
                 'G0 X242 Y-9 F4800',
                 'G0 Z40 F1000',
@@ -561,6 +568,9 @@
                 'M400',
                 'G29',
                 'G29 T',
+                // Commands above are sent immediately.
+                // Commands below are sent only after 'Mesh is valid' is received.
+                'WAIT_FOR_MESH',
                 'G0 X242 Y-9 Z30 F4800',
                 'M400',
                 'M104 S0',
@@ -598,7 +608,8 @@
             meshParsing: false,
             meshData: [],
             meshComplete: false,
-            meshDisplayMode: 'surface'  // 'surface', 'dots', or '3x3'
+            meshDisplayMode: 'surface',  // 'surface', 'dots', '3x3', or '3x3shims'
+            postMeshQueue: []
         };
         
         let gauges = {};
@@ -689,7 +700,8 @@
         const MESH_LABELS = [
             'Mesh Bed Visualization',
             'Mesh Bed Visualisation Dots',
-            'Mesh Bed Visualisation 3x3'
+            'Mesh Bed Visualisation 3x3',
+            'Mesh Bed Visualisation 3x3 Shims'
         ];
 
         function initDropdown() {
@@ -711,7 +723,8 @@
                 const shortNames = {
                     'Mesh Bed Visualization': 'Surface 21\u00d721',
                     'Mesh Bed Visualisation Dots': 'Dots 21\u00d721',
-                    'Mesh Bed Visualisation 3x3': 'Dots 3\u00d73'
+                    'Mesh Bed Visualisation 3x3': 'Dots 3\u00d73',
+                    'Mesh Bed Visualisation 3x3 Shims': 'Shims 3\u00d73'
                 };
                 subItem.textContent = shortNames[label] || label;
                 subItem.onclick = (e) => {
@@ -771,15 +784,27 @@
                 state.meshDisplayMode = 'dots';
             } else if (label === 'Mesh Bed Visualisation 3x3') {
                 state.meshDisplayMode = '3x3';
+            } else if (label === 'Mesh Bed Visualisation 3x3 Shims') {
+                state.meshDisplayMode = '3x3shims';
             } else if (label === 'Mesh Bed Visualization') {
                 state.meshDisplayMode = 'surface';
             }
-            commands.forEach(cmd => {
+
+            // Split at WAIT_FOR_MESH sentinel if present
+            const splitIndex = commands.indexOf('WAIT_FOR_MESH');
+            const immediate = splitIndex === -1 ? commands : commands.slice(0, splitIndex);
+            state.postMeshQueue = splitIndex === -1 ? [] : commands.slice(splitIndex + 1);
+
+            immediate.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
                     addCommandHistoryEntry(`> ${cmd} (${label})`);
                 }
             });
+
+            if (state.postMeshQueue.length > 0) {
+                addCommandHistoryEntry(`> [${state.postMeshQueue.length} commands queued — waiting for Mesh is valid]`);
+            }
         }
         
         // WebSocket reconnection state
@@ -1125,9 +1150,26 @@
                     if (state.meshDisplayMode === 'dots') {
                         displayMeshDots(state.meshData);
                     } else if (state.meshDisplayMode === '3x3') {
-                        displayMesh3x3(state.meshData);
+                        displayMesh3x3(state.meshData, false);
+                    } else if (state.meshDisplayMode === '3x3shims') {
+                        displayMesh3x3(state.meshData, true);
                     } else {
                         displayMeshVisualization(state.meshData);
+                    }
+                    // Sync the in-modal switcher to current mode
+                    const switcher = document.getElementById('mesh-view-switcher');
+                    if (switcher) switcher.value = state.meshDisplayMode;
+
+                    // Fire any queued post-mesh commands
+                    if (state.postMeshQueue.length > 0) {
+                        console.log(`Firing ${state.postMeshQueue.length} post-mesh commands`);
+                        state.postMeshQueue.forEach(cmd => {
+                            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                                state.ws.send(`GCODE:${cmd}`);
+                                addCommandHistoryEntry(`> ${cmd} (post-mesh)`);
+                            }
+                        });
+                        state.postMeshQueue = [];
                     }
                 } else {
                     console.error('Incomplete mesh data:', state.meshData.length, 'rows');
@@ -1347,7 +1389,7 @@
             Plotly.newPlot('mesh-plot', plotData, layout, config);
         }
         
-        function displayMesh3x3(meshData) {
+        function displayMesh3x3(meshData, showShims) {
             // Sample 9 points from the 21x21 grid (0-indexed 0-20).
             // Using rows/cols 0, 10, 20 — first, middle and last points,
             // which correspond to the 9 expansion joint positions on the bed.
@@ -1375,13 +1417,18 @@
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
                     const z = reversedData[row][col];
-                    const dfh = maxValue - z;
-                    const shims = Math.round(dfh / 0.1);
                     let label;
-                    if (shims === 0) {
-                        label = `Z: ${z.toFixed(2)}mm<br>★ Highest point<br>Shims required: 0`;
+                    if (showShims) {
+                        const dfh = maxValue - z;
+                        const shims = Math.round(dfh / 0.1);
+                        const isHighest = Math.abs(z - maxValue) < 0.001;
+                        if (isHighest) {
+                            label = `Z: ${z.toFixed(2)}mm<br>★ Highest point<br>Shims required: 0`;
+                        } else {
+                            label = `Z: ${z.toFixed(2)}mm<br>DFH: -${dfh.toFixed(2)}mm<br>Shims required: ${shims} × 0.1mm`;
+                        }
                     } else {
-                        label = `Z: ${z.toFixed(2)}mm<br>DFH: -${dfh.toFixed(2)}mm<br>Shims required: ${shims} × 0.1mm`;
+                        label = `Probe X:${3 - col} Y:${row + 1}<br>Z: ${z.toFixed(2)}mm`;
                     }
                     xArr.push(3 - col);
                     yArr.push(row + 1);
@@ -1394,14 +1441,12 @@
 
             const plotData = [{
                 type: 'scatter3d',
-                mode: 'markers+text',
+                mode: 'markers',
                 x: xArr,
                 y: yArr,
                 z: zArr,
                 text: textArr,
                 hoverinfo: 'text',
-                textposition: 'top center',
-                textfont: { color: '#ffffff', size: 10 },
                 marker: {
                     size: 10,
                     color: zArr,
@@ -1423,11 +1468,10 @@
                 }
             }];
 
+            const title = showShims ? 'Bed Mesh Shim Guide (3\u00d73)' : 'Bed Mesh Corner & Edge Points (3\u00d73)';
+
             const layout = {
-                title: {
-                    text: 'Bed Mesh Corner & Edge Points (3\u00d73)',
-                    font: { color: '#4CAF50', size: 24 }
-                },
+                title: { text: title, font: { color: '#4CAF50', size: 24 } },
                 scene: {
                     xaxis: { title: 'X Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
                     yaxis: { title: 'Y Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
@@ -1449,8 +1493,25 @@
 
         function closeMeshModal() {
             document.getElementById('mesh-modal').classList.remove('show');
-            // Clean up Plotly
             Plotly.purge('mesh-plot');
+            // Clear cached mesh data so next open always fetches fresh data
+            state.meshData = [];
+            state.meshComplete = false;
+        }
+
+        function switchMeshView(mode) {
+            if (!state.meshComplete || !state.meshData.length) return;
+            state.meshDisplayMode = mode;
+            Plotly.purge('mesh-plot');
+            if (mode === 'dots') {
+                displayMeshDots(state.meshData);
+            } else if (mode === '3x3') {
+                displayMesh3x3(state.meshData, false);
+            } else if (mode === '3x3shims') {
+                displayMesh3x3(state.meshData, true);
+            } else {
+                displayMeshVisualization(state.meshData);
+            }
         }
         
         function downloadMeshImage() {
@@ -1807,7 +1868,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.25');
+                console.log('HTML Version: v3.2.28');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1847,7 +1908,7 @@
     </script>
     
     <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.25-remote</div>
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.28-remote</div>
     
     <script>
         function refreshHTML() {
