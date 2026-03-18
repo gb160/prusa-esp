@@ -63,7 +63,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.2.5"
+#define FIRMWARE_VERSION "v3.2.6"
 
 // ============================================================================
 // CONFIGURATION
@@ -88,8 +88,8 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   ""
-#define WIFI_PASS                   ""
+#define WIFI_SSID                   "BT-WXF9FJ"
+#define WIFI_PASS                   "QFLQCPDLWF"
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
@@ -1312,6 +1312,21 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+static esp_err_t version_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    httpd_resp_sendstr(req, FIRMWARE_VERSION);
+    return ESP_OK;
+}
+
+static esp_err_t version_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+    httpd_resp_sendstr(req, FIRMWARE_VERSION);
+    return ESP_OK;
+}
+
 static esp_err_t reboot_get_handler(httpd_req_t *req)
 {
     const char *reboot_msg =
@@ -1362,6 +1377,24 @@ static void start_webserver(void)
         };
         httpd_register_uri_handler(server, &refresh_uri);
         
+        // Version handler
+        httpd_uri_t version_uri = {
+            .uri = "/version",
+            .method = HTTP_GET,
+            .handler = version_get_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &version_uri);
+
+        // Version handler
+        httpd_uri_t version_uri = {
+            .uri = "/version",
+            .method = HTTP_GET,
+            .handler = version_get_handler,
+            .user_ctx = NULL
+        };
+        httpd_register_uri_handler(server, &version_uri);
+
         // Reboot handler
         httpd_uri_t reboot_uri = {
             .uri = "/reboot",
