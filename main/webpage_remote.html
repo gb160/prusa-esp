@@ -1307,10 +1307,12 @@
                         [1,    '#ff0000']
                     ],
                     colorbar: {
-                        title: 'Height (mm)',
+                        title: 'mm',
                         titleside: 'right',
-                        titlefont: { color: '#ffffff' },
-                        tickfont:  { color: '#ffffff' }
+                        titlefont: { color: '#ffffff', size: 10 },
+                        tickfont:  { color: '#ffffff', size: 9 },
+                        thickness: 10,
+                        len: 0.75
                     },
                     cmin: minValue,
                     cmax: maxValue
@@ -1318,7 +1320,7 @@
             }];
 
             const layout = {
-                title: { text: 'Bed Mesh (21\u00d721)', font: { color: '#4CAF50', size: 16 } },
+                title: { text: 'Bed Mesh (21\u00d721)', font: { color: '#4CAF50', size: 13 }, x: 0, xanchor: 'left' },
                 scene: {
                     xaxis: { title: 'X', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
                     yaxis: { title: 'Y', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
@@ -1331,7 +1333,7 @@
                 },
                 paper_bgcolor: '#1a1a1a',
                 plot_bgcolor: '#0a0a0a',
-                margin: { l:0, r:0, b:0, t:40 }
+                margin: { l:0, r:0, b:0, t:30 }
             };
 
             Plotly.newPlot('live-mesh-plot', plotData, layout, {
@@ -2031,7 +2033,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.37');
+                console.log('HTML Version: v3.2.38');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -2073,7 +2075,7 @@
     <!-- Version info line - firmware + HTML version, no click action -->
     <div class="version-tag" style="cursor: default;">
         <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
-        <span> | HTML: v3.2.37-remote</span>
+        <span> | HTML: v3.2.38-remote</span>
     </div>
 
     <!-- Reboot ESP - separate line -->
