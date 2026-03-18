@@ -612,7 +612,6 @@
             meshData: [],
             meshComplete: false,
             meshDisplayMode: 'surface',  // 'surface', 'dots', '3x3', or '3x3shims'
-            postMeshQueue: []
         };
         
         let gauges = {};
@@ -793,21 +792,13 @@
                 state.meshDisplayMode = 'surface';
             }
 
-            // Split at WAIT_FOR_MESH sentinel if present
-            const splitIndex = commands.indexOf('WAIT_FOR_MESH');
-            const immediate = splitIndex === -1 ? commands : commands.slice(0, splitIndex);
-            state.postMeshQueue = splitIndex === -1 ? [] : commands.slice(splitIndex + 1);
-
-            immediate.forEach(cmd => {
+            // Firmware ok-queue handles sequencing — send all commands directly
+            commands.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
                     addCommandHistoryEntry(`> ${cmd} (${label})`);
                 }
             });
-
-            if (state.postMeshQueue.length > 0) {
-                addCommandHistoryEntry(`> [${state.postMeshQueue.length} commands queued — waiting for Mesh is valid]`);
-            }
         }
         
         // WebSocket reconnection state
@@ -1181,17 +1172,6 @@
                     const switcher = document.getElementById('mesh-view-switcher');
                     if (switcher) switcher.value = state.meshDisplayMode;
 
-                    // Fire any queued post-mesh commands
-                    if (state.postMeshQueue.length > 0) {
-                        console.log(`Firing ${state.postMeshQueue.length} post-mesh commands`);
-                        state.postMeshQueue.forEach(cmd => {
-                            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-                                state.ws.send(`GCODE:${cmd}`);
-                                addCommandHistoryEntry(`> ${cmd} (post-mesh)`);
-                            }
-                        });
-                        state.postMeshQueue = [];
-                    }
                 } else {
                     console.error('Incomplete mesh data:', state.meshData.length, 'rows');
                 }
@@ -1889,7 +1869,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.30');
+                console.log('HTML Version: v3.2.32');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1928,8 +1908,11 @@
         });
     </script>
     
-    <!-- Version Tag - Click to refresh HTML from GitHub -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.31-remote</div>
+    <!-- Firmware Version Label -->
+    <div class="version-tag" id="firmware-version-tag" style="cursor: default;">ESP32 Firmware: checking...</div>
+
+    <!-- Version Tag - Click to reboot ESP -->
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.32-remote</div>
     
     <script>
         function refreshHTML() {
@@ -1948,6 +1931,20 @@
                 window.location.href = '/reboot';
             }
         }
+    </script>
+
+    <script>
+        // Fetch firmware version from ESP on page load
+        fetch('/version')
+            .then(r => r.text())
+            .then(v => {
+                const el = document.getElementById('firmware-version-tag');
+                if (el) el.textContent = 'ESP32 Firmware: ' + v.trim();
+            })
+            .catch(() => {
+                const el = document.getElementById('firmware-version-tag');
+                if (el) el.textContent = 'ESP32 Firmware: unknown';
+            });
     </script>
 
 
