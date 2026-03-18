@@ -63,7 +63,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.2.3"
+#define FIRMWARE_VERSION "v3.2.5"
 
 // ============================================================================
 // CONFIGURATION
@@ -107,6 +107,12 @@
 
 // Serial parsing buffer
 #define SERIAL_LINE_BUFFER_SIZE     (512)
+
+// G-code command queue configuration
+// Commands are queued and sent one at a time, waiting for 'ok' before sending next
+#define GCODE_QUEUE_SIZE            (32)   // Max queued commands
+#define GCODE_CMD_MAX_LEN           (128)  // Max length of a single command
+#define GCODE_OK_TIMEOUT_MS         (300000) // 5 minutes - covers long operations like G29
 
 // Debug UART configuration
 #define DEBUG_UART_NUM              UART_NUM_1
@@ -203,6 +209,14 @@ static bool printer_connected = false;
 static char serial_line_buffer[SERIAL_LINE_BUFFER_SIZE];
 static size_t serial_line_pos = 0;
 
+// G-code command queue
+typedef struct {
+    char cmd[GCODE_CMD_MAX_LEN];
+} gcode_cmd_t;
+
+static QueueHandle_t gcode_queue = NULL;
+static SemaphoreHandle_t gcode_ok_sem = NULL;  // Signalled when printer sends 'ok'
+
 // LED task handle
 static TaskHandle_t led_task_handle = NULL;
 
@@ -270,7 +284,11 @@ static void ws_clients_init(void)
         ws_clients[i].active = false;
         ws_clients[i].message_queue = xQueueCreate(WS_MESSAGE_QUEUE_SIZE, sizeof(ws_message_t));
     }
-    
+
+    // Initialise G-code command queue and ok semaphore
+    gcode_queue = xQueueCreate(GCODE_QUEUE_SIZE, sizeof(gcode_cmd_t));
+    gcode_ok_sem = xSemaphoreCreateCounting(32, 0);  // Counting semaphore, starts at 0
+
     ESP_LOGI(TAG, "WebSocket client manager initialized");
 }
 
@@ -573,7 +591,14 @@ static void parse_and_broadcast_line(const char *line)
         build_progress_message(&msg, &current_progress);
         ws_broadcast_message(&msg);
     }
-    
+
+    // Signal G-code queue that printer is ready for next command
+    if (strcmp(line, "ok") == 0 || strncmp(line, "ok ", 3) == 0) {
+        if (gcode_ok_sem) {
+            xSemaphoreGive(gcode_ok_sem);
+        }
+    }
+
     xSemaphoreGive(printer_state_mutex);
 }
 
@@ -928,6 +953,57 @@ static void system_monitor_task(void *arg)
 }
 
 // ============================================================================
+// G-CODE COMMAND QUEUE SENDER TASK
+// Sends one command at a time, waits for 'ok' before sending next.
+// This ensures commands like G29 fully complete before G29 T is sent.
+// ============================================================================
+
+static void gcode_sender_task(void *arg)
+{
+    gcode_cmd_t cmd;
+
+    ESP_LOGI(TAG, "G-code sender task started");
+
+    while (1) {
+        // Wait for a command to arrive in the queue
+        if (xQueueReceive(gcode_queue, &cmd, portMAX_DELAY) != pdTRUE) {
+            continue;
+        }
+
+        if (!g_prusa_dev) {
+            ESP_LOGW(TAG, "[GCODE] Printer not connected, dropping: %s", cmd.cmd);
+            continue;
+        }
+
+        // Send the command to the printer
+        char cmdline[GCODE_CMD_MAX_LEN + 2];
+        snprintf(cmdline, sizeof(cmdline), "%s\n", cmd.cmd);
+
+        esp_err_t err = cdc_acm_host_data_tx_blocking(g_prusa_dev,
+            (uint8_t *)cmdline, strlen(cmdline), USB_TX_TIMEOUT_MS);
+
+        if (err != ESP_OK) {
+            ESP_LOGE(TAG, "[GCODE] Failed to send: %s (%s)", cmd.cmd, esp_err_to_name(err));
+            continue;
+        }
+
+        ESP_LOGI(TAG, "[GCODE] Sent: %s", cmd.cmd);
+
+        // Wait for 'ok' from printer before sending next command
+        // Timeout is generous to allow for long operations like G29
+        if (xSemaphoreTake(gcode_ok_sem, pdMS_TO_TICKS(GCODE_OK_TIMEOUT_MS)) != pdTRUE) {
+            ESP_LOGW(TAG, "[GCODE] Timeout waiting for ok after: %s", cmd.cmd);
+            // Clear any backed-up ok signals and continue
+            while (xSemaphoreTake(gcode_ok_sem, 0) == pdTRUE) {}
+        } else {
+            DEBUG_LOG(TAG, "[GCODE] ok received, sending next command");
+            // Drain any extra ok signals (some commands produce multiple)
+            while (xSemaphoreTake(gcode_ok_sem, pdMS_TO_TICKS(50)) == pdTRUE) {}
+        }
+    }
+}
+
+// ============================================================================
 // WEBSOCKET MESSAGE SENDER TASK
 // ============================================================================
 
@@ -1060,16 +1136,16 @@ static esp_err_t ws_handler(httpd_req_t *req)
         // Check if it's a G-code command
         else if (strncmp((char *)buf, "GCODE:", 6) == 0) {
             char *cmd = (char *)buf + 6;  // Skip "GCODE:" prefix
-            
+
             if (g_prusa_dev) {
-                char cmdline[256];
-                snprintf(cmdline, sizeof(cmdline), "%s\n", cmd);
-                esp_err_t err = cdc_acm_host_data_tx_blocking(g_prusa_dev, 
-                    (uint8_t *)cmdline, strlen(cmdline), USB_TX_TIMEOUT_MS);
-                if (err != ESP_OK) {
-                    ESP_LOGE(TAG, "Failed to send G-code: %s", esp_err_to_name(err));
+                gcode_cmd_t gcode_cmd;
+                strncpy(gcode_cmd.cmd, cmd, GCODE_CMD_MAX_LEN - 1);
+                gcode_cmd.cmd[GCODE_CMD_MAX_LEN - 1] = '\0';
+
+                if (xQueueSend(gcode_queue, &gcode_cmd, pdMS_TO_TICKS(100)) != pdTRUE) {
+                    ESP_LOGW(TAG, "G-code queue full, dropping: %s", cmd);
                 } else {
-                    DEBUG_LOG(TAG, "[GCODE] Sent: %s", cmd);
+                    DEBUG_LOG(TAG, "[GCODE] Queued: %s", cmd);
                 }
             } else {
                 ESP_LOGW(TAG, "G-code received but printer not connected");
@@ -1347,9 +1423,6 @@ void app_main(void)
     printer_state_mutex = xSemaphoreCreateMutex();
     assert(device_disconnected_sem && html_mutex && printer_state_mutex);
     
-    // Initialize WebSocket client manager
-    ws_clients_init();
-    
     // Initialize USB Host
     ESP_LOGI(TAG, "Initializing USB Host");
     const usb_host_config_t host_config = {
@@ -1381,7 +1454,7 @@ void app_main(void)
     ESP_LOGI(TAG, "Waiting for WiFi connection...");
     vTaskDelay(pdMS_TO_TICKS(5000));
     
-    // Download HTML from GitHub
+    // Download HTML from GitHub — done BEFORE ws_clients_init to maximise heap available
     ESP_LOGI(TAG, "Free heap before download: %d bytes, free PSRAM: %d bytes",
              (int)esp_get_free_heap_size(),
              (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
@@ -1389,6 +1462,9 @@ void app_main(void)
 #else
     ESP_LOGI(TAG, "Remote HTML fetching disabled - using embedded HTML only");
 #endif
+
+    // Initialize WebSocket client manager (after HTML download to preserve heap)
+    ws_clients_init();
     
     // Initialize mDNS
     ESP_ERROR_CHECK(mdns_init());
@@ -1404,6 +1480,9 @@ void app_main(void)
     
     // Start WebSocket message sender task - Core 1 (networking, isolated from USB)
     xTaskCreatePinnedToCore(ws_sender_task, "ws_sender", 4096, NULL, 5, NULL, 1);
+
+    // Start G-code command queue sender task - Core 1
+    xTaskCreatePinnedToCore(gcode_sender_task, "gcode_sender", 4096, NULL, 6, NULL, 1);
     
     // Start LED task - Core 1 (non-critical)
     xTaskCreatePinnedToCore(led_task, "led_task", 2048, NULL, 3, &led_task_handle, 1);
