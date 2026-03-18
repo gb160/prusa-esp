@@ -903,6 +903,15 @@
                 updateConnectionStatus(true, 'Connected');
                 resetHeartbeat(); // Start heartbeat timer
                 state.ws.send('CONNECT');
+                // Request current mesh data to populate live bed mesh section
+                setTimeout(() => {
+                    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                        state.liveMeshParsing = true;
+                        state.liveMeshData = [];
+                        state.ws.send('GCODE:M420 V');
+                        console.log('Requesting mesh data on connect');
+                    }
+                }, 1000); // Small delay to allow CONNECT handshake to complete
             };
 
             state.ws.onmessage = (event) => {
@@ -2022,7 +2031,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.36');
+                console.log('HTML Version: v3.2.37');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -2064,7 +2073,7 @@
     <!-- Version info line - firmware + HTML version, no click action -->
     <div class="version-tag" style="cursor: default;">
         <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
-        <span> | HTML: v3.2.36-remote</span>
+        <span> | HTML: v3.2.37-remote</span>
     </div>
 
     <!-- Reboot ESP - separate line -->
