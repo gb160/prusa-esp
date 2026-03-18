@@ -628,6 +628,7 @@
             meshData: [],
             meshComplete: false,
             meshDisplayMode: 'surface',  // 'surface', 'dots', '3x3', or '3x3shims'
+            meshManualRequest: false      // true only when manually selected from dropdown
             // Live mesh (auto-updated each print)
             liveMeshParsing: false,
             liveMeshData: []
@@ -803,12 +804,16 @@
             // Set display mode before sending so parser knows what to render
             if (label === 'Mesh Bed Visualisation Dots') {
                 state.meshDisplayMode = 'dots';
+                state.meshManualRequest = true;
             } else if (label === 'Mesh Bed Visualisation 3x3') {
                 state.meshDisplayMode = '3x3';
+                state.meshManualRequest = true;
             } else if (label === 'Mesh Bed Visualisation 3x3 Shims') {
                 state.meshDisplayMode = '3x3shims';
+                state.meshManualRequest = true;
             } else if (label === 'Mesh Bed Visualization') {
                 state.meshDisplayMode = 'surface';
+                state.meshManualRequest = true;
             }
 
             // Firmware ok-queue handles sequencing — send all commands directly
@@ -1181,7 +1186,7 @@
                 // Validate we got all 21 rows (0-20)
                 if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
                     state.meshComplete = true;
-                    console.log('Mesh data complete! Showing visualization...');
+                    console.log('Mesh data complete!');
 
                     // Update mesh indicator to complete
                     const indicator = document.getElementById('mesh-indicator');
@@ -1191,18 +1196,23 @@
                         dot.style.background = '#4CAF50';
                         text.textContent = 'Mesh ready';
                     }
-                    if (state.meshDisplayMode === 'dots') {
-                        displayMeshDots(state.meshData);
-                    } else if (state.meshDisplayMode === '3x3') {
-                        displayMesh3x3(state.meshData, false);
-                    } else if (state.meshDisplayMode === '3x3shims') {
-                        displayMesh3x3(state.meshData, true);
-                    } else {
-                        displayMeshVisualization(state.meshData);
+
+                    // Only show modal if manually requested from dropdown
+                    if (state.meshManualRequest) {
+                        state.meshManualRequest = false;
+                        if (state.meshDisplayMode === 'dots') {
+                            displayMeshDots(state.meshData);
+                        } else if (state.meshDisplayMode === '3x3') {
+                            displayMesh3x3(state.meshData, false);
+                        } else if (state.meshDisplayMode === '3x3shims') {
+                            displayMesh3x3(state.meshData, true);
+                        } else {
+                            displayMeshVisualization(state.meshData);
+                        }
+                        // Sync the in-modal switcher to current mode
+                        const switcher = document.getElementById('mesh-view-switcher');
+                        if (switcher) switcher.value = state.meshDisplayMode;
                     }
-                    // Sync the in-modal switcher to current mode
-                    const switcher = document.getElementById('mesh-view-switcher');
-                    if (switcher) switcher.value = state.meshDisplayMode;
 
                 } else {
                     console.error('Incomplete mesh data:', state.meshData.length, 'rows');
@@ -2012,7 +2022,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.35');
+                console.log('HTML Version: v3.2.36');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -2054,7 +2064,7 @@
     <!-- Version info line - firmware + HTML version, no click action -->
     <div class="version-tag" style="cursor: default;">
         <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
-        <span> | HTML: v3.2.35-remote</span>
+        <span> | HTML: v3.2.36-remote</span>
     </div>
 
     <!-- Reboot ESP - separate line -->
