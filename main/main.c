@@ -1315,13 +1315,6 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
 static esp_err_t version_get_handler(httpd_req_t *req)
 {
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
-    httpd_resp_sendstr(req, FIRMWARE_VERSION);
-    return ESP_OK;
-}
-
-static esp_err_t version_get_handler(httpd_req_t *req)
-{
-    httpd_resp_set_type(req, "text/plain; charset=utf-8");
     httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
     httpd_resp_sendstr(req, FIRMWARE_VERSION);
     return ESP_OK;
@@ -1377,15 +1370,6 @@ static void start_webserver(void)
         };
         httpd_register_uri_handler(server, &refresh_uri);
         
-        // Version handler
-        httpd_uri_t version_uri = {
-            .uri = "/version",
-            .method = HTTP_GET,
-            .handler = version_get_handler,
-            .user_ctx = NULL
-        };
-        httpd_register_uri_handler(server, &version_uri);
-
         // Version handler
         httpd_uri_t version_uri = {
             .uri = "/version",
