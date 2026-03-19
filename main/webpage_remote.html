@@ -1907,7 +1907,7 @@
         // G-code
         function sendGCode() {
             const input = document.getElementById('gcode-input');
-            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
+            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim() && !cmd.trim().startsWith(';'));
             
             if (commands.length === 0) return;
             if (!state.connected || !state.printerConnected) {
@@ -2033,7 +2033,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.38');
+                console.log('HTML Version: v3.2.39');
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -2075,7 +2075,7 @@
     <!-- Version info line - firmware + HTML version, no click action -->
     <div class="version-tag" style="cursor: default;">
         <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
-        <span> | HTML: v3.2.38-remote</span>
+        <span> | HTML: v3.2.39-remote</span>
     </div>
 
     <!-- Reboot ESP - separate line -->
