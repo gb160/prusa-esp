@@ -557,8 +557,8 @@
         // ========================================
         // DEBUG MODE - Set to true to test with dummy data
         // ========================================
-        // const DEBUG_MODE = true;
         const DEBUG_MODE = false;
+        // const DEBUG_MODE = false;
         
         // Configuration
         const CONFIG = {
@@ -1062,20 +1062,12 @@
             const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
             const bedColor = getTargetColor(bed.current, bed.target, 'bed');
             const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target, 'heatbreak');
-            
-            let nozzleTitle = 'Nozzle';
-            if (nozzle.target === 0 && nozzle.current > 50) {
-                nozzleTitle = 'Nozzle COOLING';
-            } else if (nozzle.target > 0 && (nozzle.target - nozzle.current) > 3) {
-                nozzleTitle = 'Nozzle HEATING';
-            }
 
-            let bedTitle = 'Bed';
-            if (bed.target === 0 && bed.current > 30) {
-                bedTitle = 'Bed COOLING';
-            } else if (bed.target > 0 && (bed.target - bed.current) > 3) {
-                bedTitle = 'Bed HEATING';
-            }
+            // Titles mirror the gauge colour state
+            const nozzleTitle = nozzleColor === '#4CAF50' ? 'Nozzle' :
+                                nozzleColor === '#2196F3' ? 'Nozzle: Cooling' : 'Nozzle: Heating';
+            const bedTitle    = bedColor    === '#4CAF50' ? 'Bed' :
+                                bedColor    === '#2196F3' ? 'Bed: Cooling'    : 'Bed: Heating';
 
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
@@ -2194,7 +2186,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.45-remote';
+        const HTML_VERSION = 'v3.2.46-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
