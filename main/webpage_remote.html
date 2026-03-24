@@ -639,6 +639,8 @@
         
         let gauges = {};
         let tempChart = null;
+        let pulseVisible = true;
+        setInterval(() => { pulseVisible = !pulseVisible; }, 800);
         
         // Create gauge - Pi Stats style with custom text
         function createGauge(id, min, max, title, label, symbol, color, dec, target) {
@@ -1057,6 +1059,22 @@
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
+            // Build pulsing titles for nozzle and bed
+            const pulse = pulseVisible ? ' ● ' : '   ';
+            let nozzleTitle = 'Nozzle';
+            if (nozzle.target === 0 && nozzle.current > 50) {
+                nozzleTitle = `Nozzle${pulse}COOLING`;
+            } else if (nozzle.target > 0 && (nozzle.target - nozzle.current) > 3) {
+                nozzleTitle = `Nozzle${pulse}HEATING`;
+            }
+
+            let bedTitle = 'Bed';
+            if (bed.target === 0 && bed.current > 30) {
+                bedTitle = `Bed${pulse}COOLING`;
+            } else if (bed.target > 0 && (bed.target - bed.current) > 3) {
+                bedTitle = `Bed${pulse}HEATING`;
+            }
+
             // Get colors based on target vs current
             const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
             const bedColor = getTargetColor(bed.current, bed.target, 'bed');
@@ -1064,13 +1082,13 @@
             
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
-            gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
+            gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), nozzleTitle, undefined, nozzleLabel);
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
             gauges.nozzle.update({targetLine: guageTargetLine});
             
             // Update bed
             gauges.bed.config.levelColors = [bedColor];
-            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
+            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), bedTitle, undefined, bedLabel);
             const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
             gauges.bed.update({targetLine: bedTargetLine});
             
@@ -2138,7 +2156,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.39');
+                console.log('HTML Version: ' + HTML_VERSION);
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -2175,12 +2193,21 @@
                 alert('Error initializing page: ' + error.message);
             }
         });
+
+        // ========================================
+        // HTML VERSION - update this when changing the file
+        // ========================================
+        const HTML_VERSION = 'v3.2.43-remote';
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('html-version-tag');
+            if (el) el.textContent = HTML_VERSION;
+        });
     </script>
     
     <!-- Version info line - firmware + HTML version, no click action -->
     <div class="version-tag" style="cursor: default;">
         <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
-        <span> | HTML: v3.2.43-remote</span>
+        <span> | HTML: <span id="html-version-tag"></span></span>
     </div>
 
     <!-- Reboot ESP - separate line -->
