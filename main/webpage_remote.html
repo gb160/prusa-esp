@@ -557,8 +557,8 @@
         // ========================================
         // DEBUG MODE - Set to true to test with dummy data
         // ========================================
-        // const DEBUG_MODE = true;
-        const DEBUG_MODE = false;
+        const DEBUG_MODE = true;
+        // const DEBUG_MODE = false;
         
         // Configuration
         const CONFIG = {
@@ -639,8 +639,6 @@
         
         let gauges = {};
         let tempChart = null;
-        let pulseVisible = true;
-        setInterval(() => { pulseVisible = !pulseVisible; }, 800);
         
         // Create gauge - Pi Stats style with custom text
         function createGauge(id, min, max, title, label, symbol, color, dec, target) {
@@ -1050,21 +1048,6 @@
             }
         }
 
-        // Update the SVG title text of a JustGage gauge by targeting its container
-        function setGaugeTitle(gaugeId, titleText) {
-            const container = document.getElementById(gaugeId);
-            if (!container) return;
-            // JustGage v2 renders title as the last <text> element in the SVG
-            const svg = container.querySelector('svg');
-            if (!svg) return;
-            const texts = svg.querySelectorAll('text');
-            // The title element is the one whose content matches the original title or a status string
-            // It is always the last text element in JustGage's SVG structure
-            if (texts.length > 0) {
-                texts[texts.length - 1].textContent = titleText;
-            }
-        }
-
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
@@ -1074,40 +1057,37 @@
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
-            // Build pulsing titles for nozzle and bed
-            const pulse = pulseVisible ? ' ● ' : '   ';
-            let nozzleTitle = 'Nozzle';
-            if (nozzle.target === 0 && nozzle.current > 50) {
-                nozzleTitle = `Nozzle${pulse}COOLING`;
-            } else if (nozzle.target > 0 && (nozzle.target - nozzle.current) > 3) {
-                nozzleTitle = `Nozzle${pulse}HEATING`;
-            }
-
-            let bedTitle = 'Bed';
-            if (bed.target === 0 && bed.current > 30) {
-                bedTitle = `Bed${pulse}COOLING`;
-            } else if (bed.target > 0 && (bed.target - bed.current) > 3) {
-                bedTitle = `Bed${pulse}HEATING`;
-            }
 
             // Get colors based on target vs current
             const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
             const bedColor = getTargetColor(bed.current, bed.target, 'bed');
             const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target, 'heatbreak');
             
+            let nozzleTitle = 'Nozzle';
+            if (nozzle.target === 0 && nozzle.current > 50) {
+                nozzleTitle = 'Nozzle COOLING';
+            } else if (nozzle.target > 0 && (nozzle.target - nozzle.current) > 3) {
+                nozzleTitle = 'Nozzle HEATING';
+            }
+
+            let bedTitle = 'Bed';
+            if (bed.target === 0 && bed.current > 30) {
+                bedTitle = 'Bed COOLING';
+            } else if (bed.target > 0 && (bed.target - bed.current) > 3) {
+                bedTitle = 'Bed HEATING';
+            }
+
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
-            gauges.nozzle.update({targetLine: guageTargetLine});
-            setGaugeTitle('gauge-nozzle', nozzleTitle);
+            gauges.nozzle.update({targetLine: guageTargetLine, title: nozzleTitle});
 
             // Update bed
             gauges.bed.config.levelColors = [bedColor];
             gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
             const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
-            gauges.bed.update({targetLine: bedTargetLine});
-            setGaugeTitle('gauge-bed', bedTitle);
+            gauges.bed.update({targetLine: bedTargetLine, title: bedTitle});
             
             // Update heatbreak
             gauges.heatbreak.config.levelColors = [heatbreakColor];
@@ -2212,9 +2192,9 @@
         });
 
         // ========================================
-        // HTML VERSION - update this when changing the file
+        // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.44-remote';
+        const HTML_VERSION = 'v3.2.45-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
