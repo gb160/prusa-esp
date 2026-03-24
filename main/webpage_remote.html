@@ -1065,9 +1065,9 @@
 
             // Titles mirror the gauge colour state
             const nozzleTitle = nozzleColor === '#4CAF50' ? 'Nozzle' :
-                                nozzleColor === '#2196F3' ? 'Nozzle: Cooling' : 'Nozzle: Heating';
+                                nozzleColor === '#2196F3' ? 'Nozzle: Heating' : 'Nozzle: Cooling';
             const bedTitle    = bedColor    === '#4CAF50' ? 'Bed' :
-                                bedColor    === '#2196F3' ? 'Bed: Cooling'    : 'Bed: Heating';
+                                bedColor    === '#2196F3' ? 'Bed: Heating'    : 'Bed: Cooling';
 
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
@@ -2186,7 +2186,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.46-remote';
+        const HTML_VERSION = 'v3.2.47-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
