@@ -580,6 +580,7 @@
             'Unload Filament': ['M702'],
             'Change Sheet': ['G0 Z150 F1000'],
             'Home All': ['G28'],
+            'Disable Motors': ['M84'],
             'Calibrate Z Axis': ['G162 Z'],
             'Probe Bed': [
                 'G28',
@@ -2186,7 +2187,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.47-remote';
+        const HTML_VERSION = 'v3.2.48-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
