@@ -683,7 +683,8 @@
             gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", ["#4CAF50"], 1);
             
             // Power gauges - all same green
-            const powerColors = ["#4CAF50"];
+            // const powerColors = ["#4CAF50"];
+            const powerColors = ["#a9d70b", "#f9c802", "#ff0000"];
             gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", powerColors);
             gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", powerColors);
             gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", powerColors);
