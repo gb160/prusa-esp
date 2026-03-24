@@ -1050,6 +1050,21 @@
             }
         }
 
+        // Update the SVG title text of a JustGage gauge by targeting its container
+        function setGaugeTitle(gaugeId, titleText) {
+            const container = document.getElementById(gaugeId);
+            if (!container) return;
+            // JustGage v2 renders title as the last <text> element in the SVG
+            const svg = container.querySelector('svg');
+            if (!svg) return;
+            const texts = svg.querySelectorAll('text');
+            // The title element is the one whose content matches the original title or a status string
+            // It is always the last text element in JustGage's SVG structure
+            if (texts.length > 0) {
+                texts[texts.length - 1].textContent = titleText;
+            }
+        }
+
         function updateTemperatureGauges() {
             const { nozzle, bed, heatbreak, chamber } = state.temps;
             
@@ -1082,15 +1097,17 @@
             
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
-            gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), nozzleTitle, undefined, nozzleLabel);
+            gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
             gauges.nozzle.update({targetLine: guageTargetLine});
-            
+            setGaugeTitle('gauge-nozzle', nozzleTitle);
+
             // Update bed
             gauges.bed.config.levelColors = [bedColor];
-            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), bedTitle, undefined, bedLabel);
+            gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
             const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
             gauges.bed.update({targetLine: bedTargetLine});
+            setGaugeTitle('gauge-bed', bedTitle);
             
             // Update heatbreak
             gauges.heatbreak.config.levelColors = [heatbreakColor];
@@ -2197,7 +2214,7 @@
         // ========================================
         // HTML VERSION - update this when changing the file
         // ========================================
-        const HTML_VERSION = 'v3.2.43-remote';
+        const HTML_VERSION = 'v3.2.44-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
