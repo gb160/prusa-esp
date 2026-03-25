@@ -583,8 +583,8 @@
             'Disable Motors': ['M84'],
             'Calibrate Z Axis': ['G162 Z'],
             'Probe Bed': [
-                'G28',
                 'G162 Z',
+                'G28',
                 'G0 X242 Y-9 F4800',
                 'G0 Z40 F1000',
                 'M140 S60',
@@ -2187,7 +2187,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.48-remote';
+        const HTML_VERSION = 'v3.2.49-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
