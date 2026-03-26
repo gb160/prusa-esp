@@ -522,7 +522,18 @@
                     </div>
                 </div>
             </div>
-            <div></div>
+            <!-- Quick Commands Panel -->
+            <div class="stats-section section-panel" style="min-height:500px;">
+                <div class="section-header">
+                    <h2>Quick Commands</h2>
+                </div>
+                <div id="quick-commands-grid" style="
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                    padding: 5px 0;
+                "></div>
+            </div>
         </div>
         
     </div>
@@ -568,40 +579,53 @@
             MAX_GRAPH_POINTS: 60
         };
         
+        // ========================================
+        // GCODE_MAP — Single source of truth
+        // ========================================
+        // Each entry:
+        //   cmds:  array of G-code strings to send
+        //   group: which Quick Commands group to appear in
+        //          'temperature' | 'motion' | 'bed' | 'mesh' (mesh = modal only, no button)
+        //   icon:  emoji shown on the quick-command button
+        // To add a new command: add an entry here — the button appears automatically.
+        // To remove: delete the entry — the button disappears automatically.
+        // ========================================
         const GCODE_MAP = {
-            'Mesh Bed Visualization': ['M420 V'],
-            'Mesh Bed Visualisation Dots': ['M420 V'],
-            'Mesh Bed Visualisation 7x7': ['M420 V'],
-            'Mesh Bed Visualisation 3x3': ['M420 V'],
-            'Mesh Bed Visualisation 3x3 Shims': ['M420 V'],
-            'Preheat PLA': ['M104 S170', 'M140 S60'],
-            'Preheat PETG': ['M104 S170', 'M140 S85'],
-            'Cooldown': ['M104 S0', 'M140 S0'],
-            'Unload Filament': ['M702'],
-            'Change Sheet': ['G0 Z150 F1000'],
-            'Home All': ['G28'],
-            'Disable Motors': ['M84'],
-            'Calibrate Z Axis': ['G162 Z'],
-            'Probe Bed': [
-                'G162 Z',
-                'G28',
-                'G0 X242 Y-9 F4800',
-                'G0 Z40 F1000',
-                'M140 S60',
-                'M109 R170',
-                'M190 S60',
-                'M400',
-                'G29',
-                'M400',
-                'M420 V',
-                'G0 X242 Y-9 Z30 F4800',
-                'M400',
-                'M104 S0',
-                'M140 S0',
-                'M107',
-                'M400'
-            ]
+            // ── Mesh visualisation (modal only — group: 'mesh') ──────────────
+            'Mesh Bed Visualization':         { cmds: ['M420 V'],   group: 'mesh' },
+            'Mesh Bed Visualisation Dots':    { cmds: ['M420 V'],   group: 'mesh' },
+            'Mesh Bed Visualisation 7x7':     { cmds: ['M420 V'],   group: 'mesh' },
+            'Mesh Bed Visualisation 3x3':     { cmds: ['M420 V'],   group: 'mesh' },
+            'Mesh Bed Visualisation 3x3 Shims': { cmds: ['M420 V'], group: 'mesh' },
+
+            // ── Temperature ──────────────────────────────────────────────────
+            'Preheat PLA':   { cmds: ['M104 S170', 'M140 S60'],  group: 'temperature', icon: '🌡️' },
+            'Preheat PETG':  { cmds: ['M104 S170', 'M140 S85'],  group: 'temperature', icon: '🌡️' },
+            'Cooldown':      { cmds: ['M104 S0',   'M140 S0'],   group: 'temperature', icon: '❄️'  },
+
+            // ── Motion & Setup ───────────────────────────────────────────────
+            'Unload Filament':  { cmds: ['M702'],          group: 'motion', icon: '⏏️' },
+            'Change Sheet':     { cmds: ['G0 Z150 F1000'], group: 'motion', icon: '📄' },
+            'Home All':         { cmds: ['G28'],           group: 'motion', icon: '🏠' },
+            'Disable Motors':   { cmds: ['M84'],           group: 'motion', icon: '⏹️' },
+            'Calibrate Z Axis': { cmds: ['G162 Z'],        group: 'motion', icon: '📐' },
+
+            // ── Bed Levelling ────────────────────────────────────────────────
+            'Probe Bed': { cmds: [
+                'G162 Z', 'G28', 'G0 X242 Y-9 F4800', 'G0 Z40 F1000',
+                'M140 S60', 'M109 R170', 'M190 S60', 'M400',
+                'G29', 'M400', 'M420 V', 'G0 X242 Y-9 Z30 F4800',
+                'M400', 'M104 S0', 'M140 S0', 'M107', 'M400'
+            ], group: 'bed', icon: '🔍' },
         };
+
+        // Group display config — controls label, colour and order of sections.
+        // No need to touch this when adding/removing commands.
+        const QUICK_CMD_GROUPS = [
+            { key: 'temperature', label: 'Temperature',    color: '#f0a500' },
+            { key: 'motion',      label: 'Motion & Setup', color: '#2980b9' },
+            { key: 'bed',         label: 'Bed Levelling',  color: '#27ae60' },
+        ];
         
         // State
         const state = {
@@ -723,18 +747,12 @@
             });
         }
         
-        // Dropdown
-        const MESH_LABELS = [
-            'Mesh Bed Visualization',
-            'Mesh Bed Visualisation Dots',
-            'Mesh Bed Visualisation 7x7',
-            'Mesh Bed Visualisation 3x3',
-            'Mesh Bed Visualisation 3x3 Shims'
-        ];
-
+        // Dropdown — mesh labels derived dynamically from GCODE_MAP
         function initDropdown() {
             const menu = document.getElementById('dropdown-menu');
             menu.innerHTML = '';
+
+            const meshLabels = Object.keys(GCODE_MAP).filter(k => GCODE_MAP[k].group === 'mesh');
 
             // Mesh Visualisation submenu entry
             const meshItem = document.createElement('div');
@@ -744,10 +762,9 @@
             const submenu = document.createElement('div');
             submenu.className = 'dropdown-submenu';
 
-            MESH_LABELS.forEach(label => {
+            meshLabels.forEach(label => {
                 const subItem = document.createElement('div');
                 subItem.className = 'dropdown-item';
-                // Friendly short names for the submenu
                 const shortNames = {
                     'Mesh Bed Visualization': 'Surface 21\u00d721',
                     'Mesh Bed Visualisation Dots': 'Dots 21\u00d721',
@@ -766,7 +783,6 @@
 
             meshItem.appendChild(submenu);
 
-            // Show/hide submenu on hover or click
             meshItem.addEventListener('mouseenter', () => submenu.classList.add('show'));
             meshItem.addEventListener('mouseleave', () => submenu.classList.remove('show'));
             meshItem.addEventListener('click', (e) => {
@@ -774,9 +790,9 @@
                 submenu.classList.toggle('show');
             });
 
-            // All non-mesh items first
+            // All non-mesh items
             Object.keys(GCODE_MAP).forEach(label => {
-                if (MESH_LABELS.includes(label)) return;
+                if (GCODE_MAP[label].group === 'mesh') return;
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
                 item.textContent = label;
@@ -787,17 +803,90 @@
                 menu.appendChild(item);
             });
 
-            // Divider
+            // Divider + mesh submenu at the bottom
             const divider = document.createElement('div');
             divider.style.cssText = 'border-top:1px solid #2a2a2a;margin:4px 0;';
             menu.appendChild(divider);
-
-            // Mesh Visualisation submenu at the bottom
             menu.appendChild(meshItem);
         }
-        
+
         function toggleDropdown() {
             document.getElementById('dropdown-menu').classList.toggle('show');
+        }
+
+        function initQuickCommands() {
+            const grid = document.getElementById('quick-commands-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = '1fr';
+            grid.style.gap = '14px';
+
+            QUICK_CMD_GROUPS.forEach(group => {
+                // Collect commands belonging to this group from GCODE_MAP
+                const groupCommands = Object.keys(GCODE_MAP).filter(k => GCODE_MAP[k].group === group.key);
+                if (groupCommands.length === 0) return; // skip empty groups
+
+                // Section label
+                const sectionLabel = document.createElement('div');
+                sectionLabel.style.cssText = `
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    color: ${group.color};
+                    border-bottom: 1px solid ${group.color}55;
+                    padding-bottom: 5px;
+                    margin-bottom: 2px;
+                    font-family: "Ubuntu", sans-serif;
+                    text-shadow: none;
+                `;
+                sectionLabel.textContent = group.label;
+                grid.appendChild(sectionLabel);
+
+                // Button row
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+
+                groupCommands.forEach(label => {
+                    const entry = GCODE_MAP[label];
+                    const icon = entry.icon || '▶️';
+                    const color = group.color;
+
+                    const btn = document.createElement('button');
+                    btn.style.cssText = `
+                        background: linear-gradient(135deg, ${color}bb, ${color}66);
+                        border: 1px solid ${color};
+                        border-radius: 10px;
+                        padding: 12px 14px;
+                        color: #ffffff;
+                        font-family: "Ubuntu", sans-serif;
+                        font-size: 0.82rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                        text-align: center;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 5px;
+                        transition: transform 0.1s, box-shadow 0.1s;
+                        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+                        text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+                        min-width: 90px;
+                        flex: 1;
+                    `;
+                    btn.innerHTML = `<span style="font-size:1.4rem;line-height:1;">${icon}</span><span>${label}</span>`;
+
+                    btn.addEventListener('mouseenter', () => { btn.style.transform = 'translateY(-2px)'; btn.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)'; });
+                    btn.addEventListener('mouseleave', () => { btn.style.transform = ''; btn.style.boxShadow = '0 3px 8px rgba(0,0,0,0.4)'; });
+                    btn.addEventListener('mousedown', () => { btn.style.transform = 'scale(0.96)'; });
+                    btn.addEventListener('mouseup',   () => { btn.style.transform = 'translateY(-2px)'; });
+                    btn.onclick = () => executeGCodeMacro(label);
+
+                    row.appendChild(btn);
+                });
+
+                grid.appendChild(row);
+            });
         }
         
         document.addEventListener('click', (e) => {
@@ -807,7 +896,9 @@
         });
         
         function executeGCodeMacro(label) {
-            const commands = GCODE_MAP[label];
+            const entry = GCODE_MAP[label];
+            if (!entry) return;
+            const commands = entry.cmds;
             // Set display mode before sending so parser knows what to render
             if (label === 'Mesh Bed Visualisation Dots') {
                 state.meshDisplayMode = 'dots';
@@ -1715,14 +1806,21 @@
 
             const zPadding = Math.max(totalDeviation * 0.1, 0.01);
 
+            // For shims mode: always show labels on the dots; for non-shims: hover only
+            const traceMode = showShims ? 'markers+text' : 'markers';
+            const traceTextPosition = showShims ? 'top center' : undefined;
+
             const plotData = [{
                 type: 'scatter3d',
-                mode: 'markers',
+                mode: traceMode,
                 x: xArr,
                 y: yArr,
                 z: zArr,
-                text: textArr,
+                text: showShims ? textArr.map(t => t.replace(/<br>/g, '\n')) : textArr,
                 hoverinfo: 'text',
+                hovertext: textArr,
+                textposition: traceTextPosition,
+                textfont: showShims ? { color: '#ffffff', size: 11, family: 'Ubuntu, sans-serif' } : undefined,
                 marker: {
                     size: 10,
                     color: zArr,
@@ -2160,6 +2258,7 @@
                 
                 initGauges();
                 initDropdown();
+                initQuickCommands();
                 initGraph();
                 
                 // Autoscroll toggle listener
@@ -2187,7 +2286,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.49-remote';
+        const HTML_VERSION = 'v3.2.53-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
