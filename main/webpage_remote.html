@@ -430,6 +430,7 @@
                 <div class="progress-block" id="progress-block" style="text-align:center;margin-top:10px;">
                     <div id="progress-remaining" style="display:none;"></div>
                     <div id="progress-change" style="display:none;margin-top:4px;"></div>
+                    <div id="progress-z-height" style="display:none;margin-top:4px;color:#aaa;font-size:0.9rem;"></div>
                 </div>
             </div>
             <!-- Temperature Graph -->
@@ -461,6 +462,7 @@
                 </div>
                 <div class="cpu-row">
                     <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
+                    <div class="cpu-gauge" id="gauge-power-partcooling"></div>
                 </div>
             </div>
         </div>
@@ -569,7 +571,7 @@
         // DEBUG MODE - Set to true to test with dummy data
         // ========================================
         const DEBUG_MODE = false;
-        // const DEBUG_MODE = false;
+        // const DEBUG_MODE = true;
         
         // Configuration
         const CONFIG = {
@@ -641,7 +643,7 @@
             },
             progress: { percent: 0, timeLeft: 0, changeTime: 0 },
             position: { x: 0, y: 0, z: 0, e: 0 },
-            power: { nozzle: 0, bed: 0, heatbreak: 0 },
+            power: { nozzle: 0, bed: 0, heatbreak: 0, partCooling: 0 },
             tempHistory: {
                 timestamps: [],
                 nozzle: [],
@@ -713,6 +715,7 @@
             gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", powerColors);
             gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", powerColors);
             gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", powerColors);
+            gauges.powerPartCooling = createGauge("gauge-power-partcooling", 0, 100, "Part Cooling Fan", " ", " %", powerColors);
             
             // Progress gauge - donut style
             gauges.progress = new JustGage({
@@ -1098,7 +1101,8 @@
                     state.position = msg;
                     break;
                 case 'power':
-                    state.power = msg;
+                    // Merge to preserve partCooling which comes from log messages, not power messages
+                    state.power = { ...state.power, ...msg };
                     updatePowerGauges();
                     break;
                 case 'log':
@@ -1188,15 +1192,16 @@
         }
         
         function updatePowerGauges() {
-            const { nozzle, bed, heatbreak } = state.power;
+            const { nozzle, bed, heatbreak, partCooling } = state.power;
             const nozzlePercent = Math.round((nozzle / 255) * 100);
             const bedPercent = Math.round((bed / 255) * 100);
             const heatbreakPercent = Math.round((heatbreak / 255) * 100);
+            const partCoolingPercent = Math.round((partCooling / 255) * 100);
             
-            // Pass label as 4th parameter so gauge shows it
             gauges.powerNozzle.refresh(nozzlePercent, undefined, undefined, undefined);
             gauges.powerBed.refresh(bedPercent, undefined, undefined, undefined);
             gauges.powerHeatbreak.refresh(heatbreakPercent, undefined, undefined, undefined);
+            gauges.powerPartCooling.refresh(partCoolingPercent, undefined, undefined, undefined);
         }
         
         // NEW: populate separate progress fields (no longer inline)
@@ -1240,6 +1245,27 @@
                              message.includes('@:') && message.includes('B@:');
             
             if (hideTemps && isTempLine) return;
+
+            // Parse M123 fan speed: extract PRN1@ PWM value (0-255) → part cooling %
+            // Format: "E0:3283 RPM PRN1:5316 RPM E0@:51 PRN1@:248"
+            const fanMatch = message.match(/PRN1@:(\d+)/);
+            if (fanMatch) {
+                state.power.partCooling = parseInt(fanMatch[1], 10);
+                updatePowerGauges();
+            }
+
+            // Parse Z height from position report: "X:144.68 Y:112.98 Z:58.40 E:0.00 Count ..."
+            // Take only the FIRST Z value (before "Count")
+            const posBeforeCount = message.split('Count')[0];
+            const zMatch = posBeforeCount.match(/Z:([\d.]+)/);
+            if (zMatch) {
+                const zHeight = parseFloat(zMatch[1]);
+                const zEl = document.getElementById('progress-z-height');
+                if (zEl) {
+                    zEl.textContent = `Z Height: ${zHeight.toFixed(2)} mm`;
+                    zEl.style.display = 'block';
+                }
+            }
             
             // Parse mesh bed data
             parseMeshBedData(message);
@@ -2199,6 +2225,21 @@
             };
             handleMessage(tempMsg);
             
+            // Simulate M123 fan speed message (part cooling fan) — must come before power message
+            const fanMsg = {
+                type: 'log',
+                message: `E0:3200 RPM PRN1:5100 RPM E0@:51 PRN1@:${Math.floor(Math.random() * 256)}`
+            };
+            handleMessage(fanMsg);
+
+            // Simulate position message with Z height
+            const zHeight = (Math.random() * 200).toFixed(2);
+            const posMsg = {
+                type: 'log',
+                message: `X:144.68 Y:112.98 Z:${zHeight} E:0.00 Count A:24936 B:3858 Z:23331`
+            };
+            handleMessage(posMsg);
+
             // Simulate power message
             const powerMsg = {
                 type: 'power',
@@ -2286,7 +2327,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.2.53-remote';
+        const HTML_VERSION = 'v3.2.57-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
