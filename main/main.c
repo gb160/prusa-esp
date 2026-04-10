@@ -39,6 +39,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "freertos/queue.h"
+#include "freertos/event_groups.h"
 
 // USB Host includes
 #include "usb/usb_host.h"
@@ -63,7 +64,7 @@
 // ============================================================================
 // FIRMWARE VERSION
 // ============================================================================
-#define FIRMWARE_VERSION "v3.2.6"
+#define FIRMWARE_VERSION "v3.2.7"
 
 // ============================================================================
 // CONFIGURATION
@@ -88,7 +89,7 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   ""
+#define WIFI_SSID                   "BT-WXF9FJ"
 #define WIFI_PASS                   ""
 
 // Remote HTML configuration
@@ -108,11 +109,20 @@
 // Serial parsing buffer
 #define SERIAL_LINE_BUFFER_SIZE     (512)
 
+// HTML download buffer size
+// Must be larger than the HTML file. TLS consumes ~50KB internal RAM while open,
+// so this is pre-allocated BEFORE the TLS connection to guarantee it fits.
+#define HTML_PREALLOC_SIZE          (96 * 1024)  // 96KB - headroom above current ~73KB file
+
 // G-code command queue configuration
 // Commands are queued and sent one at a time, waiting for 'ok' before sending next
 #define GCODE_QUEUE_SIZE            (32)   // Max queued commands
 #define GCODE_CMD_MAX_LEN           (128)  // Max length of a single command
 #define GCODE_OK_TIMEOUT_MS         (300000) // 5 minutes - covers long operations like G29
+
+// WiFi event group bits
+#define WIFI_CONNECTED_BIT          BIT0   // Set when IP is obtained
+#define WIFI_CONNECT_TIMEOUT_MS     30000  // Max wait for IP on boot
 
 // Debug UART configuration
 #define DEBUG_UART_NUM              UART_NUM_1
@@ -189,6 +199,7 @@ static SemaphoreHandle_t device_disconnected_sem;
 static SemaphoreHandle_t html_mutex;
 static SemaphoreHandle_t ws_clients_mutex;
 static SemaphoreHandle_t printer_state_mutex;
+static EventGroupHandle_t wifi_event_group;
 
 // USB device handle
 static cdc_acm_dev_hdl_t g_prusa_dev = NULL;
@@ -747,7 +758,6 @@ void download_html_from_github(void)
     // Pre-allocate the buffer BEFORE opening the TLS connection.
     // TLS consumes ~50KB of internal RAM while the connection is open, so we
     // must reserve the download buffer first or there won't be enough room.
-    #define HTML_PREALLOC_SIZE (96 * 1024)  // 96KB - headroom above current 73KB file
     char *prealloc = malloc(HTML_PREALLOC_SIZE);
     if (prealloc == NULL) {
         ESP_LOGE(TAG, "Failed to pre-allocate %d bytes (free heap: %d)",
@@ -838,16 +848,29 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
         esp_wifi_connect();
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGI(TAG, "Disconnected from WiFi, retrying...");
+        // Clear the connected bit so callers waiting on it know we lost IP
+        if (wifi_event_group) {
+            xEventGroupClearBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        }
+        // Brief backoff before retrying to avoid hammering the WiFi stack
+        // on boot when the router may not be ready yet
+        ESP_LOGI(TAG, "Disconnected from WiFi, retrying in 1s...");
+        vTaskDelay(pdMS_TO_TICKS(1000));
         esp_wifi_connect();
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP: " IPSTR, IP2STR(&event->ip_info.ip));
+        // Signal waiters that WiFi is fully up
+        if (wifi_event_group) {
+            xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_BIT);
+        }
     }
 }
 
 static void wifi_init_sta(void)
 {
+    wifi_event_group = xEventGroupCreate();
+
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
@@ -963,6 +986,15 @@ static void gcode_sender_task(void *arg)
     gcode_cmd_t cmd;
 
     ESP_LOGI(TAG, "G-code sender task started");
+
+    // Drain any 'ok' signals the printer may have sent during boot/connect
+    // before we start processing queued commands. If these are left in the
+    // semaphore they will cause the first real command to skip its ok-wait
+    // and fire the next command prematurely.
+    if (gcode_ok_sem) {
+        while (xSemaphoreTake(gcode_ok_sem, 0) == pdTRUE) {}
+        ESP_LOGI(TAG, "[GCODE] Cleared stale ok signals");
+    }
 
     while (1) {
         // Wait for a command to arrive in the queue
@@ -1467,10 +1499,23 @@ void app_main(void)
     wifi_init_sta();
     
 #if ENABLE_REMOTE_HTML
-    // Wait for WiFi connection
-    ESP_LOGI(TAG, "Waiting for WiFi connection...");
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    
+    // Wait until we actually have an IP address before attempting the HTTPS
+    // download. A fixed delay is unreliable — the router may not be ready yet
+    // on a cold boot, causing the TLS attempt to stall for the full timeout
+    // and making the device appear unresponsive.
+    ESP_LOGI(TAG, "Waiting for WiFi IP address (max %ds)...", WIFI_CONNECT_TIMEOUT_MS / 1000);
+    EventBits_t bits = xEventGroupWaitBits(wifi_event_group,
+                                           WIFI_CONNECTED_BIT,
+                                           pdFALSE,   // don't clear on exit
+                                           pdFALSE,   // any bit (only one)
+                                           pdMS_TO_TICKS(WIFI_CONNECT_TIMEOUT_MS));
+    if (bits & WIFI_CONNECTED_BIT) {
+        ESP_LOGI(TAG, "WiFi connected — starting HTML download");
+    } else {
+        ESP_LOGW(TAG, "WiFi not connected after %ds — skipping HTML download, will use embedded fallback",
+                 WIFI_CONNECT_TIMEOUT_MS / 1000);
+    }
+
     // Download HTML from GitHub — done BEFORE ws_clients_init to maximise heap available
     ESP_LOGI(TAG, "Free heap before download: %d bytes, free PSRAM: %d bytes",
              (int)esp_get_free_heap_size(),
@@ -1532,6 +1577,13 @@ void app_main(void)
         ESP_LOGI(TAG, "Printer connected!");
         cdc_acm_host_desc_print(g_prusa_dev);
         vTaskDelay(pdMS_TO_TICKS(200));
+
+        // Drain any 'ok' the printer sent during its startup sequence before
+        // we register as connected — prevents the gcode queue skipping waits.
+        if (gcode_ok_sem) {
+            while (xSemaphoreTake(gcode_ok_sem, 0) == pdTRUE) {}
+            ESP_LOGI(TAG, "Cleared stale ok signals after printer connect");
+        }
         
         // Update connection state
         xSemaphoreTake(printer_state_mutex, portMAX_DELAY);
