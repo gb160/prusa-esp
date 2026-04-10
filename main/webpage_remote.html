@@ -430,6 +430,7 @@
                 <div class="progress-block" id="progress-block" style="text-align:center;margin-top:10px;">
                     <div id="progress-remaining" style="display:none;"></div>
                     <div id="progress-change" style="display:none;margin-top:4px;"></div>
+                    <div id="progress-z-height" style="display:none;margin-top:4px;color:#aaa;font-size:0.9rem;"></div>
                 </div>
             </div>
             <!-- Temperature Graph -->
@@ -461,6 +462,7 @@
                 </div>
                 <div class="cpu-row">
                     <div class="cpu-gauge" id="gauge-power-heatbreak"></div>
+                    <div class="cpu-gauge" id="gauge-power-partcooling"></div>
                 </div>
             </div>
         </div>
@@ -493,7 +495,7 @@
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div id="mesh-indicator" style="display:none;align-items:center;gap:6px;font-size:0.8rem;color:#888;">
                             <div id="mesh-indicator-dot" style="width:10px;height:10px;border-radius:50%;background:#4CAF50;"></div>
-                            <span id="mesh-indicator-text">Mesh ready</span>
+                            <span id="mesh-indicator-text">Probe ready</span>
                         </div>
                         <div class="dropdown">
                             <div class="dropdown-toggle" onclick="toggleDropdown()">⋮</div>
@@ -508,6 +510,33 @@
                 </div>
             </div>
         </div>
+
+        <!-- Live Bed Mesh Section -->
+        <div class="bottom-section">
+            <div class="stats-section section-panel" style="min-height:500px;">
+                <div class="section-header">
+                    <h2>Live Bed Mesh</h2>
+                    <div id="live-mesh-stats" style="font-size:0.85rem;color:#888;"></div>
+                </div>
+                <div id="live-mesh-plot" style="width:100%;height:420px;">
+                    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:#555;font-size:0.9rem;">
+                        Waiting for bed probe...
+                    </div>
+                </div>
+            </div>
+            <!-- Quick Commands Panel -->
+            <div class="stats-section section-panel" style="min-height:500px;">
+                <div class="section-header">
+                    <h2>Quick Commands</h2>
+                </div>
+                <div id="quick-commands-grid" style="
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 10px;
+                    padding: 5px 0;
+                "></div>
+            </div>
+        </div>
         
     </div>
     
@@ -516,16 +545,10 @@
         <div class="mesh-modal-content">
             <div class="mesh-modal-header">
                 <div>
-                    <h2>Bed Mesh Visualization</h2>
+                    <h2>Expansion Joint Probe Results</h2>
                     <div class="mesh-stats" id="mesh-stats"></div>
                 </div>
                 <div class="mesh-modal-buttons">
-                    <select id="mesh-view-switcher" onchange="switchMeshView(this.value)" style="background:#2a2a2a;color:#ddd;border:1px solid #3a3a3a;border-radius:8px;padding:8px 12px;font-size:0.9rem;cursor:pointer;">
-                        <option value="surface">Surface 21×21</option>
-                        <option value="dots">Dots 21×21</option>
-                        <option value="3x3">Dots 3×3</option>
-                        <option value="3x3shims">Shims 3×3</option>
-                    </select>
                     <button class="mesh-download-btn" onclick="downloadMeshImage()">Download PNG</button>
                     <button class="mesh-modal-close" onclick="closeMeshModal()">×</button>
                 </div>
@@ -540,8 +563,8 @@
         // ========================================
         // DEBUG MODE - Set to true to test with dummy data
         // ========================================
-        // const DEBUG_MODE = true;
         const DEBUG_MODE = false;
+        // const DEBUG_MODE = true;
         
         // Configuration
         const CONFIG = {
@@ -551,37 +574,53 @@
             MAX_GRAPH_POINTS: 60
         };
         
+        // ========================================
+        // GCODE_MAP — Single source of truth
+        // ========================================
+        // Each entry:
+        //   cmds:  array of G-code strings to send
+        //   group: which Quick Commands group to appear in
+        //          'temperature' | 'motion' | 'bed' | 'mesh' (mesh = modal only, no button)
+        //   icon:  emoji shown on the quick-command button
+        // To add a new command: add an entry here — the button appears automatically.
+        // To remove: delete the entry — the button disappears automatically.
+        // ========================================
         const GCODE_MAP = {
-            'Mesh Bed Visualization': ['M420 V'],
-            'Mesh Bed Visualisation Dots': ['M420 V'],
-            'Mesh Bed Visualisation 3x3': ['M420 V'],
-            'Mesh Bed Visualisation 3x3 Shims': ['M420 V'],
-            'Preheat PLA': ['M104 S170', 'M140 S60'],
-            'Preheat PETG': ['M104 S170', 'M140 S85'],
-            'Cooldown': ['M104 S0', 'M140 S0'],
-            'Unload Filament': ['M702'],
-            'Home All': ['G28'],
-            'Calibrate Z Axis': ['G162 Z'],
-            'Probe Bed': [
+            // ── Temperature ──────────────────────────────────────────────────
+            'Preheat PLA':   { cmds: ['M104 S170', 'M140 S60'],  group: 'temperature', icon: '🌡️' },
+            'Preheat PETG':  { cmds: ['M104 S170', 'M140 S85'],  group: 'temperature', icon: '🌡️' },
+            'Cooldown':      { cmds: ['M104 S0',   'M140 S0'],   group: 'temperature', icon: '❄️'  },
+
+            // ── Motion & Setup ───────────────────────────────────────────────
+            'Unload Filament':  { cmds: ['M702'],          group: 'motion', icon: '⏏️' },
+            'Change Sheet':     { cmds: ['G0 Z150 F1000'], group: 'motion', icon: '📄' },
+            'Home All':         { cmds: ['G28'],           group: 'motion', icon: '🏠' },
+            'Disable Motors':   { cmds: ['M84'],           group: 'motion', icon: '⏹️' },
+            'Calibrate Z Axis': { cmds: ['G162 Z'],        group: 'motion', icon: '📐' },
+
+            // ── Bed Levelling ────────────────────────────────────────────────
+            // Probe the 9 expansion joint locations directly, then display 3x3 dot plot
+            'Probe Bed': { cmds: [
                 'G28',
-                'G162 Z',
-                'G0 X242 Y-9 F4800',
-                'G0 Z40 F1000',
-                'M140 S60',
-                'M109 R170',
-                'M190 S60',
-                'M400',
-                'G29',
-                'M400',
-                'M420 V',
-                'G0 X242 Y-9 Z30 F4800',
-                'M400',
-                'M104 S0',
-                'M140 S0',
-                'M107',
-                'M400'
-            ]
+                'G29 P10 V4 X15 Y10',
+                'G29 P10 V4 X125 Y10',
+                'G29 P10 V4 X230 Y10',
+                'G29 P10 V4 X230 Y115',
+                'G29 P10 V4 X230 Y220',
+                'G29 P10 V4 X125 Y220',
+                'G29 P10 V4 X15 Y220',
+                'G29 P10 V4 X15 Y115',
+                'G29 P10 V4 X125 Y115'
+            ], group: 'bed', icon: '🔍' },
         };
+
+        // Group display config — controls label, colour and order of sections.
+        // No need to touch this when adding/removing commands.
+        const QUICK_CMD_GROUPS = [
+            { key: 'temperature', label: 'Temperature',    color: '#f0a500' },
+            { key: 'motion',      label: 'Motion & Setup', color: '#2980b9' },
+            { key: 'bed',         label: 'Bed Levelling',  color: '#27ae60' },
+        ];
         
         // State
         const state = {
@@ -597,7 +636,7 @@
             },
             progress: { percent: 0, timeLeft: 0, changeTime: 0 },
             position: { x: 0, y: 0, z: 0, e: 0 },
-            power: { nozzle: 0, bed: 0, heatbreak: 0 },
+            power: { nozzle: 0, bed: 0, heatbreak: 0, partCooling: 0 },
             tempHistory: {
                 timestamps: [],
                 nozzle: [],
@@ -607,11 +646,16 @@
             },
             commandHistory: [],
             commandHistoryIndex: -1,
-            // Mesh bed parsing state
-            meshParsing: false,
-            meshData: [],
-            meshComplete: false,
-            meshDisplayMode: 'surface',  // 'surface', 'dots', '3x3', or '3x3shims'
+            // Expansion joint probe state (9-point direct probe)
+            probeResults: {},      // keyed by "X,Y" → Z value
+            probeExpected: [
+                {x:15,  y:10},  {x:125, y:10},  {x:230, y:10},
+                {x:230, y:115}, {x:230, y:220}, {x:125, y:220},
+                {x:15,  y:220}, {x:15,  y:115}, {x:125, y:115}
+            ],
+            // Live mesh (auto-updated each print)
+            liveMeshParsing: false,
+            liveMeshData: []
         };
         
         let gauges = {};
@@ -660,10 +704,12 @@
             gauges.chamber = createGauge("gauge-chamber", 0, 80, "Chamber", " ", " °C", ["#4CAF50"], 1);
             
             // Power gauges - all same green
-            const powerColors = ["#4CAF50"];
+            // const powerColors = ["#4CAF50"];
+            const powerColors = ["#a9d70b", "#f9c802", "#ff0000"];
             gauges.powerNozzle = createGauge("gauge-power-nozzle", 0, 100, "Nozzle", " ", " %", powerColors);
             gauges.powerBed = createGauge("gauge-power-bed", 0, 100, "Bed", " ", " %", powerColors);
             gauges.powerHeatbreak = createGauge("gauge-power-heatbreak", 0, 100, "Heatbreak Fan", " ", " %", powerColors);
+            gauges.powerPartCooling = createGauge("gauge-power-partcooling", 0, 100, "Part Cooling Fan", " ", " %", powerColors);
             
             // Progress gauge - donut style
             gauges.progress = new JustGage({
@@ -698,58 +744,12 @@
             });
         }
         
-        // Dropdown
-        const MESH_LABELS = [
-            'Mesh Bed Visualization',
-            'Mesh Bed Visualisation Dots',
-            'Mesh Bed Visualisation 3x3',
-            'Mesh Bed Visualisation 3x3 Shims'
-        ];
-
+        // Dropdown — non-mesh items only (mesh submenu removed)
         function initDropdown() {
             const menu = document.getElementById('dropdown-menu');
             menu.innerHTML = '';
 
-            // Mesh Visualisation submenu entry
-            const meshItem = document.createElement('div');
-            meshItem.className = 'dropdown-item dropdown-item-submenu';
-            meshItem.innerHTML = 'Mesh Visualisation <span style="float:right;opacity:0.6;">&#9658;</span>';
-
-            const submenu = document.createElement('div');
-            submenu.className = 'dropdown-submenu';
-
-            MESH_LABELS.forEach(label => {
-                const subItem = document.createElement('div');
-                subItem.className = 'dropdown-item';
-                // Friendly short names for the submenu
-                const shortNames = {
-                    'Mesh Bed Visualization': 'Surface 21\u00d721',
-                    'Mesh Bed Visualisation Dots': 'Dots 21\u00d721',
-                    'Mesh Bed Visualisation 3x3': 'Dots 3\u00d73',
-                    'Mesh Bed Visualisation 3x3 Shims': 'Shims 3\u00d73'
-                };
-                subItem.textContent = shortNames[label] || label;
-                subItem.onclick = (e) => {
-                    e.stopPropagation();
-                    executeGCodeMacro(label);
-                    menu.classList.remove('show');
-                };
-                submenu.appendChild(subItem);
-            });
-
-            meshItem.appendChild(submenu);
-
-            // Show/hide submenu on hover or click
-            meshItem.addEventListener('mouseenter', () => submenu.classList.add('show'));
-            meshItem.addEventListener('mouseleave', () => submenu.classList.remove('show'));
-            meshItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-                submenu.classList.toggle('show');
-            });
-
-            // All non-mesh items first
             Object.keys(GCODE_MAP).forEach(label => {
-                if (MESH_LABELS.includes(label)) return;
                 const item = document.createElement('div');
                 item.className = 'dropdown-item';
                 item.textContent = label;
@@ -759,18 +759,85 @@
                 };
                 menu.appendChild(item);
             });
-
-            // Divider
-            const divider = document.createElement('div');
-            divider.style.cssText = 'border-top:1px solid #2a2a2a;margin:4px 0;';
-            menu.appendChild(divider);
-
-            // Mesh Visualisation submenu at the bottom
-            menu.appendChild(meshItem);
         }
-        
+
         function toggleDropdown() {
             document.getElementById('dropdown-menu').classList.toggle('show');
+        }
+
+        function initQuickCommands() {
+            const grid = document.getElementById('quick-commands-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = '1fr';
+            grid.style.gap = '14px';
+
+            QUICK_CMD_GROUPS.forEach(group => {
+                // Collect commands belonging to this group from GCODE_MAP
+                const groupCommands = Object.keys(GCODE_MAP).filter(k => GCODE_MAP[k].group === group.key);
+                if (groupCommands.length === 0) return; // skip empty groups
+
+                // Section label
+                const sectionLabel = document.createElement('div');
+                sectionLabel.style.cssText = `
+                    font-size: 0.75rem;
+                    font-weight: bold;
+                    letter-spacing: 0.08em;
+                    text-transform: uppercase;
+                    color: ${group.color};
+                    border-bottom: 1px solid ${group.color}55;
+                    padding-bottom: 5px;
+                    margin-bottom: 2px;
+                    font-family: "Ubuntu", sans-serif;
+                    text-shadow: none;
+                `;
+                sectionLabel.textContent = group.label;
+                grid.appendChild(sectionLabel);
+
+                // Button row
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+
+                groupCommands.forEach(label => {
+                    const entry = GCODE_MAP[label];
+                    const icon = entry.icon || '▶️';
+                    const color = group.color;
+
+                    const btn = document.createElement('button');
+                    btn.style.cssText = `
+                        background: linear-gradient(135deg, ${color}bb, ${color}66);
+                        border: 1px solid ${color};
+                        border-radius: 10px;
+                        padding: 12px 14px;
+                        color: #ffffff;
+                        font-family: "Ubuntu", sans-serif;
+                        font-size: 0.82rem;
+                        font-weight: bold;
+                        cursor: pointer;
+                        text-align: center;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 5px;
+                        transition: transform 0.1s, box-shadow 0.1s;
+                        box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+                        text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+                        min-width: 90px;
+                        flex: 1;
+                    `;
+                    btn.innerHTML = `<span style="font-size:1.4rem;line-height:1;">${icon}</span><span>${label}</span>`;
+
+                    btn.addEventListener('mouseenter', () => { btn.style.transform = 'translateY(-2px)'; btn.style.boxShadow = '0 6px 16px rgba(0,0,0,0.5)'; });
+                    btn.addEventListener('mouseleave', () => { btn.style.transform = ''; btn.style.boxShadow = '0 3px 8px rgba(0,0,0,0.4)'; });
+                    btn.addEventListener('mousedown', () => { btn.style.transform = 'scale(0.96)'; });
+                    btn.addEventListener('mouseup',   () => { btn.style.transform = 'translateY(-2px)'; });
+                    btn.onclick = () => executeGCodeMacro(label);
+
+                    row.appendChild(btn);
+                });
+
+                grid.appendChild(row);
+            });
         }
         
         document.addEventListener('click', (e) => {
@@ -780,20 +847,15 @@
         });
         
         function executeGCodeMacro(label) {
-            const commands = GCODE_MAP[label];
-            // Set display mode before sending so parser knows what to render
-            if (label === 'Mesh Bed Visualisation Dots') {
-                state.meshDisplayMode = 'dots';
-            } else if (label === 'Mesh Bed Visualisation 3x3') {
-                state.meshDisplayMode = '3x3';
-            } else if (label === 'Mesh Bed Visualisation 3x3 Shims') {
-                state.meshDisplayMode = '3x3shims';
-            } else if (label === 'Mesh Bed Visualization') {
-                state.meshDisplayMode = 'surface';
+            const entry = GCODE_MAP[label];
+            if (!entry) return;
+
+            // For Probe Bed: reset probe results before firing commands
+            if (label === 'Probe Bed') {
+                state.probeResults = {};
             }
 
-            // Firmware ok-queue handles sequencing — send all commands directly
-            commands.forEach(cmd => {
+            entry.cmds.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
                     addCommandHistoryEntry(`> ${cmd} (${label})`);
@@ -879,6 +941,15 @@
                 updateConnectionStatus(true, 'Connected');
                 resetHeartbeat(); // Start heartbeat timer
                 state.ws.send('CONNECT');
+                // Request current mesh data to populate live bed mesh section
+                setTimeout(() => {
+                    if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                        state.liveMeshParsing = true;
+                        state.liveMeshData = [];
+                        state.ws.send('GCODE:M420 V');
+                        console.log('Requesting mesh data on connect');
+                    }
+                }, 1000); // Small delay to allow CONNECT handshake to complete
             };
 
             state.ws.onmessage = (event) => {
@@ -964,7 +1035,8 @@
                     state.position = msg;
                     break;
                 case 'power':
-                    state.power = msg;
+                    // Merge to preserve partCooling which comes from log messages, not power messages
+                    state.power = { ...state.power, ...msg };
                     updatePowerGauges();
                     break;
                 case 'log':
@@ -1015,22 +1087,29 @@
             const heatbreakLabel = heatbreak.target > 0 ? `Target: ${Math.round(heatbreak.target)}°C` : "Target: Ambient";
             const chamberLabel = chamber.target > 0 ? `Target: ${Math.round(chamber.target)}°C` : "";
 
+
             // Get colors based on target vs current
             const nozzleColor = getTargetColor(nozzle.current, nozzle.target, 'nozzle');
             const bedColor = getTargetColor(bed.current, bed.target, 'bed');
             const heatbreakColor = getTargetColor(heatbreak.current, heatbreak.target, 'heatbreak');
-            
+
+            // Titles mirror the gauge colour state
+            const nozzleTitle = nozzleColor === '#4CAF50' ? 'Nozzle' :
+                                nozzleColor === '#2196F3' ? 'Nozzle: Heating' : 'Nozzle: Cooling';
+            const bedTitle    = bedColor    === '#4CAF50' ? 'Bed' :
+                                bedColor    === '#2196F3' ? 'Bed: Heating'    : 'Bed: Cooling';
+
             // Update nozzle
             gauges.nozzle.config.levelColors = [nozzleColor];
             gauges.nozzle.refresh(parseFloat(nozzle.current.toFixed(1)), undefined, undefined, nozzleLabel);
             const guageTargetLine = nozzle.target > 0 ? Math.round(nozzle.target) : null;
-            gauges.nozzle.update({targetLine: guageTargetLine});
-            
+            gauges.nozzle.update({targetLine: guageTargetLine, title: nozzleTitle});
+
             // Update bed
             gauges.bed.config.levelColors = [bedColor];
             gauges.bed.refresh(parseFloat(bed.current.toFixed(1)), undefined, undefined, bedLabel);
             const bedTargetLine = bed.target > 0 ? Math.round(bed.target) : null;
-            gauges.bed.update({targetLine: bedTargetLine});
+            gauges.bed.update({targetLine: bedTargetLine, title: bedTitle});
             
             // Update heatbreak
             gauges.heatbreak.config.levelColors = [heatbreakColor];
@@ -1047,15 +1126,16 @@
         }
         
         function updatePowerGauges() {
-            const { nozzle, bed, heatbreak } = state.power;
+            const { nozzle, bed, heatbreak, partCooling } = state.power;
             const nozzlePercent = Math.round((nozzle / 255) * 100);
             const bedPercent = Math.round((bed / 255) * 100);
             const heatbreakPercent = Math.round((heatbreak / 255) * 100);
+            const partCoolingPercent = Math.round((partCooling / 255) * 100);
             
-            // Pass label as 4th parameter so gauge shows it
             gauges.powerNozzle.refresh(nozzlePercent, undefined, undefined, undefined);
             gauges.powerBed.refresh(bedPercent, undefined, undefined, undefined);
             gauges.powerHeatbreak.refresh(heatbreakPercent, undefined, undefined, undefined);
+            gauges.powerPartCooling.refresh(partCoolingPercent, undefined, undefined, undefined);
         }
         
         // NEW: populate separate progress fields (no longer inline)
@@ -1099,225 +1179,126 @@
                              message.includes('@:') && message.includes('B@:');
             
             if (hideTemps && isTempLine) return;
+
+            // Parse M123 fan speed: extract PRN1@ PWM value (0-255) → part cooling %
+            const fanMatch = message.match(/PRN1@:(\d+)/);
+            if (fanMatch) {
+                state.power.partCooling = parseInt(fanMatch[1], 10);
+                updatePowerGauges();
+            }
+
+            // Parse Z height from position report
+            const posBeforeCount = message.split('Count')[0];
+            const zMatch = posBeforeCount.match(/Z:([\d.]+)/);
+            if (zMatch) {
+                const zHeight = parseFloat(zMatch[1]);
+                const zEl = document.getElementById('progress-z-height');
+                if (zEl) {
+                    zEl.textContent = `Z Height: ${zHeight.toFixed(2)} mm`;
+                    zEl.style.display = 'block';
+                }
+            }
             
-            // Parse mesh bed data
-            parseMeshBedData(message);
+            // Parse expansion joint probe results (Probe Bed command)
+            parseExpansionJointProbe(message);
+
+            // Auto-trigger live mesh update when bed leveling completes
+            if (message.includes('Unified Bed Leveling System v1.01 active')) {
+                console.log('Bed leveling complete — requesting mesh data for live view');
+                if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                    state.ws.send('GCODE:M420 V');
+                    state.liveMeshParsing = true;
+                    state.liveMeshData = [];
+                }
+            }
+
+            // Parse live mesh data (separate from probe parsing)
+            parseLiveMeshData(message);
             
             addLogEntry(message);
         }
         
-        function parseMeshBedData(line) {
-            // Start parsing when we see "Bed Topography Report:"
-            if (line.includes('Bed Topography Report:')) {
-                state.meshData = [];
-                state.meshParsing = true;
-                state.meshComplete = false;
-                // Reset mesh indicator to probing state
-                const indicator = document.getElementById('mesh-indicator');
-                const dot = document.getElementById('mesh-indicator-dot');
-                const text = document.getElementById('mesh-indicator-text');
+        // Parse individual G29 P10 V4 probe results:
+        // Format: "Bed X: 15.000 Y: 10.000 Z: -0.076"
+        function parseExpansionJointProbe(line) {
+            const match = line.match(/Bed X:\s*([\d.]+)\s*Y:\s*([\d.]+)\s*Z:\s*([+-]?[\d.]+)/);
+            if (!match) return;
+
+            const x = parseFloat(match[1]);
+            const y = parseFloat(match[2]);
+            const z = parseFloat(match[3]);
+            const key = `${x},${y}`;
+
+            state.probeResults[key] = z;
+            console.log(`Probe result: X:${x} Y:${y} Z:${z} (${Object.keys(state.probeResults).length}/9)`);
+
+            // Update mesh indicator
+            const indicator = document.getElementById('mesh-indicator');
+            const dot = document.getElementById('mesh-indicator-dot');
+            const text = document.getElementById('mesh-indicator-text');
+            if (indicator) {
+                indicator.style.display = 'flex';
+                dot.style.background = '#FFA500';
+                text.textContent = `Probing... ${Object.keys(state.probeResults).length}/9`;
+            }
+
+            const count = Object.keys(state.probeResults).length;
+            if (count >= 9) {
+                console.log('All 9 probe results received — showing visualisation');
                 if (indicator) {
-                    indicator.style.display = 'flex';
-                    dot.style.background = '#FFA500';
-                    text.textContent = 'Probing...';
+                    dot.style.background = '#4CAF50';
+                    text.textContent = 'Probe complete';
                 }
-                console.log('Started parsing mesh data');
+                displayExpansionJointDots(state.probeResults);
+            }
+        }
+        
+        function parseLiveMeshData(line) {
+            if (!state.liveMeshParsing) return;
+
+            // Start collecting rows when we see the topography report
+            if (line.includes('Bed Topography Report:')) {
+                state.liveMeshData = [];
                 return;
             }
-            
-            // Parse data lines while in parsing mode
-            if (state.meshParsing && line.includes('|')) {
-                // Match: "20 | -0.875 -0.802 ..." or "1 | -0.336 [-0.350] -0.365 ..."
+
+            // Parse data rows
+            if (line.includes('|')) {
                 const match = line.match(/^\s*(\d+)\s*\|(.*)/);
                 if (match) {
                     const rowNum = parseInt(match[1]);
-                    const valuesStr = match[2];
-                    // Extract all numbers (positive or negative), ignore brackets
-                    const values = valuesStr.match(/[+-]?\d+\.\d+/g);
+                    const values = match[2].match(/[+-]?\d+\.\d+/g);
                     if (values && values.length === 21) {
-                        state.meshData[rowNum] = values.map(v => parseFloat(v));
-                        console.log(`Parsed row ${rowNum}: ${values.length} values`);
+                        state.liveMeshData[rowNum] = values.map(v => parseFloat(v));
                     }
                 }
                 return;
             }
-            
-            // Complete parsing when we see "Mesh is valid"
-            if (state.meshParsing && line.includes('Mesh is valid')) {
-                state.meshParsing = false;
-                
-                // Validate we got all 21 rows (0-20)
-                if (state.meshData.length === 21 && state.meshData.every(row => row && row.length === 21)) {
-                    state.meshComplete = true;
-                    console.log('Mesh data complete! Showing visualization...');
 
-                    // Update mesh indicator to complete
-                    const indicator = document.getElementById('mesh-indicator');
-                    const dot = document.getElementById('mesh-indicator-dot');
-                    const text = document.getElementById('mesh-indicator-text');
-                    if (indicator) {
-                        dot.style.background = '#4CAF50';
-                        text.textContent = 'Mesh ready';
-                    }
-                    if (state.meshDisplayMode === 'dots') {
-                        displayMeshDots(state.meshData);
-                    } else if (state.meshDisplayMode === '3x3') {
-                        displayMesh3x3(state.meshData, false);
-                    } else if (state.meshDisplayMode === '3x3shims') {
-                        displayMesh3x3(state.meshData, true);
-                    } else {
-                        displayMeshVisualization(state.meshData);
-                    }
-                    // Sync the in-modal switcher to current mode
-                    const switcher = document.getElementById('mesh-view-switcher');
-                    if (switcher) switcher.value = state.meshDisplayMode;
-
-                } else {
-                    console.error('Incomplete mesh data:', state.meshData.length, 'rows');
+            // Finalise when mesh is valid
+            if (line.includes('Mesh is valid')) {
+                state.liveMeshParsing = false;
+                if (state.liveMeshData.length === 21 && state.liveMeshData.every(row => row && row.length === 21)) {
+                    console.log('Live mesh data received — updating live view');
+                    displayLiveMesh(state.liveMeshData);
                 }
-                return;
             }
         }
-        
-        function displayMeshVisualization(meshData) {
-            // Reverse rows so row 0 is at the bottom (as it appears physically on the bed)
+
+        function displayLiveMesh(meshData) {
             const reversedData = [...meshData].reverse();
-            
-            // Calculate statistics
             const allValues = reversedData.flat();
             const minValue = Math.min(...allValues);
             const maxValue = Math.max(...allValues);
-            const maxDeviation = maxValue - minValue;
-            
-            // Display stats
-            document.getElementById('mesh-stats').innerHTML = 
-                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
-            
-            // X reversed to match physical bed orientation, numbered 1-21
-            const x = Array.from({length: 21}, (_, i) => 21 - i);
-            const y = Array.from({length: 21}, (_, i) => i + 1);
-            
-            // Prepare data for Plotly
-            const plotData = [{
-                type: 'surface',
-                x: x,
-                y: y,
-                z: reversedData,
-                colorscale: [
-                    [0, '#0000ff'],      // Deep blue for low points
-                    [0.25, '#00ffff'],   // Cyan
-                    [0.5, '#00ff00'],    // Green for mid-range
-                    [0.75, '#ffff00'],   // Yellow
-                    [1, '#ff0000']       // Red for high points
-                ],
-                colorbar: {
-                    title: 'Height (mm)',
-                    titleside: 'right',
-                    titlefont: {
-                        color: '#ffffff'
-                    },
-                    tickfont: {
-                        color: '#ffffff'
-                    }
-                },
-                contours: {
-                    z: {
-                        show: true,
-                        usecolormap: true,
-                        highlightcolor: "#42f462",
-                        project: {z: true}
-                    }
-                }
-            }];
-            
-            // Calculate appropriate Z-axis range (add 10% padding)
-            const zPadding = maxDeviation * 0.1;
-            const zMin = minValue - zPadding;
-            const zMax = maxValue + zPadding;
-            
-            const layout = {
-                title: {
-                    text: 'Bed Mesh Topology',
-                    font: {
-                        color: '#4CAF50',
-                        size: 24
-                    }
-                },
-                scene: {
-                    xaxis: {
-                        title: 'X Position',
-                        titlefont: {color: '#ffffff'},
-                        tickfont: {color: '#ffffff'},
-                        gridcolor: '#444444'
-                    },
-                    yaxis: {
-                        title: 'Y Position',
-                        titlefont: {color: '#ffffff'},
-                        tickfont: {color: '#ffffff'},
-                        gridcolor: '#444444'
-                    },
-                    zaxis: {
-                        title: 'Height (mm)',
-                        titlefont: {color: '#ffffff'},
-                        tickfont: {color: '#ffffff'},
-                        gridcolor: '#444444',
-                        range: [zMin, zMax]
-                    },
-                    camera: {
-                        eye: {x: 1.5, y: 1.5, z: 1.3}
-                    },
-                    aspectmode: 'manual',
-                    aspectratio: {
-                        x: 1,
-                        y: 1,
-                        z: 0.3  // Make Z axis shorter relative to X/Y for realistic proportions
-                    },
-                    bgcolor: '#0a0a0a'
-                },
-                paper_bgcolor: '#1a1a1a',
-                plot_bgcolor: '#0a0a0a',
-                margin: {
-                    l: 0,
-                    r: 0,
-                    b: 0,
-                    t: 50
-                }
-            };
-            
-            const config = {
-                responsive: true,
-                displayModeBar: true,
-                displaylogo: false,
-                modeBarButtonsToRemove: []  // Allow all buttons including screenshot
-            };
-            
-            // Show modal
-            document.getElementById('mesh-modal').classList.add('show');
-            
-            // Create plot
-            Plotly.newPlot('mesh-plot', plotData, layout, config);
-        }
-        
-        function displayMeshDots(meshData) {
-            // Reverse rows so row 0 is at the bottom
-            const reversedData = [...meshData].reverse();
-            
-            // Calculate statistics
-            const allValues = reversedData.flat();
-            const minValue = Math.min(...allValues);
-            const maxValue = Math.max(...allValues);
-            const maxDeviation = maxValue - minValue;
-            
-            // Display stats
-            document.getElementById('mesh-stats').innerHTML = 
-                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
-            
-            // Build flat arrays of x, y, z and hover text for all 441 points
-            // X reversed to match physical bed orientation, numbered 1-21
+            const totalDeviation = maxValue - minValue;
+
+            // Update stats
+            document.getElementById('live-mesh-stats').innerHTML =
+                `Min: <span style="color:#4CAF50;">${minValue.toFixed(2)}mm</span> | ` +
+                `Max: <span style="color:#4CAF50;">${maxValue.toFixed(2)}mm</span> | ` +
+                `Total Deviation: <span style="color:#4CAF50;">${totalDeviation.toFixed(2)}mm</span>`;
+
+            // Build scatter3d arrays
             const xArr = [], yArr = [], zArr = [], textArr = [];
             for (let row = 0; row < 21; row++) {
                 for (let col = 0; col < 21; col++) {
@@ -1327,11 +1308,9 @@
                     textArr.push(`X:${21 - col} Y:${row + 1}<br>Z: ${reversedData[row][col].toFixed(2)}mm`);
                 }
             }
-            
-            const zPadding = maxDeviation * 0.1;
-            const zMin = minValue - zPadding;
-            const zMax = maxValue + zPadding;
-            
+
+            const zPadding = totalDeviation * 0.1;
+
             const plotData = [{
                 type: 'scatter3d',
                 mode: 'markers',
@@ -1351,25 +1330,25 @@
                         [1,    '#ff0000']
                     ],
                     colorbar: {
-                        title: 'Height (mm)',
+                        title: 'mm',
                         titleside: 'right',
-                        titlefont: { color: '#ffffff' },
-                        tickfont:  { color: '#ffffff' }
+                        titlefont: { color: '#ffffff', size: 10 },
+                        tickfont:  { color: '#ffffff', size: 9 },
+                        thickness: 10,
+                        len: 0.75
                     },
                     cmin: minValue,
                     cmax: maxValue
                 }
             }];
-            
+
             const layout = {
-                title: {
-                    text: 'Bed Mesh Points (21×21)',
-                    font: { color: '#4CAF50', size: 24 }
-                },
+                title: { text: 'Bed Mesh (21\u00d721)', font: { color: '#4CAF50', size: 13 }, x: 0, xanchor: 'left' },
                 scene: {
                     xaxis: { title: 'X', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
                     yaxis: { title: 'Y', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444' },
-                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', range: [zMin, zMax] },
+                    zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444',
+                             range: [minValue - zPadding, maxValue + zPadding] },
                     camera: { eye: {x:1.5, y:1.5, z:1.3} },
                     aspectmode: 'manual',
                     aspectratio: { x:1, y:1, z:0.3 },
@@ -1377,68 +1356,54 @@
                 },
                 paper_bgcolor: '#1a1a1a',
                 plot_bgcolor: '#0a0a0a',
-                margin: { l:0, r:0, b:0, t:50 }
+                margin: { l:0, r:0, b:0, t:30 }
             };
-            
-            const config = {
+
+            Plotly.newPlot('live-mesh-plot', plotData, layout, {
                 responsive: true,
                 displayModeBar: true,
                 displaylogo: false
-            };
-            
-            document.getElementById('mesh-modal').classList.add('show');
-            Plotly.newPlot('mesh-plot', plotData, layout, config);
+            });
         }
-        
-        function displayMesh3x3(meshData, showShims) {
-            // Sample 9 points from the 21x21 grid (0-indexed 0-20).
-            // Using rows/cols 0, 10, 20 — first, middle and last points,
-            // which correspond to the 9 expansion joint positions on the bed.
-            const probeIndices = [0, 10, 20];
 
-            // Extract 3x3 subset
-            const sparse = probeIndices.map(row => probeIndices.map(col => meshData[row][col]));
+        // Display the 9 directly-probed expansion joint points as a 3x3 scatter3d dot plot.
+        // Physical layout (X increases right, Y increases toward back):
+        //   (15,220)  (125,220)  (230,220)   ← Back
+        //   (15,115)  (125,115)  (230,115)   ← Middle
+        //   (15,10)   (125,10)   (230,10)    ← Front
+        function displayExpansionJointDots(probeResults) {
+            // The 9 expected points in display order (row: front→back, col: left→right)
+            const grid = [
+                [ {x:15,y:10},  {x:125,y:10},  {x:230,y:10}  ],
+                [ {x:15,y:115}, {x:125,y:115}, {x:230,y:115} ],
+                [ {x:15,y:220}, {x:125,y:220}, {x:230,y:220} ]
+            ];
 
-            // Reverse rows so row 0 is at the bottom
-            const reversedData = [...sparse].reverse();
+            const xArr = [], yArr = [], zArr = [], textArr = [];
 
-            // Stats across the 9 points
-            const allValues = reversedData.flat();
-            const minValue = Math.min(...allValues);
-            const maxValue = Math.max(...allValues);
-            const maxDeviation = maxValue - minValue;
+            grid.forEach((row, ri) => {
+                row.forEach((pt, ci) => {
+                    // Try both key formats that firmware may produce
+                    const z = probeResults[`${pt.x},${pt.y}`] ??
+                              probeResults[`${pt.x}.000,${pt.y}.000`] ??
+                              probeResults[`${parseFloat(pt.x)},${parseFloat(pt.y)}`];
+                    if (z === undefined) return;
+                    xArr.push(pt.x);
+                    yArr.push(pt.y);
+                    zArr.push(z);
+                    textArr.push(`X:${pt.x} Y:${pt.y}<br>Z: ${z.toFixed(3)}mm`);
+                });
+            });
+
+            const minValue = Math.min(...zArr);
+            const maxValue = Math.max(...zArr);
+            const totalDeviation = maxValue - minValue;
+            const zPadding = Math.max(totalDeviation * 0.15, 0.02);
 
             document.getElementById('mesh-stats').innerHTML =
-                `Min: <span>${minValue.toFixed(2)}mm</span> | ` +
-                `Max: <span>${maxValue.toFixed(2)}mm</span> | ` +
-                `Max Deviation: <span>${maxDeviation.toFixed(2)}mm</span>`;
-
-            // Build scatter3d arrays
-            const xArr = [], yArr = [], zArr = [], textArr = [];
-            for (let row = 0; row < 3; row++) {
-                for (let col = 0; col < 3; col++) {
-                    const z = reversedData[row][col];
-                    let label;
-                    if (showShims) {
-                        const dfh = maxValue - z;
-                        const shims = Math.round(dfh / 0.1);
-                        const isHighest = Math.abs(z - maxValue) < 0.001;
-                        if (isHighest) {
-                            label = `Z: ${z.toFixed(2)}mm<br>★ Highest point<br>Shims required: 0`;
-                        } else {
-                            label = `Z: ${z.toFixed(2)}mm<br>DFH: -${dfh.toFixed(2)}mm<br>Shims required: ${shims} × 0.1mm`;
-                        }
-                    } else {
-                        label = `Probe X:${3 - col} Y:${row + 1}<br>Z: ${z.toFixed(2)}mm`;
-                    }
-                    xArr.push(3 - col);
-                    yArr.push(row + 1);
-                    zArr.push(z);
-                    textArr.push(label);
-                }
-            }
-
-            const zPadding = Math.max(maxDeviation * 0.1, 0.01);
+                `Min: <span>${minValue.toFixed(3)}mm</span> | ` +
+                `Max: <span>${maxValue.toFixed(3)}mm</span> | ` +
+                `Total Deviation: <span>${totalDeviation.toFixed(3)}mm</span>`;
 
             const plotData = [{
                 type: 'scatter3d',
@@ -1449,7 +1414,7 @@
                 text: textArr,
                 hoverinfo: 'text',
                 marker: {
-                    size: 10,
+                    size: 12,
                     color: zArr,
                     colorscale: [
                         [0,    '#0000ff'],
@@ -1469,18 +1434,16 @@
                 }
             }];
 
-            const title = showShims ? 'Bed Mesh Shim Guide (3\u00d73)' : 'Bed Mesh Corner & Edge Points (3\u00d73)';
-
             const layout = {
-                title: { text: title, font: { color: '#4CAF50', size: 24 } },
+                title: { text: 'Expansion Joint Probe Points (3×3)', font: { color: '#4CAF50', size: 24 } },
                 scene: {
-                    xaxis: { title: 'X Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
-                    yaxis: { title: 'Y Probe', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', dtick: 1, range: [0.5, 3.5] },
+                    xaxis: { title: 'X (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', range: [-10, 245] },
+                    yaxis: { title: 'Y (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444', range: [-10, 235] },
                     zaxis: { title: 'Height (mm)', titlefont: {color:'#ffffff'}, tickfont: {color:'#ffffff'}, gridcolor:'#444444',
                              range: [minValue - zPadding, maxValue + zPadding] },
-                    camera: { eye: {x:1.5, y:1.5, z:1.3} },
+                    camera: { eye: {x:1.4, y:1.4, z:1.2} },
                     aspectmode: 'manual',
-                    aspectratio: { x:1, y:1, z:0.3 },
+                    aspectratio: { x:1, y:1, z:0.35 },
                     bgcolor: '#0a0a0a'
                 },
                 paper_bgcolor: '#1a1a1a',
@@ -1495,26 +1458,9 @@
         function closeMeshModal() {
             document.getElementById('mesh-modal').classList.remove('show');
             Plotly.purge('mesh-plot');
-            // Clear cached mesh data so next open always fetches fresh data
-            state.meshData = [];
-            state.meshComplete = false;
+            state.probeResults = {};
         }
 
-        function switchMeshView(mode) {
-            if (!state.meshComplete || !state.meshData.length) return;
-            state.meshDisplayMode = mode;
-            Plotly.purge('mesh-plot');
-            if (mode === 'dots') {
-                displayMeshDots(state.meshData);
-            } else if (mode === '3x3') {
-                displayMesh3x3(state.meshData, false);
-            } else if (mode === '3x3shims') {
-                displayMesh3x3(state.meshData, true);
-            } else {
-                displayMeshVisualization(state.meshData);
-            }
-        }
-        
         function downloadMeshImage() {
             // Generate timestamp for filename
             const now = new Date();
@@ -1743,7 +1689,7 @@
         // G-code
         function sendGCode() {
             const input = document.getElementById('gcode-input');
-            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim());
+            const commands = input.value.trim().split('\n').filter(cmd => cmd.trim() && !cmd.trim().startsWith(';'));
             
             if (commands.length === 0) return;
             if (!state.connected || !state.printerConnected) {
@@ -1824,6 +1770,21 @@
             };
             handleMessage(tempMsg);
             
+            // Simulate M123 fan speed message (part cooling fan) — must come before power message
+            const fanMsg = {
+                type: 'log',
+                message: `E0:3200 RPM PRN1:5100 RPM E0@:51 PRN1@:${Math.floor(Math.random() * 256)}`
+            };
+            handleMessage(fanMsg);
+
+            // Simulate position message with Z height
+            const zHeight = (Math.random() * 200).toFixed(2);
+            const posMsg = {
+                type: 'log',
+                message: `X:144.68 Y:112.98 Z:${zHeight} E:0.00 Count A:24936 B:3858 Z:23331`
+            };
+            handleMessage(posMsg);
+
             // Simulate power message
             const powerMsg = {
                 type: 'power',
@@ -1869,7 +1830,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             try {
                 console.log('=== PAGE LOAD DEBUG ===');
-                console.log('HTML Version: v3.2.32');
+                console.log('HTML Version: ' + HTML_VERSION);
                 console.log('Load timestamp:', new Date().toISOString());
                 console.log('Document size:', document.documentElement.outerHTML.length, 'bytes');
                 
@@ -1883,6 +1844,7 @@
                 
                 initGauges();
                 initDropdown();
+                initQuickCommands();
                 initGraph();
                 
                 // Autoscroll toggle listener
@@ -1906,13 +1868,25 @@
                 alert('Error initializing page: ' + error.message);
             }
         });
+
+        // ========================================
+        // HTML VERSION - only edit this
+        // ========================================
+        const HTML_VERSION = 'v3.3.0-remote';
+        document.addEventListener('DOMContentLoaded', () => {
+            const el = document.getElementById('html-version-tag');
+            if (el) el.textContent = HTML_VERSION;
+        });
     </script>
     
-    <!-- Firmware Version Label -->
-    <div class="version-tag" id="firmware-version-tag" style="cursor: default;">ESP32 Firmware: checking...</div>
+    <!-- Version info line - firmware + HTML version, no click action -->
+    <div class="version-tag" style="cursor: default;">
+        <span id="firmware-version-tag">ESP32 Firmware: checking...</span>
+        <span> | HTML: <span id="html-version-tag"></span></span>
+    </div>
 
-    <!-- Version Tag - Click to reboot ESP -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot ESP">v3.2.32-embedded</div>
+    <!-- Reboot ESP - separate line -->
+    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot">Reboot ESP</div>
     
     <script>
         function refreshHTML() {
@@ -1921,10 +1895,7 @@
             }
         }
     </script>
-    
-    <!-- Version Tag - Click to reboot ESP -->
-    <div class="version-tag" onclick="rebootESP()" style="cursor: pointer;" title="Click to reboot">Reboot ESP</div>
-    
+
     <script>
         function rebootESP() {
             if (confirm('This will reboot the ESP')) {
@@ -1934,17 +1905,25 @@
     </script>
 
     <script>
-        // Fetch firmware version from ESP on page load
-        fetch('/version')
-            .then(r => r.text())
-            .then(v => {
-                const el = document.getElementById('firmware-version-tag');
-                if (el) el.textContent = 'ESP32 Firmware: ' + v.trim();
-            })
-            .catch(() => {
-                const el = document.getElementById('firmware-version-tag');
-                if (el) el.textContent = 'ESP32 Firmware: unknown';
-            });
+        // Only fetch firmware version when running on the ESP (not in preview/dev)
+        if (window.location.hostname === 'coreone.local' || window.location.hostname.match(/^192\.168\.|^10\.|^172\./)) {
+            fetch('/version')
+                .then(r => {
+                    if (!r.ok) throw new Error('not ok');
+                    return r.text();
+                })
+                .then(v => {
+                    const el = document.getElementById('firmware-version-tag');
+                    if (el) el.textContent = 'ESP32 Firmware: ' + v.trim();
+                })
+                .catch(() => {
+                    const el = document.getElementById('firmware-version-tag');
+                    if (el) el.textContent = 'ESP32 Firmware: unknown';
+                });
+        } else {
+            const el = document.getElementById('firmware-version-tag');
+            if (el) el.textContent = 'ESP32 Firmware: (preview mode)';
+        }
     </script>
 
 
