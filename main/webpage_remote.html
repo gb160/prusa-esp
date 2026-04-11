@@ -648,6 +648,8 @@
             commandHistoryIndex: -1,
             // Expansion joint probe state (9-point direct probe)
             probeResults: {},      // keyed by "X,Y" → Z value
+            probeActive: false,
+            probeOkCount: 0,
             probeExpected: [
                 {x:15,  y:10},  {x:125, y:10},  {x:230, y:10},
                 {x:230, y:115}, {x:230, y:220}, {x:125, y:220},
@@ -853,7 +855,8 @@
             // For Probe Bed: reset probe results before firing commands
             if (label === 'Probe Bed') {
                 state.probeResults = {};
-                // Show 'Homing' immediately when the sequence starts
+                state.probeActive = true;
+                state.probeOkCount = 0;
                 const indicator = document.getElementById('mesh-indicator');
                 const dot = document.getElementById('mesh-indicator-dot');
                 const text = document.getElementById('mesh-indicator-text');
@@ -1180,6 +1183,18 @@
         }
         
         function handleLogMessage(msg) {
+
+            if (state.probeActive && message.trim() === 'ok') {
+                state.probeOkCount++;
+                const indicator = document.getElementById('mesh-indicator');
+                const dot = document.getElementById('mesh-indicator-dot');
+                const text = document.getElementById('mesh-indicator-text');
+                if (indicator && state.probeOkCount <= 9) {
+                    dot.style.background = '#FFA500';
+                    text.textContent = `Probing ${state.probeOkCount}/9`;
+                }
+            }
+
             const hideTemps = document.getElementById('hide-temps').checked;
             const message = msg.message;
             
@@ -1244,16 +1259,15 @@
             const indicator = document.getElementById('mesh-indicator');
             const dot = document.getElementById('mesh-indicator-dot');
             const text = document.getElementById('mesh-indicator-text');
-            if (indicator) {
-                indicator.style.display = 'flex';
-                dot.style.background = '#FFA500';
-                const completed = Object.keys(state.probeResults).length;
-                text.textContent = `Probing ${completed + 1}/9`;
-            }
+
 
             const count = Object.keys(state.probeResults).length;
             if (count >= 9) {
+                state.probeActive = false;
                 console.log('All 9 probe results received — showing visualisation');
+                const indicator = document.getElementById('mesh-indicator');
+                const dot = document.getElementById('mesh-indicator-dot');
+                const text = document.getElementById('mesh-indicator-text');
                 if (indicator) {
                     dot.style.background = '#4CAF50';
                     text.textContent = 'Probe complete';
@@ -1881,7 +1895,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.3.2-remote';
+        const HTML_VERSION = 'v3.3.3-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
