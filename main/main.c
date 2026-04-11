@@ -53,6 +53,7 @@
 #include "esp_http_server.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+#include "esp_spiffs.h"
 #include "mdns.h"
 
 // GPIO for status LED
@@ -89,12 +90,14 @@
 #define INITIAL_BEEP_COMMAND        ("M300 S2000 P50\n")
 
 // WiFi credentials
-#define WIFI_SSID                   "BT-WXF9FJ"
+#define WIFI_SSID                   "BT-"
 #define WIFI_PASS                   ""
 
 // Remote HTML configuration
 #define ENABLE_REMOTE_HTML          (1)
 #define REMOTE_HTML_URL             "https://raw.githubusercontent.com/gb160/prusa-esp/main/main/webpage_remote.html"
+#define REMOTE_HTML_FLASH_PATH      "/spiffs/remote.html"
+#define REMOTE_HTML_TEMP_PATH       "/spiffs/remote.tmp"
 
 // Status LED GPIO (adjust for your ESP32-S3 SuperMini)
 #define STATUS_LED_GPIO             (GPIO_NUM_48)  // Built-in LED on most ESP32-S3
@@ -236,9 +239,9 @@ extern const uint8_t webpage_start[] asm("_binary_webpage_html_start");
 extern const uint8_t webpage_end[] asm("_binary_webpage_html_end");
 
 // Remote HTML cache
-static char *cached_html = NULL;
 static size_t cached_html_size = 0;
 static char last_download_error[256] = "Not attempted yet";
+static bool remote_html_fs_mounted = false;
 
 // ============================================================================
 // UART DEBUG LOGGING SETUP
@@ -701,9 +704,8 @@ static void usb_lib_task(void *arg)
 // ============================================================================
 
 typedef struct {
-    char *buffer;
-    int len;
-    int capacity;
+    FILE *fp;
+    size_t len;
     bool failed;
 } download_buffer_t;
 
@@ -715,32 +717,29 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt)
         case HTTP_EVENT_ON_DATA:
             if (output->failed) return ESP_OK;
 
-            if (output->buffer == NULL) {
-                // Buffer should have been pre-allocated before the connection opened.
-                // If it wasn't (e.g. called from refresh handler without pre-alloc),
-                // fail clearly rather than silently.
-                ESP_LOGE(TAG, "No pre-allocated buffer - aborting download");
+            if (output->fp == NULL) {
+                ESP_LOGE(TAG, "No flash file open - aborting download");
                 output->failed = true;
                 return ESP_FAIL;
             }
 
-            if (output->len + (int)evt->data_len + 1 > output->capacity) {
-                ESP_LOGE(TAG, "Pre-allocated buffer too small: need %d, have %d",
-                         output->len + (int)evt->data_len + 1, output->capacity);
-                output->failed = true;
-                return ESP_FAIL;
+            if (evt->data_len > 0) {
+                size_t written = fwrite(evt->data, 1, evt->data_len, output->fp);
+                if (written != evt->data_len) {
+                    ESP_LOGE(TAG, "Flash write failed: wrote %u of %u bytes",
+                             (unsigned)written, (unsigned)evt->data_len);
+                    output->failed = true;
+                    return ESP_FAIL;
+                }
+                output->len += written;
             }
-
-            memcpy(output->buffer + output->len, evt->data, evt->data_len);
-            output->len += evt->data_len;
-            output->buffer[output->len] = '\0';
             break;
 
         case HTTP_EVENT_DISCONNECTED:
         case HTTP_EVENT_ERROR:
             if (!output->failed && output->len > 0) {
-                ESP_LOGW(TAG, "HTTP event %d during download at offset %d",
-                         evt->event_id, output->len);
+                ESP_LOGW(TAG, "HTTP event %d during download at offset %u",
+                         evt->event_id, (unsigned)output->len);
             }
             break;
 
@@ -750,92 +749,131 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt)
     return ESP_OK;
 }
 
-void download_html_from_github(void)
+static esp_err_t mount_remote_html_fs(void)
 {
-    ESP_LOGI(TAG, "Downloading HTML from GitHub...");
-    snprintf(last_download_error, sizeof(last_download_error), "Starting download...");
-
-    // Pre-allocate the buffer BEFORE opening the TLS connection.
-    // TLS consumes ~50KB of internal RAM while the connection is open, so we
-    // must reserve the download buffer first or there won't be enough room.
-    char *prealloc = malloc(HTML_PREALLOC_SIZE);
-    if (prealloc == NULL) {
-        ESP_LOGE(TAG, "Failed to pre-allocate %d bytes (free heap: %d)",
-                 HTML_PREALLOC_SIZE, (int)esp_get_free_heap_size());
-        snprintf(last_download_error, sizeof(last_download_error),
-                 "Pre-alloc failed, free heap: %d", (int)esp_get_free_heap_size());
-        return;
+    if (remote_html_fs_mounted) {
+        ESP_LOGI(TAG, "SPIFFS already mounted at /spiffs");
+        return ESP_OK;
     }
-    ESP_LOGI(TAG, "Pre-allocated %d bytes for download (free heap now: %d)",
-             HTML_PREALLOC_SIZE, (int)esp_get_free_heap_size());
+
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = NULL,
+        .max_files = 4,
+        .format_if_mount_failed = true
+    };
+
+    ESP_LOGI(TAG, "Mounting SPIFFS at %s (max_files=%d, format_if_mount_failed=%d)",
+             conf.base_path, conf.max_files, conf.format_if_mount_failed);
+
+    esp_err_t err = esp_vfs_spiffs_register(&conf);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mount SPIFFS: %s", esp_err_to_name(err));
+        return err;
+    }
+
+    size_t total = 0;
+    size_t used = 0;
+    if (esp_spiffs_info(NULL, &total, &used) == ESP_OK) {
+        ESP_LOGI(TAG, "SPIFFS mounted: total=%u bytes, used=%u bytes",
+                 (unsigned)total, (unsigned)used);
+    } else {
+        ESP_LOGW(TAG, "SPIFFS mounted, but esp_spiffs_info() failed");
+    }
+
+    remote_html_fs_mounted = true;
+    ESP_LOGI(TAG, "SPIFFS ready for remote HTML storage");
+    return ESP_OK;
+}
+
+static bool download_remote_html_to_flash(const char *url)
+{
+    ESP_LOGI(TAG, "Preparing remote HTML download to flash from: %s", url);
+
+    if (mount_remote_html_fs() != ESP_OK) {
+        snprintf(last_download_error, sizeof(last_download_error), "SPIFFS mount failed");
+        ESP_LOGE(TAG, "Remote HTML download aborted: SPIFFS mount failed");
+        return false;
+    }
+
+    xSemaphoreTake(html_mutex, portMAX_DELAY);
+    ESP_LOGI(TAG, "Writing remote HTML to %s", REMOTE_HTML_FLASH_PATH);
+
+    FILE *fp = fopen(REMOTE_HTML_FLASH_PATH, "wb");
+    if (fp == NULL) {
+        ESP_LOGE(TAG, "Failed to open %s for writing", REMOTE_HTML_FLASH_PATH);
+        snprintf(last_download_error, sizeof(last_download_error), "Failed to open flash file");
+        xSemaphoreGive(html_mutex);
+        return false;
+    }
+
+    ESP_LOGI(TAG, "Flash file opened for write successfully");
 
     download_buffer_t download = {
-        .buffer   = prealloc,
-        .len      = 0,
-        .capacity = HTML_PREALLOC_SIZE,
-        .failed   = false
+        .fp = fp,
+        .len = 0,
+        .failed = false
     };
 
     esp_http_client_config_t config = {
-        .url = REMOTE_HTML_URL,
+        .url = url,
         .event_handler = http_event_handler,
         .user_data = &download,
         .timeout_ms = 10000,
         .buffer_size = 4096,
         .crt_bundle_attach = esp_crt_bundle_attach,
     };
-    
+
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (client == NULL) {
-        snprintf(last_download_error, sizeof(last_download_error), 
-                 "Failed to initialize HTTP client");
-        return;
+        ESP_LOGE(TAG, "Failed to initialize HTTP client for remote HTML download");
+        fclose(fp);
+        remove(REMOTE_HTML_TEMP_PATH);
+        snprintf(last_download_error, sizeof(last_download_error), "Failed to initialize HTTP client");
+        xSemaphoreGive(html_mutex);
+        return false;
     }
-    
-    esp_err_t err = esp_http_client_perform(client);
-    
-    if (err == ESP_OK) {
-        int status_code = esp_http_client_get_status_code(client);
-        
-        if (status_code == 200 && download.buffer != NULL && download.len > 0) {
-            // Shrink the pre-alloc down to actual size - returns unused headroom
-            // to the heap before USB/printer tries to allocate endpoint buffers
-            char *trimmed = realloc(download.buffer, download.len + 1);
-            if (trimmed != NULL) {
-                download.buffer = trimmed;
-                ESP_LOGI(TAG, "Buffer trimmed: freed %d bytes back to heap",
-                         HTML_PREALLOC_SIZE - (download.len + 1));
-            }
-            xSemaphoreTake(html_mutex, portMAX_DELAY);
-            if (cached_html != NULL) {
-                free(cached_html);
-            }
-            cached_html = download.buffer;
-            cached_html_size = download.len;
-            xSemaphoreGive(html_mutex);
 
-            snprintf(last_download_error, sizeof(last_download_error),
-                     "Success! Downloaded %d bytes", download.len);
-            ESP_LOGI(TAG, "HTML cached successfully (%d bytes), free heap: %d",
-                     download.len, (int)esp_get_free_heap_size());
-        } else {
-            snprintf(last_download_error, sizeof(last_download_error), 
-                     "HTTP %d, len=%d", status_code, download.len);
-            ESP_LOGE(TAG, "Download failed: HTTP %d", status_code);
-            if (download.buffer != NULL) {
-                free(download.buffer);
-            }
-        }
-    } else {
-        snprintf(last_download_error, sizeof(last_download_error), 
-                 "Failed: %s", esp_err_to_name(err));
-        ESP_LOGE(TAG, "Download error: %s", esp_err_to_name(err));
-        if (download.buffer != NULL) {
-            free(download.buffer);
-        }
-    }
-    
+    ESP_LOGI(TAG, "HTTP client initialized, starting fetch");
+    esp_err_t err = esp_http_client_perform(client);
+    int status_code = (err == ESP_OK) ? esp_http_client_get_status_code(client) : -1;
+
+    ESP_LOGI(TAG, "HTTP fetch finished: err=%s status=%d bytes=%u failed=%d",
+             esp_err_to_name(err), status_code, (unsigned)download.len, download.failed);
+
+    fflush(fp);
+    fclose(fp);
     esp_http_client_cleanup(client);
+    ESP_LOGI(TAG, "Flash file closed after download");
+
+    if (err == ESP_OK && status_code == 200 && !download.failed && download.len > 0) {
+        cached_html_size = download.len;
+        snprintf(last_download_error, sizeof(last_download_error),
+                 "Success! Downloaded %u bytes", (unsigned)download.len);
+        ESP_LOGI(TAG, "HTML saved to flash successfully (%u bytes) at %s",
+                 (unsigned)download.len, REMOTE_HTML_FLASH_PATH);
+        xSemaphoreGive(html_mutex);
+        return true;
+    }
+
+    remove(REMOTE_HTML_FLASH_PATH);
+    if (err == ESP_OK) {
+        snprintf(last_download_error, sizeof(last_download_error), "HTTP %d, len=%u", status_code, (unsigned)download.len);
+        ESP_LOGE(TAG, "Download failed: HTTP %d", status_code);
+    } else {
+        snprintf(last_download_error, sizeof(last_download_error), "Failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Download error: %s", esp_err_to_name(err));
+    }
+
+    xSemaphoreGive(html_mutex);
+    return false;
+}
+
+void download_html_from_github(void)
+{
+    ESP_LOGI(TAG, "Downloading HTML from GitHub...");
+    snprintf(last_download_error, sizeof(last_download_error), "Starting download...");
+    download_remote_html_to_flash(REMOTE_HTML_URL);
 }
 
 // ============================================================================
@@ -1219,11 +1257,34 @@ static esp_err_t root_get_handler(httpd_req_t *req)
     httpd_resp_set_hdr(req, "Pragma", "no-cache");
     
 #if ENABLE_REMOTE_HTML
-    if (cached_html != NULL && cached_html_size > 0) {
-        ESP_LOGI(TAG, "Serving cached remote HTML (%zu bytes)", cached_html_size);
-        httpd_resp_send(req, cached_html, cached_html_size);
+    ESP_LOGI(TAG, "Root request received, checking SPIFFS HTML cache");
+    if (mount_remote_html_fs() == ESP_OK) {
+        FILE *fp = fopen(REMOTE_HTML_FLASH_PATH, "rb");
+        if (fp != NULL) {
+            ESP_LOGI(TAG, "Serving remote HTML from flash (%zu bytes cached) in chunks", cached_html_size);
+
+            #define HTML_CHUNK_SIZE 4096
+            char chunk[HTML_CHUNK_SIZE];
+            size_t bytes_read = 0;
+            esp_err_t send_err = ESP_OK;
+
+            while ((bytes_read = fread(chunk, 1, sizeof(chunk), fp)) > 0 && send_err == ESP_OK) {
+                send_err = httpd_resp_send_chunk(req, chunk, bytes_read);
+            }
+            fclose(fp);
+
+            if (send_err == ESP_OK) {
+                ESP_LOGI(TAG, "Completed serving remote HTML from flash");
+                httpd_resp_send_chunk(req, NULL, 0);
+            } else {
+                ESP_LOGE(TAG, "Chunked send failed while serving flash HTML");
+            }
+        } else {
+            ESP_LOGW(TAG, "No cached HTML file at %s, serving embedded fallback", REMOTE_HTML_FLASH_PATH);
+            httpd_resp_send(req, (const char *)webpage_start, webpage_end - webpage_start);
+        }
     } else {
-        ESP_LOGW(TAG, "No cached HTML, serving embedded fallback");
+        ESP_LOGW(TAG, "Flash storage unavailable, serving embedded fallback");
         httpd_resp_send(req, (const char *)webpage_start, webpage_end - webpage_start);
     }
 #else
@@ -1238,6 +1299,7 @@ static esp_err_t root_get_handler(httpd_req_t *req)
 static esp_err_t refresh_get_handler(httpd_req_t *req)
 {
 #if ENABLE_REMOTE_HTML
+    ESP_LOGI(TAG, "Refresh endpoint requested");
     // Add timestamp to URL to bust GitHub's CDN cache
     char url_with_timestamp[512];
     int64_t timestamp = esp_timer_get_time();
@@ -1245,72 +1307,9 @@ static esp_err_t refresh_get_handler(httpd_req_t *req)
              "%s?t=%lld", REMOTE_HTML_URL, (long long)timestamp);
     
     ESP_LOGI(TAG, "Downloading HTML with cache-busting: %s", url_with_timestamp);
-
-    // Pre-allocate before opening TLS connection (same reason as download_html_from_github)
-    char *prealloc = malloc(HTML_PREALLOC_SIZE);
-    if (prealloc == NULL) {
-        ESP_LOGE(TAG, "Refresh: pre-alloc failed (free heap: %d)", (int)esp_get_free_heap_size());
-        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Not enough memory");
-        return ESP_FAIL;
-    }
-
-    // Create temporary download config with cache-busting URL
-    download_buffer_t download = {
-        .buffer   = prealloc,
-        .len      = 0,
-        .capacity = HTML_PREALLOC_SIZE,
-        .failed   = false
-    };
-    
-    esp_http_client_config_t config = {
-        .url = url_with_timestamp,
-        .event_handler = http_event_handler,
-        .user_data = &download,
-        .timeout_ms = 10000,
-        .buffer_size = 4096,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-    };
-    
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-    if (client != NULL) {
-        esp_err_t err = esp_http_client_perform(client);
-        
-        if (err == ESP_OK) {
-            int status_code = esp_http_client_get_status_code(client);
-            
-            if (status_code == 200 && download.buffer != NULL && download.len > 0) {
-                // Shrink pre-alloc to actual size before caching
-                char *trimmed = realloc(download.buffer, download.len + 1);
-                if (trimmed != NULL) {
-                    download.buffer = trimmed;
-                    ESP_LOGI(TAG, "Buffer trimmed: freed %d bytes back to heap",
-                             HTML_PREALLOC_SIZE - (download.len + 1));
-                }
-                xSemaphoreTake(html_mutex, portMAX_DELAY);
-                if (cached_html != NULL) {
-                    free(cached_html);
-                }
-                cached_html = download.buffer;
-                cached_html_size = download.len;
-                xSemaphoreGive(html_mutex);
-
-                ESP_LOGI(TAG, "HTML updated successfully (%d bytes), free heap: %d",
-                         download.len, (int)esp_get_free_heap_size());
-            } else {
-                if (download.buffer != NULL) {
-                    free(download.buffer);
-                }
-                ESP_LOGE(TAG, "Download failed: HTTP %d", status_code);
-            }
-        } else {
-            ESP_LOGE(TAG, "Download error: %s", esp_err_to_name(err));
-            if (download.buffer != NULL) {
-                free(download.buffer);
-            }
-        }
-        
-        esp_http_client_cleanup(client);
-    }
+    bool refresh_ok = download_remote_html_to_flash(url_with_timestamp);
+    ESP_LOGI(TAG, "Refresh download result: %s (cached_html_size=%u)",
+             refresh_ok ? "success" : "failure", (unsigned)cached_html_size);
     
     char response[1024];
     snprintf(response, sizeof(response),
@@ -1516,11 +1515,15 @@ void app_main(void)
                  WIFI_CONNECT_TIMEOUT_MS / 1000);
     }
 
-    // Download HTML from GitHub — done BEFORE ws_clients_init to maximise heap available
+    // Mount flash storage for the remote HTML before the download starts.
     ESP_LOGI(TAG, "Free heap before download: %d bytes, free PSRAM: %d bytes",
              (int)esp_get_free_heap_size(),
              (int)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    download_html_from_github();
+    ESP_LOGI(TAG, "Remote HTML flash path: %s", REMOTE_HTML_FLASH_PATH);
+    if (mount_remote_html_fs() == ESP_OK) {
+        ESP_LOGI(TAG, "SPIFFS mount pre-check passed, starting remote HTML download");
+        download_html_from_github();
+    }
 #else
     ESP_LOGI(TAG, "Remote HTML fetching disabled - using embedded HTML only");
 #endif
