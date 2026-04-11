@@ -1248,7 +1248,7 @@
                 indicator.style.display = 'flex';
                 dot.style.background = '#FFA500';
                 const completed = Object.keys(state.probeResults).length;
-                text.textContent = `Probing ${completed}/9`;
+                text.textContent = `Probing ${completed + 1}/9`;
             }
 
             const count = Object.keys(state.probeResults).length;
@@ -1881,7 +1881,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.3.1-remote';
+        const HTML_VERSION = 'v3.3.2-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
