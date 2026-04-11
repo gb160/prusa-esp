@@ -853,8 +853,16 @@
             // For Probe Bed: reset probe results before firing commands
             if (label === 'Probe Bed') {
                 state.probeResults = {};
+                // Show 'Homing' immediately when the sequence starts
+                const indicator = document.getElementById('mesh-indicator');
+                const dot = document.getElementById('mesh-indicator-dot');
+                const text = document.getElementById('mesh-indicator-text');
+                if (indicator) {
+                    indicator.style.display = 'flex';
+                    dot.style.background = '#2196F3';
+                    text.textContent = 'Homing...';
+                }
             }
-
             entry.cmds.forEach(cmd => {
                 if (state.ws && state.ws.readyState === WebSocket.OPEN) {
                     state.ws.send(`GCODE:${cmd}`);
@@ -1239,7 +1247,8 @@
             if (indicator) {
                 indicator.style.display = 'flex';
                 dot.style.background = '#FFA500';
-                text.textContent = `Probing... ${Object.keys(state.probeResults).length}/9`;
+                const completed = Object.keys(state.probeResults).length;
+                text.textContent = `Probing ${completed}/9`;
             }
 
             const count = Object.keys(state.probeResults).length;
@@ -1872,7 +1881,7 @@
         // ========================================
         // HTML VERSION - only edit this
         // ========================================
-        const HTML_VERSION = 'v3.3.0-remote';
+        const HTML_VERSION = 'v3.3.1-remote';
         document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById('html-version-tag');
             if (el) el.textContent = HTML_VERSION;
